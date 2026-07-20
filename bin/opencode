@@ -14,13 +14,9 @@ if [ ! -f "$LIB_DIR/opencode" ]; then
   node "$DIR/install.js"
 fi
 
-CURRENT=$(node -e "console.log(require('$DIR/package.json').version)" 2>/dev/null)
-LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
-
-if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
-  echo "Updating opencode-termux v${CURRENT} -> v${LATEST}..."
-  npm install -g opencode-termux@latest 2>/dev/null
-  node "$DIR/install.js"
+if [ ! -f "$LIB_DIR/opencode" ]; then
+  echo "Error: Failed to download opencode binary." >&2
+  exit 1
 fi
 
 export LD_LIBRARY_PATH="$LIB_DIR"
