@@ -20,14 +20,7 @@ LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
 if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
   echo "Updating opencode-termux v${CURRENT} -> v${LATEST}..."
   npm update -g opencode-termux 2>/dev/null
-  SOURCE2="${BASH_SOURCE[0]}"
-  while [ -h "$SOURCE2" ]; do
-    D2="$(cd "$(dirname "$SOURCE2")" && pwd)"
-    SOURCE2="$(readlink "$SOURCE2")"
-    [[ $SOURCE2 != /* ]] && SOURCE2="$D2/$SOURCE2"
-  done
-  DIR="$(cd "$(dirname "$SOURCE2")/.." && pwd)"
-  LIB_DIR="$DIR/lib"
+  exec bash "$0" "$@"
 fi
 
 export LD_LIBRARY_PATH="$LIB_DIR"
