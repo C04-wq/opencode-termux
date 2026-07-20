@@ -1,0 +1,29 @@
+{
+  "name": "opencode-termux",
+  "version": "1.0.0",
+  "description": "OpenCode AI assistant compiled for Android Termux (aarch64)",
+  "main": "bin/opencode",
+  "bin": {
+    "opencode": "bin/opencode"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "keywords": [
+    "opencode",
+    "termux",
+    "android",
+    "ai",
+    "cli",
+    "assistant"
+  ],
+  "author": "C04-wq",
+  "license": "MIT",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": [
+    "bin/",
+    "install.js",
+    "README.md"
+  ]
+}
