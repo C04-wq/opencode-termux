@@ -1,5 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
 export LD_PRELOAD=
+
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
   DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
@@ -7,8 +8,19 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
-export LD_LIBRARY_PATH="$DIR/lib"
+LIB_DIR="$DIR/lib"
+
+if [ ! -f "$LIB_DIR/opencode" ]; then
+  echo "opencode-termux: First run, downloading binary..."
+  node "$DIR/install.js"
+  if [ ! -f "$LIB_DIR/opencode" ]; then
+    echo "Error: Download failed. Run manually: node $DIR/install.js"
+    exit 1
+  fi
+fi
+
+export LD_LIBRARY_PATH="$LIB_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
 export SSL_CERT_DIR=/data/data/com.termux/files/usr/etc/tls/certs
-export NODE_EXTRA_CA_CERTS=/data/data/com.termux/files/usr/etc/tls/cert.pem
-exec "$DIR/lib/opencode" "$@"
+export NODE_EXTRA_CA_CERTS=/data/data/com.termux/files/usr/etc/tls/certs
+exec "$LIB_DIR/opencode" "$@"
