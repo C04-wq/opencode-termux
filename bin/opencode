@@ -32,46 +32,4 @@ export SSL_CERT_DIR=/data/data/com.termux/files/usr/etc/tls/certs
 export NODE_EXTRA_CA_CERTS=/data/data/com.termux/files/usr/etc/tls/certs
 export OPENCODE_DISABLE_AUTOUPDATE=true
 
-CURRENT_VERSION=$(node -e "console.log(require('$DIR/package.json').version)" 2>/dev/null || echo "unknown")
-
-CHECK_FILE="$DIR/.last_update_check"
-NOW=$(date +%s)
-CHECK_INTERVAL=86400
-
-LATEST=""
-DO_UPDATE_CHECK=0
-
-if [ -f "$CHECK_FILE" ]; then
-  LAST_CHECK=$(cat "$CHECK_FILE" 2>/dev/null || echo "0")
-  DIFF=$((NOW - LAST_CHECK))
-  if [ "$DIFF" -ge "$CHECK_INTERVAL" ]; then
-    DO_UPDATE_CHECK=1
-  fi
-else
-  DO_UPDATE_CHECK=1
-fi
-
-if [ "$DO_UPDATE_CHECK" -eq 1 ]; then
-  LATEST=$(timeout 5 npm view opencode-termux version 2>/dev/null)
-  echo "$NOW" > "$CHECK_FILE"
-fi
-
-if [ -n "$LATEST" ] && [ "$CURRENT_VERSION" != "$LATEST" ]; then
-  "$LIB_DIR/opencode" "$@" &
-  PID=$!
-  sleep 1
-
-  COLS=$(stty size < /dev/tty 2>/dev/null | cut -d' ' -f2 || echo 80)
-  ROWS=$(stty size < /dev/tty 2>/dev/null | cut -d' ' -f1 || echo 24)
-  VERSION_ROW=$((ROWS))
-  VERSION_COL=$((COLS - 8))
-
-  MSG="v${LATEST} available"
-
-  printf "\033[%d;%dH\033[1;33m %s \033[0m" "$VERSION_ROW" "$VERSION_COL" "$MSG" > /dev/tty
-
-  wait $PID
-  exit $?
-fi
-
 exec "$LIB_DIR/opencode" "$@"
