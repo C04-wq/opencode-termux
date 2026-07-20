@@ -10,20 +10,16 @@ done
 DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
 LIB_DIR="$DIR/lib"
 
+if [ ! -f "$LIB_DIR/opencode" ]; then
+  node "$DIR/install.js"
+fi
+
 CURRENT=$(node -e "console.log(require('$DIR/package.json').version)" 2>/dev/null)
 LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
 
 if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
   echo "Updating opencode-termux v${CURRENT} -> v${LATEST}..."
   npm install -g opencode-termux@latest 2>/dev/null
-  DIR2="$(cd "$(dirname "$(which opencode)")/../lib/node_modules/opencode-termux" 2>/dev/null && pwd)"
-  if [ -n "$DIR2" ]; then
-    DIR="$DIR2"
-    LIB_DIR="$DIR2/lib"
-  fi
-fi
-
-if [ ! -f "$LIB_DIR/opencode" ]; then
   node "$DIR/install.js"
 fi
 
