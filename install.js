@@ -7,6 +7,7 @@ const path = require("path");
 const GITHUB_REPO = "C04-wq/opencode-termux";
 const VERSION = require("./package.json").version;
 const LIB_DIR = path.join(__dirname, "lib");
+const HOME_LIB = path.join(process.env.HOME || process.env.USERPROFILE, ".opencode", "lib");
 const ARCHIVE_URL = `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/opencode-termux-aarch64.tar.gz`;
 
 async function main() {
@@ -20,6 +21,7 @@ async function main() {
 
   if (fs.existsSync(path.join(LIB_DIR, "opencode"))) {
     console.log("opencode-termux: Already installed. Skipping download.");
+    setupSymlinks();
     return;
   }
 
@@ -37,6 +39,7 @@ async function main() {
     execSync(`tar -xzf "${archivePath}" -C "${LIB_DIR}"`, { stdio: "inherit" });
     fs.unlinkSync(archivePath);
 
+    setupSymlinks();
     console.log("opencode-termux installed successfully!");
     console.log("Run: opencode");
   } catch (err) {
@@ -44,6 +47,18 @@ async function main() {
     console.error("Make sure you have internet access and GitHub is reachable.");
     if (fs.existsSync(archivePath)) fs.unlinkSync(archivePath);
     process.exit(1);
+  }
+}
+
+function setupSymlinks() {
+  fs.mkdirSync(HOME_LIB, { recursive: true });
+  const files = fs.readdirSync(LIB_DIR);
+  for (const file of files) {
+    const src = path.join(LIB_DIR, file);
+    const dst = path.join(HOME_LIB, file);
+    if (!fs.existsSync(dst)) {
+      fs.symlinkSync(src, dst);
+    }
   }
 }
 
