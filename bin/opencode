@@ -1,13 +1,17 @@
 #!/data/data/com.termux/files/usr/bin/bash
 export LD_PRELOAD=
 
-SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ]; do
-  DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
-  SOURCE="$(readlink "$SOURCE")"
-  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
-done
-DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
+get_dir() {
+  SOURCE="${BASH_SOURCE[0]}"
+  while [ -h "$SOURCE" ]; do
+    DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+  done
+  cd "$(dirname "$SOURCE")/.." && pwd
+}
+
+DIR=$(get_dir)
 LIB_DIR="$DIR/lib"
 
 if [ ! -f "$LIB_DIR/opencode" ]; then
@@ -20,11 +24,8 @@ LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
 if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
   echo "Updating opencode-termux v${CURRENT} -> v${LATEST}..."
   npm update -g opencode-termux 2>/dev/null
-  NEW_DIR="$(cd "$(dirname "$(which opencode)")/.." && pwd)/lib"
-  if [ -d "$NEW_DIR" ]; then
-    LIB_DIR="$NEW_DIR"
-    DIR="$(dirname "$NEW_DIR")/.."
-  fi
+  DIR=$(get_dir)
+  LIB_DIR="$DIR/lib"
 fi
 
 export LD_LIBRARY_PATH="$LIB_DIR"
