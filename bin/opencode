@@ -11,25 +11,12 @@ DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
 LIB_DIR="$DIR/lib"
 
 if [ ! -f "$LIB_DIR/opencode" ]; then
-  echo "opencode-termux: First run, downloading binary..."
   node "$DIR/install.js"
-  if [ ! -f "$LIB_DIR/opencode" ]; then
-    echo "Error: Download failed. Run manually: node $DIR/install.js"
-    exit 1
-  fi
-fi
-
-if [ "$1" = "--update" ] || [ "$1" = "-u" ]; then
-  echo "Updating opencode-termux..."
-  npm update -g opencode-termux
-  echo "Done. Run: opencode"
-  exit 0
 fi
 
 export LD_LIBRARY_PATH="$LIB_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
 export SSL_CERT_DIR=/data/data/com.termux/files/usr/etc/tls/certs
 export NODE_EXTRA_CA_CERTS=/data/data/com.termux/files/usr/etc/tls/certs
-export OPENCODE_DISABLE_AUTOUPDATE=true
 
 exec "$LIB_DIR/opencode" "$@"
