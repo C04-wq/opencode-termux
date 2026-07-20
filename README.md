@@ -14,6 +14,14 @@ npm install -g opencode-termux
 opencode
 ```
 
+## Update
+
+```bash
+opencode --update
+# or
+npm update -g opencode-termux
+```
+
 ## Requirements
 
 - Android with Termux

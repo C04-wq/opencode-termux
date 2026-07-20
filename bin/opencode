@@ -19,51 +19,17 @@ if [ ! -f "$LIB_DIR/opencode" ]; then
   fi
 fi
 
+if [ "$1" = "--update" ] || [ "$1" = "-u" ]; then
+  echo "Updating opencode-termux..."
+  npm update -g opencode-termux
+  echo "Done. Run: opencode"
+  exit 0
+fi
+
 export LD_LIBRARY_PATH="$LIB_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
 export SSL_CERT_DIR=/data/data/com.termux/files/usr/etc/tls/certs
 export NODE_EXTRA_CA_CERTS=/data/data/com.termux/files/usr/etc/tls/certs
 export OPENCODE_DISABLE_AUTOUPDATE=true
-
-CURRENT_VERSION=$(node -e "console.log(require('$DIR/package.json').version)" 2>/dev/null || echo "unknown")
-
-CHECK_FILE="$DIR/.last_update_check"
-NOW=$(date +%s)
-CHECK_INTERVAL=86400
-
-should_check() {
-  if [ ! -f "$CHECK_FILE" ]; then
-    return 0
-  fi
-  LAST_CHECK=$(cat "$CHECK_FILE" 2>/dev/null || echo "0")
-  DIFF=$((NOW - LAST_CHECK))
-  if [ "$DIFF" -ge "$CHECK_INTERVAL" ]; then
-    return 0
-  fi
-  return 1
-}
-
-check_update() {
-  LATEST=$(npm view opencode-termux version 2>/dev/null)
-  if [ -z "$LATEST" ]; then
-    return
-  fi
-  echo "$NOW" > "$CHECK_FILE"
-
-  if [ "$CURRENT_VERSION" != "$LATEST" ]; then
-    COLS=$(tput cols 2>/dev/null || echo 80)
-    MSG=" Update available: opencode-termux@$LATEST (current: $CURRENT_VERSION) "
-    MSG_LEN=${#MSG}
-    PAD=$(( (COLS - MSG_LEN) / 2 ))
-    [ $PAD -lt 0 ] && PAD=0
-    SPACES=$(printf '%*s' "$PAD" '')
-    printf "\033[38;5;220m%s%s\033[0m\n" "$SPACES" "$MSG"
-    printf "\033[38;5;220m%s\033[0m\n" "$SPACES Run: npm update -g opencode-termux"
-  fi
-}
-
-if should_check; then
-  check_update &
-fi
 
 exec "$LIB_DIR/opencode" "$@"
