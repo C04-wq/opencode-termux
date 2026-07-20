@@ -20,7 +20,6 @@ LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
 if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
   echo "Updating opencode-termux v${CURRENT} -> v${LATEST}..."
   npm install -g opencode-termux@latest 2>/dev/null
-  exec bash "$0" "$@"
 fi
 
 export LD_LIBRARY_PATH="$LIB_DIR"
