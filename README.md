@@ -1,6 +1,6 @@
 # opencode-termux
 
-> ⚠️ **AVISO: La instalación está teniendo fallos por el momento.** Estamos trabajando para solucionarlo. Disculpen las molestias.
+> ⚠️ **WARNING: Installation is currently experiencing issues.** We are working on a fix. Sorry for the inconvenience.
 
 OpenCode AI assistant compiled for Android Termux (aarch64).
 
