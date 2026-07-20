@@ -16,7 +16,5 @@ fi
 
 export LD_LIBRARY_PATH="$LIB_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
-export SSL_CERT_DIR=/data/data/com.termux/files/usr/etc/tls/certs
-export NODE_EXTRA_CA_CERTS=/data/data/com.termux/files/usr/etc/tls/certs
 
 exec "$LIB_DIR/opencode" "$@"
