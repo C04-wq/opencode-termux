@@ -1,0 +1,14 @@
+#!/data/data/com.termux/files/usr/bin/bash
+export LD_PRELOAD=
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
+export LD_LIBRARY_PATH="$DIR/lib"
+export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
+export SSL_CERT_DIR=/data/data/com.termux/files/usr/etc/tls/certs
+export NODE_EXTRA_CA_CERTS=/data/data/com.termux/files/usr/etc/tls/cert.pem
+exec "$DIR/lib/opencode" "$@"
