@@ -32,4 +32,38 @@ export SSL_CERT_DIR=/data/data/com.termux/files/usr/etc/tls/certs
 export NODE_EXTRA_CA_CERTS=/data/data/com.termux/files/usr/etc/tls/certs
 export OPENCODE_DISABLE_AUTOUPDATE=true
 
+CURRENT_VERSION=$(node -e "console.log(require('$DIR/package.json').version)" 2>/dev/null || echo "unknown")
+
+CHECK_FILE="$DIR/.last_update_check"
+NOW=$(date +%s)
+CHECK_INTERVAL=86400
+
+check_and_notify() {
+  if [ -f "$CHECK_FILE" ]; then
+    LAST_CHECK=$(cat "$CHECK_FILE" 2>/dev/null || echo "0")
+    DIFF=$((NOW - LAST_CHECK))
+    if [ "$DIFF" -lt "$CHECK_INTERVAL" ]; then
+      return
+    fi
+  fi
+
+  LATEST=$(timeout 5 npm view opencode-termux version 2>/dev/null)
+  echo "$NOW" > "$CHECK_FILE"
+
+  if [ -z "$LATEST" ] || [ "$CURRENT_VERSION" = "$LATEST" ]; then
+    return
+  fi
+
+  COLS=$(tput cols 2>/dev/null || echo 80)
+  MSG=" New update available: opencode-termux v${LATEST} "
+  MSG_LEN=${#MSG}
+  PAD=$(( (COLS - MSG_LEN) / 2 ))
+  [ $PAD -lt 0 ] && PAD=0
+
+  printf "\033[48;5;220m\033[38;5;0m%*s%s%*s\033[0m\n" "$PAD" '' "$MSG" "$PAD" ''
+  sleep 2
+}
+
+check_and_notify
+
 exec "$LIB_DIR/opencode" "$@"
