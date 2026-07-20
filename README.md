@@ -1,5 +1,7 @@
 # opencode-termux
 
+> ⚠️ **AVISO: La instalación está teniendo fallos por el momento.** Estamos trabajando para solucionarlo. Disculpen las molestias.
+
 OpenCode AI assistant compiled for Android Termux (aarch64).
 
 ## Install
