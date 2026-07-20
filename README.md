@@ -17,7 +17,7 @@ opencode
 ## Update
 
 ```bash
-opencode --update
+opencode upgrade
 # or
 npm update -g opencode-termux
 ```
