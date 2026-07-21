@@ -35,13 +35,12 @@ jobs:
 
           npm version $VERSION --no-git-tag-version --force
 
-          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/opencode-new.tar.gz
-          cd /tmp && tar -xzf opencode-new.tar.gz && chmod +x opencode
-
           PREV_RELEASE=$(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q '.[0].tagName')
           gh release download "$PREV_RELEASE" --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
           cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
-          rm -f opencode-termux-aarch64.tar.gz opencode-new.tar.gz
+
+          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/opencode-new.tar.gz
+          cd /tmp && tar -xzf opencode-new.tar.gz && chmod +x opencode
 
           cp /tmp/opencode $GITHUB_WORKSPACE/opencode
           cp /tmp/ld-musl-aarch64.so.1 /tmp/libc.musl-aarch64.so.1 /tmp/libgcc_s.so.1 /tmp/libstdc++.so.6 /tmp/libstdc++.so.6.0.33 $GITHUB_WORKSPACE/
