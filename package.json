@@ -16,13 +16,6 @@
   ],
   "author": "C04-wq",
   "license": "MIT",
-  "os": [
-    "linux",
-    "android"
-  ],
-  "cpu": [
-    "arm64"
-  ],
   "files": [
     "bin/",
     "install.js",

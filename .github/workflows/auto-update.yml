@@ -2,7 +2,7 @@ name: Auto Update
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -33,23 +33,24 @@ jobs:
 
           npm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
 
-          npm install -g opencode-ai@latest
-
           npm version $VERSION --no-git-tag-version --force
 
-          gh release download v$VERSION --repo anomalyco/opencode -p opencode-linux-arm64-musl.tar.gz -D /tmp --clobber
-          cd /tmp && tar -xzf opencode-linux-arm64-musl.tar.gz && chmod +x opencode
-          mv /tmp/opencode $GITHUB_WORKSPACE/opencode-v1.18.4-tmp
+          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/opencode-new.tar.gz
+          cd /tmp && tar -xzf opencode-new.tar.gz && chmod +x opencode
 
-          cd $GITHUB_WORKSPACE
-          gh release download $(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q '.[0].tagName') --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
+          PREV_RELEASE=$(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q '.[0].tagName')
+          gh release download "$PREV_RELEASE" --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
           cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
-          cp opencode-termux-aarch64.tar.gz $GITHUB_WORKSPACE/opencode-termux-aarch64-old.tar.gz
+          rm -f opencode-termux-aarch64.tar.gz opencode-new.tar.gz
+
+          cp /tmp/opencode $GITHUB_WORKSPACE/opencode
           cd $GITHUB_WORKSPACE
+          tar -czf opencode-termux-aarch64.tar.gz opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
+          rm -f opencode
 
           npm publish --tag latest
 
-          gh release create v$VERSION opencode-termux-aarch64.tar.gz --repo C04-wq/opencode-termux --title "v$VERSION" --notes "Auto-update to opencode v$VERSION" --latest || true
+          gh release create "v$VERSION" opencode-termux-aarch64.tar.gz --repo C04-wq/opencode-termux --title "v$VERSION" --notes "Auto-update to opencode v$VERSION" --latest || true
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
