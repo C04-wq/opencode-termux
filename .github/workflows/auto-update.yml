@@ -5,6 +5,9 @@ on:
     - cron: "0 */6 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   check-update:
     runs-on: ubuntu-latest
@@ -15,6 +18,7 @@ jobs:
         id: opencode
         run: |
           VERSION=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/v//')
+          if [ -z "$VERSION" ]; then echo "Error: could not get opencode version"; exit 1; fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Get current package version
@@ -36,15 +40,18 @@ jobs:
           npm version $VERSION --no-git-tag-version --force
 
           PREV_RELEASE=$(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q '.[0].tagName')
+          if [ -z "$PREV_RELEASE" ]; then echo "Error: no previous release found"; exit 1; fi
+
           gh release download "$PREV_RELEASE" --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
           cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
 
-          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/opencode-new.tar.gz
-          cd /tmp && tar -xzf opencode-new.tar.gz && chmod +x opencode
+          mkdir -p /tmp/new-opencode
+          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/new-opencode.tar.gz
+          cd /tmp/new-opencode && tar -xzf /tmp/new-opencode.tar.gz && chmod +x opencode
 
-          cp /tmp/opencode $GITHUB_WORKSPACE/opencode
-          cp /tmp/ld-musl-aarch64.so.1 /tmp/libc.musl-aarch64.so.1 /tmp/libgcc_s.so.1 /tmp/libstdc++.so.6 /tmp/libstdc++.so.6.0.33 $GITHUB_WORKSPACE/
           cd $GITHUB_WORKSPACE
+          cp /tmp/new-opencode/opencode ./
+          cp /tmp/ld-musl-aarch64.so.1 /tmp/libc.musl-aarch64.so.1 /tmp/libgcc_s.so.1 /tmp/libstdc++.so.6 /tmp/libstdc++.so.6.0.33 ./
           tar -czf opencode-termux-aarch64.tar.gz opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
           rm -f opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
 
