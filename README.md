@@ -61,6 +61,7 @@ opencode-termux/
 ├── .gitignore                # Git ignore rules
 ├── .npmignore                # npm ignore rules
 ├── install.js                # Installer: downloads binary + patchelf + symlinks
+├── LICENSE                   # MIT license
 ├── opencode-logo.svg         # OpenCode logo
 ├── package.json              # npm config (version = opencode version)
 └── README.md
