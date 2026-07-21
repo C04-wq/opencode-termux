@@ -23,9 +23,11 @@ jobs:
       - name: Get latest opencode version
         id: opencode
         run: |
-          VERSION=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | grep "\"tag_name\"" | cut -d"\"" -f4 | sed "s/v//")
-          if [ -z "$VERSION" ]; then echo "Error: could not get opencode version"; exit 1; fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          OPENCODE_VERSION=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | grep "\"tag_name\"" | cut -d"\"" -f4 | sed "s/v//")
+          if [ -z "$OPENCODE_VERSION" ]; then echo "Error: could not get opencode version"; exit 1; fi
+          PACKAGE_VERSION="${OPENCODE_VERSION}-0"
+          echo "opencode_version=$OPENCODE_VERSION" >> $GITHUB_OUTPUT
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Get current package version
         id: current
@@ -44,16 +46,17 @@ jobs:
           fi
 
       - name: Update and publish
-        if: steps.opencode.outputs.version != steps.current.outputs.version || (inputs.force_release == true && steps.release_check.outputs.exists == 'false')
+        if: steps.opencode.outputs.package_version != steps.current.outputs.version || (inputs.force_release == true && steps.release_check.outputs.exists == 'false')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          VERSION=${{ steps.opencode.outputs.version }}
-          echo "Updating to v$VERSION"
+          OPENCODE_VERSION=${{ steps.opencode.outputs.opencode_version }}
+          PACKAGE_VERSION=${{ steps.opencode.outputs.package_version }}
+          echo "Updating to v$PACKAGE_VERSION (opencode v$OPENCODE_VERSION)"
 
           npm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
 
-          npm version $VERSION --no-git-tag-version --force
+          npm version $PACKAGE_VERSION --no-git-tag-version --force
 
           PREV_RELEASE=$(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q ".[0].tagName")
           if [ -n "$PREV_RELEASE" ]; then
@@ -65,7 +68,7 @@ jobs:
           fi
 
           mkdir -p /tmp/new-opencode
-          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/new-opencode.tar.gz
+          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/new-opencode.tar.gz
           cd /tmp/new-opencode && tar -xzf /tmp/new-opencode.tar.gz && chmod +x opencode
 
           cd $GITHUB_WORKSPACE
@@ -84,10 +87,10 @@ jobs:
 
           npm publish --tag latest
 
-          gh release create "v$VERSION" opencode-termux-aarch64.tar.gz --repo C04-wq/opencode-termux --title "v$VERSION" --notes "Auto-update to opencode v$VERSION" --latest || true
+          gh release create "v$PACKAGE_VERSION" opencode-termux-aarch64.tar.gz --repo C04-wq/opencode-termux --title "v$PACKAGE_VERSION" --notes "Auto-update to opencode v$OPENCODE_VERSION" --latest || true
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "v$VERSION" || true
+          git commit -m "v$PACKAGE_VERSION" || true
           git push
