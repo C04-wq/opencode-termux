@@ -4,7 +4,7 @@
   </a>
 </p>
 
-# ⚡ opencode-termux
+<p align="center"><b><h1>opencode-termux</h1></b></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Termux-green?style=for-the-badge" alt="Platform">
