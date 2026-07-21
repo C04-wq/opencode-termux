@@ -1,7 +1,9 @@
 # ⚡ opencode-termux
 
 <p align="center">
-  <img src="https://avatars.githubusercontent.com/u/66570915?v=4&s=200" alt="OpenCode Logo" width="120">
+  <a href="https://opencode.ai">
+    <img src="opencode-logo.svg" alt="OpenCode Logo" height="42">
+  </a>
 </p>
 
 <p align="center">
