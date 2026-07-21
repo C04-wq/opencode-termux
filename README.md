@@ -1,6 +1,10 @@
 # ⚡ opencode-termux
 
 <p align="center">
+  <img src="https://avatars.githubusercontent.com/u/66570915?v=4&s=200" alt="OpenCode Logo" width="120">
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Platform-Termux-green?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/Architecture-aarch64-blue?style=for-the-badge" alt="Architecture">
   <img src="https://img.shields.io/npm/v/opencode-termux?style=for-the-badge&color=red" alt="npm version">
