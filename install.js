@@ -13,7 +13,7 @@ if (fs.existsSync(path.join(LIB_DIR, "opencode"))) return;
 fs.mkdirSync(LIB_DIR, { recursive: true });
 const tmp = path.join(LIB_DIR, "tmp.tar.gz");
 try {
-  console.log("Descargando opencode...");
+  console.log("Downloading opencode...");
   execSync(`curl -L -f -o "${tmp}" "${URL}"`, { stdio: "inherit", timeout: 300000 });
   execSync(`tar -xzf "${tmp}" -C "${LIB_DIR}"`, { stdio: "inherit" });
   fs.unlinkSync(tmp);
@@ -26,5 +26,5 @@ try {
     const dst = path.join(HOME_LIB, f);
     if (!fs.existsSync(dst)) fs.symlinkSync(path.join(LIB_DIR, f), dst);
   }
-  console.log("Listo! Ejecuta: opencode");
+  console.log("Done! Run: opencode");
 } catch (e) { console.error("Error:", e.message); if (fs.existsSync(tmp)) fs.unlinkSync(tmp); process.exit(1); }
