@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://opencode.ai">
-    <img src="opencode-logo.svg" alt="OpenCode Logo" height="42">
+    <img src="opencode-logo.svg" alt="OpenCode Logo" width="64" height="80">
   </a>
 </p>
 
