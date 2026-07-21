@@ -44,9 +44,10 @@ jobs:
           rm -f opencode-termux-aarch64.tar.gz opencode-new.tar.gz
 
           cp /tmp/opencode $GITHUB_WORKSPACE/opencode
+          cp /tmp/ld-musl-aarch64.so.1 /tmp/libc.musl-aarch64.so.1 /tmp/libgcc_s.so.1 /tmp/libstdc++.so.6 /tmp/libstdc++.so.6.0.33 $GITHUB_WORKSPACE/
           cd $GITHUB_WORKSPACE
           tar -czf opencode-termux-aarch64.tar.gz opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
-          rm -f opencode
+          rm -f opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
 
           npm publish --tag latest
 
