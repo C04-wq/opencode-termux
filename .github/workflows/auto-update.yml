@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
+    inputs:
+      force_release:
+        description: "Create release for current version"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -27,8 +33,18 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Check if release exists
+        id: release_check
+        run: |
+          VERSION=${{ steps.current.outputs.version }}
+          if gh release view "v$VERSION" --repo C04-wq/opencode-termux > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update and publish
-        if: steps.opencode.outputs.version != steps.current.outputs.version
+        if: steps.opencode.outputs.version != steps.current.outputs.version || (inputs.force_release == true && steps.release_check.outputs.exists == 'false')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -40,10 +56,13 @@ jobs:
           npm version $VERSION --no-git-tag-version --force
 
           PREV_RELEASE=$(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q '.[0].tagName')
-          if [ -z "$PREV_RELEASE" ]; then echo "Error: no previous release found"; exit 1; fi
-
-          gh release download "$PREV_RELEASE" --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
-          cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
+          if [ -n "$PREV_RELEASE" ]; then
+            gh release download "$PREV_RELEASE" --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
+            cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
+          else
+            echo "No previous release, creating from scratch"
+            mkdir -p /tmp/ld-musl
+          fi
 
           mkdir -p /tmp/new-opencode
           curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/new-opencode.tar.gz

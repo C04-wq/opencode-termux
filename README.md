@@ -73,30 +73,38 @@ opencode-termux/
 ### Flow Diagram
 
 ```
-opencode
-    │
-    ▼
-┌─────────────────────────┐
-│  Does lib/opencode      │
-│  exist?                 │
-└────────┬────────────────┘
-         │
-    NO ──┼── YES
-    │    │
-    ▼    ▼
-┌──────────┐  ┌───────────────────────┐
-│install.js│  │Is version outdated?   │
-│downloads │  └────────┬──────────────┘
-│everything│           │
-└──────────┘  NO ──────┼── YES
-                  │    │
-                  ▼    ▼
-               ┌────┐ ┌───────────────────────┐
-               │exec│ │npm install -g latest   │
-               │    │ │rm old binary           │
-               │    │ │install.js → new        │
-               │    │ │exec                    │
-               └────┘ └───────────────────────┘
+                          ┌──────────┐
+                          │ opencode │
+                          └────┬─────┘
+                               │
+                               ▼
+                   ┌───────────────────────┐
+                   │   lib/opencode exists  │
+                   └───────────┬───────────┘
+                               │
+                 ┌─────────────┴─────────────┐
+                 │                           │
+                YES                         NO
+                 │                           │
+                 ▼                           ▼
+      ┌──────────────────┐        ┌──────────────────┐
+      │  Check npm for   │        │    install.js    │
+      │  latest version  │        │  Downloads from  │
+      └────────┬─────────┘        │  GitHub Releases │
+               │                  └────────┬─────────┘
+       ┌───────┴───────┐                   │
+       │               │                   ▼
+     SAME          NEWER                 exec
+       │               │
+       ▼               ▼
+      exec     ┌────────────────┐
+               │  npm install   │
+               │  rm old binary │
+               │  install.js    │
+               └───────┬────────┘
+                       │
+                       ▼
+                     exec
 ```
 
 ### 1️⃣ First Run
