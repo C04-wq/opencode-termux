@@ -23,7 +23,7 @@ jobs:
       - name: Get latest opencode version
         id: opencode
         run: |
-          VERSION=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/v//')
+          VERSION=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | grep "\"tag_name\"" | cut -d"\"" -f4 | sed "s/v//")
           if [ -z "$VERSION" ]; then echo "Error: could not get opencode version"; exit 1; fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -55,7 +55,7 @@ jobs:
 
           npm version $VERSION --no-git-tag-version --force
 
-          PREV_RELEASE=$(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q '.[0].tagName')
+          PREV_RELEASE=$(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q ".[0].tagName")
           if [ -n "$PREV_RELEASE" ]; then
             gh release download "$PREV_RELEASE" --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
             cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
@@ -71,6 +71,14 @@ jobs:
           cd $GITHUB_WORKSPACE
           cp /tmp/new-opencode/opencode ./
           cp /tmp/ld-musl-aarch64.so.1 /tmp/libc.musl-aarch64.so.1 /tmp/libgcc_s.so.1 /tmp/libstdc++.so.6 /tmp/libstdc++.so.6.0.33 ./
+
+          echo "Verifying binary..."
+          file opencode | grep -q "ARM aarch64" || { echo "Error: wrong architecture"; exit 1; }
+          for lib in ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33; do
+            [ -f "$lib" ] || { echo "Error: missing $lib"; exit 1; }
+          done
+          echo "Binary verified: $(file opencode)"
+
           tar -czf opencode-termux-aarch64.tar.gz opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
           rm -f opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
 
