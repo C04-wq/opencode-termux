@@ -9,9 +9,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Termux-green?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/Architecture-aarch64-blue?style=for-the-badge" alt="Architecture">
-  <img src="https://img.shields.io/npm/v/opencode-termux?style=for-the-badge&color=red" alt="npm version">
   <img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/auto-update.yml?style=for-the-badge&label=auto-update" alt="Workflow status">
-  <img src="https://img.shields.io/npm/dt/opencode-termux?style=for-the-badge&color=orange" alt="downloads">
 </p>
 
 <p align="center">
