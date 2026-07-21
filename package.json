@@ -1,7 +1,7 @@
 {
   "name": "opencode-termux",
   "version": "1.18.4",
-  "description": "OpenCode AI assistant compiled for Android Termux (aarch64)",
+  "description": "OpenCode AI assistant compiled for Android Termux (aarch64) with auto-update support",
   "main": "bin/opencode",
   "bin": {
     "opencode": "bin/opencode"
@@ -12,13 +12,30 @@
     "android",
     "ai",
     "cli",
-    "assistant"
+    "assistant",
+    "coding",
+    "code-agent",
+    "terminal",
+    "aarch64",
+    "arm64",
+    "musl"
   ],
   "author": "C04-wq",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/C04-wq/opencode-termux.git"
+  },
+  "homepage": "https://github.com/C04-wq/opencode-termux#readme",
+  "bugs": {
+    "url": "https://github.com/C04-wq/opencode-termux/issues"
+  },
   "files": [
     "bin/",
     "install.js",
     "README.md"
-  ]
+  ],
+  "engines": {
+    "node": ">=14"
+  }
 }
