@@ -8,9 +8,9 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
-LIB_DIR="$DIR/lib"
+OPENCODE_DIR="$HOME/.opencode"
 
-if [ ! -f "$LIB_DIR/opencode" ]; then
+if [ ! -f "$OPENCODE_DIR/opencode" ]; then
   node "$DIR/install.js"
 fi
 
@@ -20,17 +20,17 @@ LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
 if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
   echo "Installing update v${LATEST}..."
   npm install -g opencode-termux@latest --force --silent 2>/dev/null
-  rm -f "$LIB_DIR/opencode"
+  rm -f "$OPENCODE_DIR/opencode"
   node "$DIR/install.js"
 fi
 
-if [ ! -f "$LIB_DIR/opencode" ]; then
+if [ ! -f "$OPENCODE_DIR/opencode" ]; then
   echo "Error: could not download opencode." >&2
   exit 1
 fi
 
-export LD_PRELOAD="$LIB_DIR/ld-musl-aarch64.so.1"
-export LD_LIBRARY_PATH="$LIB_DIR"
+export LD_PRELOAD="$OPENCODE_DIR/ld-musl-aarch64.so.1"
+export LD_LIBRARY_PATH="$OPENCODE_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
 
-exec "$LIB_DIR/opencode" "$@"
+exec "$OPENCODE_DIR/opencode" "$@"
