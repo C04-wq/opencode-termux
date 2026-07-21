@@ -37,11 +37,11 @@ try {
     if (!result || result.trim().length === 0) throw new Error("Empty response");
     console.log(`Verified: ${result.trim()}`);
   } catch (e) {
-    console.log("Verification failed, retrying...");
-    try { execSync(`patchelf --set-interpreter "${INTERPRETER}" "${path.join(LIB_DIR, "opencode")}"`, { stdio: "inherit" }); } catch(e2) {}
+    console.log("Verification failed, fixing...");
     for (const f of fs.readdirSync(LIB_DIR)) {
       const dst = path.join(HOME_LIB, f);
-      try { if (!fs.existsSync(dst)) fs.symlinkSync(path.join(LIB_DIR, f), dst); } catch(e2) {}
+      try { fs.unlinkSync(dst); } catch(e2) {}
+      try { fs.symlinkSync(path.join(LIB_DIR, f), dst); } catch(e2) {}
     }
     try {
       const result = execSync(
@@ -51,7 +51,7 @@ try {
         { encoding: "utf8", timeout: 15000 }
       );
       if (!result || result.trim().length === 0) throw new Error("Empty response");
-      console.log(`Verified (retry): ${result.trim()}`);
+      console.log(`Verified: ${result.trim()}`);
     } catch (e) {
       console.error("Error: opencode is not working.");
       process.exit(1);
