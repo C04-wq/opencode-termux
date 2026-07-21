@@ -1,10 +1,10 @@
-# ⚡ opencode-termux
-
 <p align="center">
   <a href="https://opencode.ai">
     <img src="opencode-logo.svg" alt="OpenCode Logo" width="64" height="80">
   </a>
 </p>
+
+# ⚡ opencode-termux
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Termux-green?style=for-the-badge" alt="Platform">
