@@ -45,8 +45,18 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check if npm version exists
+        id: npm_check
+        run: |
+          PACKAGE_VERSION=${{ steps.opencode.outputs.package_version }}
+          if npm view "opencode-termux@$PACKAGE_VERSION" > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update and publish
-        if: steps.opencode.outputs.package_version != steps.current.outputs.version || (inputs.force_release == true && steps.release_check.outputs.exists == 'false')
+        if: (steps.opencode.outputs.package_version != steps.current.outputs.version && steps.npm_check.outputs.exists == 'false') || (inputs.force_release == true && steps.release_check.outputs.exists == 'false')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
