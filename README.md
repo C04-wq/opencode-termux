@@ -58,7 +58,10 @@ opencode-termux/
 │       └── auto-update.yml    # GitHub Action: auto-publishes new versions
 ├── bin/
 │   └── opencode              # Bash wrapper: auto-update + launches binary
+├── .gitignore                # Git ignore rules
+├── .npmignore                # npm ignore rules
 ├── install.js                # Installer: downloads binary + patchelf + symlinks
+├── opencode-logo.svg         # OpenCode logo
 ├── package.json              # npm config (version = opencode version)
 └── README.md
 ```
