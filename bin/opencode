@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-export LD_PRELOAD=
+export OPENCODE_DISABLE_AUTOUPDATE=1
 
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
@@ -15,19 +15,20 @@ if [ ! -f "$LIB_DIR/opencode" ]; then
 fi
 
 CURRENT=$(node -e "console.log(require('$DIR/package.json').version)" 2>/dev/null)
-LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
+LATEST=$(timeout 10 npm view opencode-ai-termux version 2>/dev/null)
 
 if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
-  echo "Updating opencode-termux v${CURRENT} -> v${LATEST}..."
-  npm install -g opencode-termux@latest --force 2>/dev/null
+  echo "Instalando actualización v${LATEST}..."
+  npm install -g opencode-ai-termux@latest --force --silent 2>/dev/null
   node "$DIR/install.js"
 fi
 
 if [ ! -f "$LIB_DIR/opencode" ]; then
-  echo "Error: Failed to download opencode binary." >&2
+  echo "Error: no se pudo descargar opencode." >&2
   exit 1
 fi
 
+export LD_PRELOAD="$LIB_DIR/ld-musl-aarch64.so.1"
 export LD_LIBRARY_PATH="$LIB_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
 

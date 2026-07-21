@@ -1,0 +1,58 @@
+name: Auto Update
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get latest opencode version
+        id: opencode
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get current package version
+        id: current
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update and publish
+        if: steps.opencode.outputs.version != steps.current.outputs.version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=${{ steps.opencode.outputs.version }}
+          echo "Updating to v$VERSION"
+
+          npm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
+
+          npm install -g opencode-ai@latest
+
+          npm version $VERSION --no-git-tag-version --force
+
+          gh release download v$VERSION --repo anomalyco/opencode -p opencode-linux-arm64-musl.tar.gz -D /tmp --clobber
+          cd /tmp && tar -xzf opencode-linux-arm64-musl.tar.gz && chmod +x opencode
+          mv /tmp/opencode $GITHUB_WORKSPACE/opencode-v1.18.4-tmp
+
+          cd $GITHUB_WORKSPACE
+          gh release download $(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q '.[0].tagName') --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
+          cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
+          cp opencode-termux-aarch64.tar.gz $GITHUB_WORKSPACE/opencode-termux-aarch64-old.tar.gz
+          cd $GITHUB_WORKSPACE
+
+          npm publish --tag latest
+
+          gh release create v$VERSION opencode-termux-aarch64.tar.gz --repo C04-wq/opencode-termux --title "v$VERSION" --notes "Auto-update to opencode v$VERSION" --latest || true
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "v$VERSION" || true
+          git push
