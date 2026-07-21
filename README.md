@@ -9,194 +9,195 @@
 </p>
 
 <p align="center">
-  <b>OpenCode AI assistant compilado para Android Termux (aarch64)</b><br>
-  <sub>Con auto-actualización automática cada vez que ejecutas <code>opencode</code></sub>
+  <b>OpenCode AI assistant compiled for Android Termux (aarch64)</b><br>
+  <sub>With automatic updates every time you run <code>opencode</code></sub>
 </p>
 
 ---
 
-## 🚀 Instalación
+## 🚀 Installation
 
 ```bash
 npm install -g opencode-termux
 ```
 
-Una vez instalado, simplemente ejecuta:
+Once installed, simply run:
 
 ```bash
 opencode
 ```
 
-> **¡Eso es todo!** El wrapper se encarga de todo: descarga el binario, configura las librerías musl y lanza OpenCode.
+> **That's it!** The wrapper handles everything: downloads the binary, sets up musl libraries, and launches OpenCode.
 
 ---
 
-## ✨ Características
+## ✨ Features
 
-| Característica | Descripción |
-|----------------|-------------|
-| 🔧 **Auto-setup** | La primera ejecución descarga y configura todo automáticamente |
-| 🔄 **Auto-actualización** | Verifica nuevas versiones en cada ejecución y actualiza en segundo plano |
-| 🛡️ **Updates oficiales deshabilitados** | Previene que el binario oficial rompa la compatibilidad con Termux |
-| 📦 **Sin root** | Funciona completamente sin permisos de root |
-| ⚡ **Rápido** | Las actualizaciones son silenciosas y no interrumpen tu flujo de trabajo |
+| Feature | Description |
+|---------|-------------|
+| 🔧 **Auto-setup** | First run downloads and configures everything automatically |
+| 🔄 **Auto-update** | Checks for new versions on every run and updates in the background |
+| 🛡️ **Official updates disabled** | Prevents the official binary from breaking Termux compatibility |
+| 📦 **No root required** | Works completely without root permissions |
+| ⚡ **Fast** | Updates are silent and don't interrupt your workflow |
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📁 Project Structure
 
 ```
 opencode-termux/
 ├── .github/
 │   └── workflows/
-│       └── auto-update.yml    # GitHub Action: publica nuevas versiones automáticamente
+│       └── auto-update.yml    # GitHub Action: auto-publishes new versions
 ├── bin/
-│   └── opencode              # Wrapper bash: auto-update + lanza el binario
-├── install.js                # Instalador: descarga binario + patchelf + symlinks
-├── package.json              # Configuración npm (versión = versión de opencode)
+│   └── opencode              # Bash wrapper: auto-update + launches binary
+├── install.js                # Installer: downloads binary + patchelf + symlinks
+├── package.json              # npm config (version = opencode version)
 └── README.md
 ```
 
 ---
 
-## 🔍 ¿Cómo funciona?
+## 🔍 How It Works
 
-### Flujo completo
+### Flow Diagram
 
 ```
 opencode
     │
     ▼
 ┌─────────────────────────┐
-│  ¿lib/opencode existe?  │
+│  Does lib/opencode      │
+│  exist?                 │
 └────────┬────────────────┘
          │
     NO ──┼── SÍ
     │    │
     ▼    ▼
 ┌──────────┐  ┌───────────────────────┐
-│install.js│  │¿Versión desactualizada?│
-│descarga  │  └────────┬──────────────┘
-│todo      │           │
+│install.js│  │Is version outdated?   │
+│downloads │  └────────┬──────────────┘
+│everything│           │
 └──────────┘  NO ──────┼── SÍ
                   │    │
                   ▼    ▼
                ┌────┐ ┌───────────────────────┐
                │exec│ │npm install -g latest   │
-               │    │ │rm binario viejo        │
-               │    │ │install.js → nuevo      │
+               │    │ │rm old binary           │
+               │    │ │install.js → new        │
                │    │ │exec                    │
                └────┘ └───────────────────────┘
 ```
 
-### 1️⃣ Primera ejecución
+### 1️⃣ First Run
 
-Cuando ejecutas `opencode` por primera vez:
+When you run `opencode` for the first time:
 
-1. **`bin/opencode`** resuelve symlinks para encontrar la ruta real del paquete
-2. Detecta que `lib/opencode` no existe
-3. Ejecuta **`install.js`** que:
-   - Descarga `opencode-termux-aarch64.tar.gz` desde [GitHub Releases](https://github.com/C04-wq/opencode-termux/releases)
-   - Extrae el binario y 5 librerías musl a `lib/`
-   - Ejecuta `patchelf` para configurar el interpreter musl
-   - Crea symlinks en `~/.opencode/lib/`
-4. Lanza el binario con las variables de entorno necesarias
+1. **`bin/opencode`** resolves symlinks to find the real package path
+2. Detects that `lib/opencode` doesn't exist
+3. Runs **`install.js`** which:
+   - Downloads `opencode-termux-aarch64.tar.gz` from [GitHub Releases](https://github.com/C04-wq/opencode-termux/releases)
+   - Extracts the binary and 5 musl libraries to `lib/`
+   - Runs `patchelf` to configure the musl interpreter
+   - Creates symlinks in `~/.opencode/lib/`
+4. Launches the binary with the required environment variables
 
-### 2️⃣ Ejecuciones siguientes
+### 2️⃣ Subsequent Runs
 
 ```
 bin/opencode
-  → lib/opencode existe ✓
-  → Versión local == Versión npm ✓
-  → exec lib/opencode (sin cambios)
+  → lib/opencode exists ✓
+  → Local version == npm version ✓
+  → exec lib/opencode (no changes)
 ```
 
-### 3️⃣ Cuando hay nueva versión
+### 3️⃣ When a New Version Is Available
 
-**GitHub Action** (cada 6 horas):
+**GitHub Action** (every 6 hours):
 ```
-1. Detecta nueva versión de opencode oficial
-2. Descarga binario nuevo + libs musl del release anterior
-3. Crea nuevo tarball = binario nuevo + libs musl
-4. Publica en npm (opencode-termux@vNuevaVersión)
-5. Crea release en GitHub
+1. Detects new official opencode version
+2. Downloads new binary + musl libs from previous release
+3. Creates new tarball = new binary + musl libs
+4. Publishes to npm (opencode-termux@vNewVersion)
+5. Creates release on GitHub
 6. Git commit + push
 ```
 
-**En tu teléfono** (próxima ejecución):
+**On your phone** (next run):
 ```
 bin/opencode
   → CURRENT=1.18.4 ≠ LATEST=1.18.5
-  → "Instalando actualización v1.18.5..."
+  → "Installing update v1.18.5..."
   → npm install -g opencode-termux@latest
-  → rm binario viejo
-  → install.js descarga nuevo binario
+  → rm old binary
+  → install.js downloads new binary
   → exec v1.18.5
 ```
 
 ---
 
-## ⚙️ Variables de Entorno
+## ⚙️ Environment Variables
 
-| Variable | Valor | Propósito |
-|----------|-------|-----------|
-| `OPENCODE_DISABLE_AUTOUPDATE` | `1` | Desactiva actualizaciones oficiales de opencode |
-| `LD_PRELOAD` | `~/.opencode/lib/ld-musl-aarch64.so.1` | Carga el runtime musl |
-| `LD_LIBRARY_PATH` | `~/.opencode/lib/` | Ruta a las librerías compartidas |
-| `SSL_CERT_FILE` | `/data/data/com.termux/files/usr/etc/tls/cert.pem` | Certificados SSL de Termux |
-
----
-
-## 📋 Requisitos
-
-- **SO**: Android con [Termux](https://f-droid.org/es/packages/com.termux/)
-- **Arquitectura**: ARM64 (aarch64)
-- **Conexión**: Internet (para instalación y actualizaciones)
-- **Node.js**: Instalado en Termux (`pkg install nodejs`)
-- **npm**: Incluido con Node.js
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `OPENCODE_DISABLE_AUTOUPDATE` | `1` | Disables official opencode updates |
+| `LD_PRELOAD` | `~/.opencode/lib/ld-musl-aarch64.so.1` | Loads the musl runtime |
+| `LD_LIBRARY_PATH` | `~/.opencode/lib/` | Path to shared libraries |
+| `SSL_CERT_FILE` | `/data/data/com.termux/files/usr/etc/tls/cert.pem` | Termux SSL certificates |
 
 ---
 
-## 🛠️ Solución de Problemas
+## 📋 Requirements
 
-### El binario no se descarga
+- **OS**: Android with [Termux](https://f-droid.org/en/packages/com.termux/)
+- **Architecture**: ARM64 (aarch64)
+- **Connection**: Internet (for installation and updates)
+- **Node.js**: Installed in Termux (`pkg install nodejs`)
+- **npm**: Included with Node.js
+
+---
+
+## 🛠️ Troubleshooting
+
+### Binary not downloading
 
 ```bash
-# Verificar que la conexión funciona
+# Verify connection works
 curl -s https://github.com | head -1
 
-# Reinstalar manualmente
+# Reinstall manually
 cd ~/opencode-termux
 node install.js
 ```
 
-### Error de patchelf
+### patchelf error
 
 ```bash
-# Instalar patchelf
+# Install patchelf
 pkg install patchelf
 
-# Re-ejecutar
+# Re-run
 opencode
 ```
 
-### La actualización falla
+### Update failing
 
 ```bash
-# Forzar reinstalación limpia
+# Force clean reinstall
 rm -rf ~/opencode-termux/lib
 opencode
 ```
 
 ---
 
-## 🔄 Actualización Manual
+## 🔄 Manual Update
 
 ```bash
-# Verificar versión actual
+# Check current version
 npm view opencode-termux version
 
-# Forzar actualización
+# Force update
 npm install -g opencode-termux@latest --force
 rm -f ~/opencode-termux/lib/opencode
 opencode
@@ -204,12 +205,12 @@ opencode
 
 ---
 
-## 📄 Licencia
+## 📄 License
 
 [MIT](LICENSE)
 
 ---
 
 <p align="center">
-  <sub>Hecho con ❤️ para la comunidad de Termux</sub>
+  <sub>Made with ❤️ for the Termux community</sub>
 </p>
