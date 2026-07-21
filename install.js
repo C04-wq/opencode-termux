@@ -26,5 +26,20 @@ try {
     const dst = path.join(HOME_LIB, f);
     if (!fs.existsSync(dst)) fs.symlinkSync(path.join(LIB_DIR, f), dst);
   }
+  console.log("Verifying installation...");
+  try {
+    const result = execSync(
+      `LD_PRELOAD="${path.join(HOME_LIB, "ld-musl-aarch64.so.1")}" LD_LIBRARY_PATH="${HOME_LIB}" ` +
+      `SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem ` +
+      `"${path.join(LIB_DIR, "opencode")}" --version`,
+      { encoding: "utf8", timeout: 15000 }
+    );
+    if (!result || result.trim().length === 0) throw new Error("Empty response");
+    console.log(`Verified: ${result.trim()}`);
+  } catch (e) {
+    console.error("Error: opencode binary is not working correctly.");
+    console.error("Try: rm -rf ~/opencode-termux/lib && opencode");
+    process.exit(1);
+  }
   console.log("Done! Run: opencode");
 } catch (e) { console.error("Error:", e.message); if (fs.existsSync(tmp)) fs.unlinkSync(tmp); process.exit(1); }
