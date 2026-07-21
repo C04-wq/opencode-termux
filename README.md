@@ -19,6 +19,19 @@
   <sub>With automatic updates every time you run <code>opencode</code></sub>
 </p>
 
+<p align="center">
+  <img src="screenshots/screenshot-1.png" width="700" alt="Screenshot 1">
+</p>
+<p align="center">
+  <img src="screenshots/screenshot-2.png" width="700" alt="Screenshot 2">
+</p>
+<p align="center">
+  <img src="screenshots/screenshot-3.png" width="700" alt="Screenshot 3">
+</p>
+<p align="center">
+  <img src="screenshots/screenshot-4.png" width="700" alt="Screenshot 4">
+</p>
+
 ---
 
 ## 🚀 Installation
