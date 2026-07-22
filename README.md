@@ -232,6 +232,20 @@ rm -f ~/opencode-termux/lib/opencode
 opencode
 ```
 
+
+
+---
+
+## 🗑️ Uninstall
+
+```bash
+# Remove global npm package
+npm uninstall -g opencode-termux
+
+# Remove all opencode files
+rm -rf ~/.opencode ~/opencode-termux ~/.config/opencode
+```
+
 ---
 
 ## 📄 License
