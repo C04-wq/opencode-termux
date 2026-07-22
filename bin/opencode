@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
+set -o pipefail
 export OPENCODE_DISABLE_AUTOUPDATE=1
 
 SOURCE="${BASH_SOURCE[0]}"
@@ -10,23 +11,24 @@ done
 DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
 OPENCODE_DIR="$HOME/.opencode"
 
-if [ ! -f "$OPENCODE_DIR/opencode" ]; then
+install_opencode() {
   node "$DIR/install.js"
+}
+
+if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libc.musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libgcc_s.so.1" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6.0.33" ]; then
+  install_opencode || exit $?
 fi
 
-CURRENT=$(node -e "console.log(require('$DIR/package.json').version)" 2>/dev/null)
-LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
+CURRENT="$(node -e 'console.log(require(process.argv[1]).version)' "$DIR/package.json" 2>/dev/null)"
+LATEST="$(timeout 10 npm view opencode-termux version 2>/dev/null || true)"
 
-if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
+if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then
   echo "Updating to v${LATEST}..."
-  npm install -g opencode-termux@latest --force --silent 2>/dev/null
-  rm -f "$OPENCODE_DIR/opencode"
-  node "$DIR/install.js"
-fi
-
-if [ ! -f "$OPENCODE_DIR/opencode" ]; then
-  echo "Error: could not install opencode." >&2
-  exit 1
+  if npm install -g "opencode-termux@${LATEST}" --ignore-scripts --silent; then
+    # Re-enter through npm's (now updated) command instead of using stale package files.
+    exec "$(command -v opencode)" "$@"
+  fi
+  echo "Warning: update failed; continuing with the installed version." >&2
 fi
 
 export LD_PRELOAD="$OPENCODE_DIR/ld-musl-aarch64.so.1"

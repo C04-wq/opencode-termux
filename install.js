@@ -1,33 +1,109 @@
 #!/usr/bin/env node
-const { execSync } = require("child_process");
+const { execFileSync } = require("child_process");
+const crypto = require("crypto");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
-const VERSION = require("./package.json").version;
-const OPENCODE_DIR = path.join(process.env.HOME, ".opencode");
-const URL = `https://github.com/C04-wq/opencode-termux/releases/download/v${VERSION}/opencode-termux-aarch64.tar.gz`;
-const INTERPRETER = path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1");
 
-if (process.arch !== "arm64") { console.error("Error: aarch64 only."); process.exit(1); }
-if (fs.existsSync(path.join(OPENCODE_DIR, "opencode"))) return;
+const { version: VERSION } = require("./package.json");
+const { archiveSha256, version: checksumVersion } = require("./release-checksums.json");
+const HOME = process.env.HOME;
+const REQUIRED_FILES = [
+  "opencode",
+  "ld-musl-aarch64.so.1",
+  "libc.musl-aarch64.so.1",
+  "libgcc_s.so.1",
+  "libstdc++.so.6",
+  "libstdc++.so.6.0.33",
+];
 
-try { execSync("which patchelf", { stdio: "ignore" }); } catch(e) {
-  console.log("Installing dependencies...");
-  execSync("pkg install patchelf -y", { stdio: "ignore", timeout: 120000 });
+if (process.arch !== "arm64") {
+  console.error("Error: opencode-termux supports aarch64 only.");
+  process.exit(1);
+}
+if (!HOME) {
+  console.error("Error: HOME is not set.");
+  process.exit(1);
+}
+if (checksumVersion !== VERSION) {
+  console.error("Error: package checksum metadata does not match package.json.");
+  process.exit(1);
+}
+if (!archiveSha256 || !/^[a-f0-9]{64}$/.test(archiveSha256)) {
+  console.error("Error: this package was published without a valid release checksum.");
+  process.exit(1);
 }
 
-fs.mkdirSync(OPENCODE_DIR, { recursive: true });
-const tmp = path.join(OPENCODE_DIR, "tmp.tar.gz");
-try {
-  process.stdout.write("Downloading opencode... ");
-  execSync(`curl -L -f -o "${tmp}" "${URL}" 2>/dev/null`, { timeout: 300000 });
-  execSync(`tar -xzf "${tmp}" -C "${OPENCODE_DIR}" 2>/dev/null`, { stdio: "ignore" });
-  fs.unlinkSync(tmp);
+const OPENCODE_DIR = path.join(HOME, ".opencode");
+const URL = `https://github.com/C04-wq/opencode-termux/releases/download/v${VERSION}/opencode-termux-aarch64.tar.gz`;
+
+function hasCompleteInstall(directory) {
+  return REQUIRED_FILES.every((file) => {
+    try {
+      return fs.statSync(path.join(directory, file)).size > 0;
+    } catch (_) {
+      return false;
+    }
+  });
+}
+
+function run(command, args, options = {}) {
+  return execFileSync(command, args, { stdio: "inherit", ...options });
+}
+
+function sha256(file) {
+  return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+}
+
+function ensurePatchelf() {
   try {
-    execSync(`patchelf --set-interpreter "${INTERPRETER}" "${path.join(OPENCODE_DIR, "opencode")}" 2>/dev/null`, { stdio: "ignore" });
-  } catch(e) {}
-  const result = execSync(
-    `LD_PRELOAD="${INTERPRETER}" LD_LIBRARY_PATH="${OPENCODE_DIR}" SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem "${path.join(OPENCODE_DIR, "opencode")}" --version`,
-    { encoding: "utf8", timeout: 15000 }
-  );
-  console.log(`v${result.trim()}`);
-} catch (e) { console.log("failed"); console.error("Error: could not install opencode."); if (fs.existsSync(tmp)) fs.unlinkSync(tmp); process.exit(1); }
+    execFileSync("patchelf", ["--version"], { stdio: "ignore" });
+  } catch (_) {
+    console.log("Installing patchelf...");
+    run("pkg", ["install", "-y", "patchelf"], { timeout: 120000 });
+  }
+}
+
+if (hasCompleteInstall(OPENCODE_DIR)) process.exit(0);
+
+const staging = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-termux-"));
+const archive = path.join(staging, "release.tar.gz");
+const extracted = path.join(staging, "files");
+
+try {
+  console.log("Downloading opencode...");
+  run("curl", ["--fail", "--location", "--retry", "3", "--retry-all-errors", "-o", archive, URL], { timeout: 300000 });
+  if (archiveSha256 && sha256(archive) !== archiveSha256) {
+    throw new Error("downloaded archive checksum does not match the npm package metadata");
+  }
+
+  fs.mkdirSync(extracted);
+  run("tar", ["-xzf", archive, "-C", extracted], { timeout: 60000 });
+  if (!hasCompleteInstall(extracted)) throw new Error("release archive is incomplete");
+
+  const binary = path.join(extracted, "opencode");
+  const interpreter = path.join(extracted, "ld-musl-aarch64.so.1");
+  ensurePatchelf();
+  run("patchelf", ["--set-interpreter", interpreter, binary], { timeout: 15000 });
+  execFileSync(binary, ["--version"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      LD_PRELOAD: interpreter,
+      LD_LIBRARY_PATH: extracted,
+      SSL_CERT_FILE: "/data/data/com.termux/files/usr/etc/tls/cert.pem",
+    },
+    timeout: 30000,
+  });
+
+  fs.mkdirSync(OPENCODE_DIR, { recursive: true });
+  for (const file of REQUIRED_FILES) {
+    fs.renameSync(path.join(extracted, file), path.join(OPENCODE_DIR, file));
+  }
+  console.log(`Installed opencode ${VERSION}.`);
+} catch (error) {
+  console.error(`Error: could not install opencode: ${error.message}`);
+  process.exitCode = 1;
+} finally {
+  fs.rmSync(staging, { recursive: true, force: true });
+}

@@ -14,7 +14,7 @@
 
 <p align="center">
   <b>OpenCode AI assistant compiled for Android Termux (aarch64)</b><br>
-  <sub>With automatic updates every time you run <code>opencode</code></sub>
+  <sub>With verified automatic updates for Termux ARM64</sub>
 </p>
 
 <p align="center">
@@ -53,8 +53,9 @@ opencode
 | Feature | Description |
 |---------|-------------|
 | 🔧 **Auto-setup** | First run downloads and configures everything automatically |
-| 🔄 **Auto-update** | Checks for new versions on every run and updates in the background |
+| 🔄 **Auto-update** | Checks npm for a newer verified package without deleting a working install on failure |
 | 🛡️ **Official updates disabled** | Prevents the official binary from breaking Termux compatibility |
+| 🔐 **Integrity check** | Verifies the release archive SHA-256 recorded in the npm package |
 | 📦 **No root required** | Works completely without root permissions |
 | ⚡ **Fast** | Updates are silent and don't interrupt your workflow |
 
@@ -71,7 +72,9 @@ opencode-termux/
 │   └── opencode              # Bash wrapper: auto-update + launches binary
 ├── .gitignore                # Git ignore rules
 ├── .npmignore                # npm ignore rules
-├── install.js                # Installer: downloads binary + patchelf + symlinks
+├── install.js                # Verified installer: downloads, validates and patches the binary
+├── release-checksums.json    # SHA-256 for the matching GitHub release archive
+├── scripts/build-android-release.sh # Reproducibly packages ARM64 musl runtime for Termux
 ├── LICENSE                   # MIT license
 ├── opencode-logo.svg         # OpenCode logo
 ├── package.json              # npm config (version = opencode version)
@@ -91,7 +94,7 @@ opencode-termux/
                                │
                                ▼
                    ┌───────────────────────┐
-                   │   lib/opencode exists  │
+                   │ ~/.opencode is complete │
                    └───────────┬───────────┘
                                │
                  ┌─────────────┴─────────────┐
@@ -124,21 +127,22 @@ opencode-termux/
 When you run `opencode` for the first time:
 
 1. **`bin/opencode`** resolves symlinks to find the real package path
-2. Detects that `lib/opencode` doesn't exist
+2. Detects whether `~/.opencode/` has the binary and every required runtime library
 3. Runs **`install.js`** which:
    - Downloads `opencode-termux-aarch64.tar.gz` from [GitHub Releases](https://github.com/C04-wq/opencode-termux/releases)
-   - Extracts the binary and 5 musl libraries to `lib/`
+   - Verifies the archive SHA-256 from the npm package
+   - Extracts the binary and runtime libraries to `~/.opencode/`
    - Runs `patchelf` to configure the musl interpreter
-   - Creates symlinks in `~/.opencode/lib/`
+   - Verifies the staged binary before replacing the local runtime
 4. Launches the binary with the required environment variables
 
 ### 2️⃣ Subsequent Runs
 
 ```
 bin/opencode
-  → lib/opencode exists ✓
+  → ~/.opencode/opencode and runtime libraries exist ✓
   → Local version == npm version ✓
-  → exec lib/opencode (no changes)
+  → exec ~/.opencode/opencode (no changes)
 ```
 
 ### 3️⃣ When a New Version Is Available
@@ -146,8 +150,8 @@ bin/opencode
 **GitHub Action** (every 6 hours):
 ```
 1. Detects new official opencode version
-2. Downloads new binary + musl libs from previous release
-3. Creates new tarball = new binary + musl libs
+2. Downloads OpenCode's official ARM64 musl build
+3. Packages it with ARM64 musl, libgcc and libstdc++ runtime libraries from Alpine
 4. Publishes to npm (opencode-termux@vNewVersion)
 5. Creates release on GitHub
 6. Git commit + push
@@ -171,8 +175,8 @@ bin/opencode
 | Variable | Value | Purpose |
 |----------|-------|---------|
 | `OPENCODE_DISABLE_AUTOUPDATE` | `1` | Disables official opencode updates |
-| `LD_PRELOAD` | `~/.opencode/lib/ld-musl-aarch64.so.1` | Loads the musl runtime |
-| `LD_LIBRARY_PATH` | `~/.opencode/lib/` | Path to shared libraries |
+| `LD_PRELOAD` | `~/.opencode/ld-musl-aarch64.so.1` | Loads the musl runtime |
+| `LD_LIBRARY_PATH` | `~/.opencode/` | Path to shared libraries |
 | `SSL_CERT_FILE` | `/data/data/com.termux/files/usr/etc/tls/cert.pem` | Termux SSL certificates |
 
 ---
@@ -195,9 +199,10 @@ bin/opencode
 # Verify connection works
 curl -s https://github.com | head -1
 
-# Reinstall manually
-cd ~/opencode-termux
-node install.js
+# Reinstall manually from the installed npm package
+npm install -g opencode-termux@latest --force
+rm -f ~/.opencode/opencode
+opencode
 ```
 
 ### patchelf error
@@ -213,8 +218,8 @@ opencode
 ### Update failing
 
 ```bash
-# Force clean reinstall
-rm -rf ~/opencode-termux/lib
+# Force a clean runtime reinstall
+rm -f ~/.opencode/opencode
 opencode
 ```
 
@@ -228,7 +233,7 @@ npm view opencode-termux version
 
 # Force update
 npm install -g opencode-termux@latest --force
-rm -f ~/opencode-termux/lib/opencode
+rm -f ~/.opencode/opencode
 opencode
 ```
 

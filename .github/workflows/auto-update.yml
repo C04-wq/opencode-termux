@@ -1,12 +1,12 @@
-name: Auto Update
+name: Build and publish Termux package
 
 on:
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
-      force_release:
-        description: "Create release for current version"
+      force_publish:
+        description: "Build and publish the version in package.json even when upstream has not changed"
         required: false
         type: boolean
         default: false
@@ -14,93 +14,96 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: opencode-termux-publish
+  cancel-in-progress: false
+
 jobs:
-  check-update:
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Pinned commit for supply-chain safety (actions/checkout v4.2.2).
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Get latest opencode version
-        id: opencode
-        run: |
-          OPENCODE_VERSION=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | grep "\"tag_name\"" | cut -d"\"" -f4 | sed "s/v//")
-          if [ -z "$OPENCODE_VERSION" ]; then echo "Error: could not get opencode version"; exit 1; fi
-          PACKAGE_VERSION="${OPENCODE_VERSION}-0"
-          echo "opencode_version=$OPENCODE_VERSION" >> $GITHUB_OUTPUT
-          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Get current package version
-        id: current
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Check if release exists
-        id: release_check
+      - name: Resolve upstream and publication state
+        id: state
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=${{ steps.current.outputs.version }}
-          if gh release view "v$VERSION" --repo C04-wq/opencode-termux > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          OPENCODE_VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
+          UPSTREAM_ARCHIVE_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
+          if ! [[ "$UPSTREAM_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "Error: the official ARM64 musl asset has no SHA-256 digest." >&2
+            exit 1
+          fi
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          CURRENT_UPSTREAM="${CURRENT_VERSION%%-*}"
+          if [ "$OPENCODE_VERSION" = "$CURRENT_UPSTREAM" ]; then
+            PACKAGE_VERSION="$CURRENT_VERSION"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            PACKAGE_VERSION="${OPENCODE_VERSION}-0"
           fi
 
-      - name: Check if npm version exists
-        id: npm_check
-        run: |
-          PACKAGE_VERSION=${{ steps.opencode.outputs.package_version }}
-          if npm view "opencode-termux@$PACKAGE_VERSION" > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+          if npm view "opencode-termux@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+            NPM_EXISTS=true
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            NPM_EXISTS=false
+          fi
+          if gh release view "v${PACKAGE_VERSION}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            RELEASE_EXISTS=true
+          else
+            RELEASE_EXISTS=false
+          fi
+          if [ "$NPM_EXISTS" = true ] && [ "$RELEASE_EXISTS" = false ]; then
+            echo "Error: npm already contains v${PACKAGE_VERSION}, but its GitHub release is missing." >&2
+            echo "Refusing to rebuild an archive whose checksum would differ from the published npm metadata." >&2
+            exit 1
           fi
 
-      - name: Update and publish
-        if: (steps.opencode.outputs.package_version != steps.current.outputs.version && steps.npm_check.outputs.exists == 'false') || (inputs.force_release == true && steps.release_check.outputs.exists == 'false')
+          echo "opencode_version=$OPENCODE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "upstream_archive_sha256=$UPSTREAM_ARCHIVE_SHA256" >> "$GITHUB_OUTPUT"
+          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "npm_exists=$NPM_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "release_exists=$RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
+
+      - name: Build Android-compatible release archive
+        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || inputs.force_publish == true
+        run: |
+          set -euo pipefail
+          npm version "${{ steps.state.outputs.package_version }}" --no-git-tag-version --allow-same-version
+          bash scripts/build-android-release.sh "${{ steps.state.outputs.opencode_version }}" opencode-termux-aarch64.tar.gz "${{ steps.state.outputs.upstream_archive_sha256 }}"
+          ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
+          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "${{ steps.state.outputs.package_version }}" "$ARCHIVE_SHA256"
+          sha256sum opencode-termux-aarch64.tar.gz
+          tar -tzf opencode-termux-aarch64.tar.gz
+          npm pack --dry-run
+
+      - name: Publish npm package
+        if: steps.state.outputs.npm_exists == 'false'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          OPENCODE_VERSION=${{ steps.opencode.outputs.opencode_version }}
-          PACKAGE_VERSION=${{ steps.opencode.outputs.package_version }}
-          echo "Updating to v$PACKAGE_VERSION (opencode v$OPENCODE_VERSION)"
-
-          npm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
-
-          npm version $PACKAGE_VERSION --no-git-tag-version --force
-
-          PREV_RELEASE=$(gh release list --repo C04-wq/opencode-termux --limit 1 --json tagName -q ".[0].tagName")
-          if [ -n "$PREV_RELEASE" ]; then
-            gh release download "$PREV_RELEASE" --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
-            cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
-          fi
-
-          mkdir -p /tmp/new-opencode
-          curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-arm64-musl.tar.gz" -o /tmp/new-opencode.tar.gz
-          cd /tmp/new-opencode && tar -xzf /tmp/new-opencode.tar.gz && chmod +x opencode
-
-          cd $GITHUB_WORKSPACE
-          cp /tmp/new-opencode/opencode ./
-          cp /tmp/ld-musl-aarch64.so.1 /tmp/libc.musl-aarch64.so.1 /tmp/libgcc_s.so.1 /tmp/libstdc++.so.6 /tmp/libstdc++.so.6.0.33 ./
-
-          echo "Verifying binary..."
-          file opencode | grep -q "ARM aarch64" || { echo "Error: wrong architecture"; exit 1; }
-          for lib in ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33; do
-            [ -f "$lib" ] || { echo "Error: missing $lib"; exit 1; }
-          done
-          echo "Binary verified: $(file opencode)"
-
-          tar -czf opencode-termux-aarch64.tar.gz opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
-          rm -f opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
-
+          set -euo pipefail
           npm publish --tag latest
 
-          gh release create "v$PACKAGE_VERSION" opencode-termux-aarch64.tar.gz --repo C04-wq/opencode-termux --title "v$PACKAGE_VERSION" --notes "Auto-update to opencode v$OPENCODE_VERSION" --latest || true
+      - name: Create GitHub release
+        if: steps.state.outputs.release_exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "v${{ steps.state.outputs.package_version }}" opencode-termux-aarch64.tar.gz \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "v${{ steps.state.outputs.package_version }}" \
+            --notes "OpenCode v${{ steps.state.outputs.opencode_version }} packaged for Termux ARM64."
 
+      - name: Commit generated checksum metadata
+        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false'
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "v$PACKAGE_VERSION" || true
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json release-checksums.json
+          git diff --cached --quiet || git commit -m "chore: publish v${{ steps.state.outputs.package_version }}"
           git push
