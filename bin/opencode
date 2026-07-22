@@ -18,14 +18,14 @@ CURRENT=$(node -e "console.log(require('$DIR/package.json').version)" 2>/dev/nul
 LATEST=$(timeout 10 npm view opencode-termux version 2>/dev/null)
 
 if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
-  echo "Installing update v${LATEST}..."
+  echo "Updating to v${LATEST}..."
   npm install -g opencode-termux@latest --force --silent 2>/dev/null
   rm -f "$OPENCODE_DIR/opencode"
   node "$DIR/install.js"
 fi
 
 if [ ! -f "$OPENCODE_DIR/opencode" ]; then
-  echo "Error: could not download opencode." >&2
+  echo "Error: could not install opencode." >&2
   exit 1
 fi
 
