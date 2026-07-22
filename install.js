@@ -10,6 +10,11 @@ const INTERPRETER = path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1");
 if (process.arch !== "arm64") { console.error("Error: aarch64 only."); process.exit(1); }
 if (fs.existsSync(path.join(OPENCODE_DIR, "opencode"))) return;
 
+try { execSync("which patchelf", { stdio: "ignore" }); } catch(e) {
+  console.log("Installing patchelf...");
+  execSync("pkg install patchelf -y", { stdio: "inherit", timeout: 120000 });
+}
+
 fs.mkdirSync(OPENCODE_DIR, { recursive: true });
 const tmp = path.join(OPENCODE_DIR, "tmp.tar.gz");
 try {
