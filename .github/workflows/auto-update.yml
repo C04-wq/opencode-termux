@@ -41,7 +41,6 @@ jobs:
           VERSION=${{ steps.current.outputs.version }}
           if gh release view "v$VERSION" --repo C04-wq/opencode-termux > /dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-          else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
@@ -51,7 +50,6 @@ jobs:
           PACKAGE_VERSION=${{ steps.opencode.outputs.package_version }}
           if npm view "opencode-termux@$PACKAGE_VERSION" > /dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-          else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
@@ -72,9 +70,6 @@ jobs:
           if [ -n "$PREV_RELEASE" ]; then
             gh release download "$PREV_RELEASE" --repo C04-wq/opencode-termux -p opencode-termux-aarch64.tar.gz -D /tmp --clobber
             cd /tmp && tar -xzf opencode-termux-aarch64.tar.gz
-          else
-            echo "No previous release, creating from scratch"
-            mkdir -p /tmp/ld-musl
           fi
 
           mkdir -p /tmp/new-opencode
