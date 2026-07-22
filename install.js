@@ -127,7 +127,7 @@ try {
   const extracted = path.join(staging, "files");
   try {
     message("Preparing OpenCode for Termux…");
-    run("curl", ["--silent", "--show-error", "--fail", "--location", "--retry", "3", "--retry-all-errors", "-o", archive, URL], { timeout: 300000 });
+    run("curl", ["--silent", "--show-error", "--fail", "--location", "--proto", "=https", "--proto-redir", "=https", "--retry", "3", "--retry-all-errors", "-o", archive, URL], { timeout: 300000 });
     if (sha256(archive) !== archiveSha256) throw new Error("downloaded archive checksum does not match the npm package metadata");
 
     fs.mkdirSync(extracted);

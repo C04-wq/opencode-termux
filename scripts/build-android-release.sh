@@ -16,7 +16,7 @@ WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 mkdir -p "$WORKDIR/upstream" "$WORKDIR/root" "$WORKDIR/stage"
-curl --fail --location --retry 3 --retry-all-errors \
+curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
   "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" \
   -o "$WORKDIR/upstream.tar.gz"
 if [ -n "$EXPECTED_UPSTREAM_SHA256" ]; then
@@ -33,7 +33,7 @@ if [ ! -x "$WORKDIR/upstream/opencode" ]; then
   exit 1
 fi
 
-curl --fail --location --retry 3 --retry-all-errors "$ALPINE_REPO/APKINDEX.tar.gz" -o "$WORKDIR/APKINDEX.tar.gz"
+curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors "$ALPINE_REPO/APKINDEX.tar.gz" -o "$WORKDIR/APKINDEX.tar.gz"
 tar -xzf "$WORKDIR/APKINDEX.tar.gz" -C "$WORKDIR"
 
 apk_version() {
@@ -52,7 +52,7 @@ fetch_apk() {
     echo "Error: Alpine package $package was not found." >&2
     exit 1
   fi
-  curl --fail --location --retry 3 --retry-all-errors \
+  curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
     "$ALPINE_REPO/${package}-${version}.apk" -o "$WORKDIR/${package}.apk"
   tar -xzf "$WORKDIR/${package}.apk" -C "$WORKDIR/root"
 }
