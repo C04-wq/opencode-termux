@@ -85,6 +85,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
+          npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
           npm publish --tag latest
 
       - name: Create GitHub release
