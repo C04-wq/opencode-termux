@@ -10,16 +10,17 @@ while [ -h "$SOURCE" ]; do
 done
 DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
 OPENCODE_DIR="$HOME/.opencode"
+CURRENT="$(node -e 'console.log(require(process.argv[1]).version)' "$DIR/package.json" 2>/dev/null)"
+INSTALLED_VERSION="$(cat "$OPENCODE_DIR/.opencode-termux-version" 2>/dev/null || true)"
 
 install_opencode() {
   node "$DIR/install.js"
 }
 
-if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libc.musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libgcc_s.so.1" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6.0.33" ]; then
+if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libc.musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libgcc_s.so.1" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6.0.33" ] || [ "$CURRENT" != "$INSTALLED_VERSION" ]; then
   install_opencode || exit $?
 fi
 
-CURRENT="$(node -e 'console.log(require(process.argv[1]).version)' "$DIR/package.json" 2>/dev/null)"
 LATEST="$(timeout 10 npm view opencode-termux version 2>/dev/null || true)"
 
 if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then

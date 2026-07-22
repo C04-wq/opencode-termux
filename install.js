@@ -35,16 +35,23 @@ if (!archiveSha256 || !/^[a-f0-9]{64}$/.test(archiveSha256)) {
 }
 
 const OPENCODE_DIR = path.join(HOME, ".opencode");
+const VERSION_FILE = path.join(OPENCODE_DIR, ".opencode-termux-version");
 const URL = `https://github.com/C04-wq/opencode-termux/releases/download/v${VERSION}/opencode-termux-aarch64.tar.gz`;
 
 function hasCompleteInstall(directory) {
-  return REQUIRED_FILES.every((file) => {
+  const filesPresent = REQUIRED_FILES.every((file) => {
     try {
       return fs.statSync(path.join(directory, file)).size > 0;
     } catch (_) {
       return false;
     }
   });
+  if (!filesPresent) return false;
+  try {
+    return fs.readFileSync(path.join(directory, ".opencode-termux-version"), "utf8").trim() === VERSION;
+  } catch (_) {
+    return false;
+  }
 }
 
 function run(command, args, options = {}) {
@@ -100,6 +107,7 @@ try {
   for (const file of REQUIRED_FILES) {
     fs.renameSync(path.join(extracted, file), path.join(OPENCODE_DIR, file));
   }
+  fs.writeFileSync(VERSION_FILE, `${VERSION}\n`, { mode: 0o600 });
   console.log(`Installed opencode ${VERSION}.`);
 } catch (error) {
   console.error(`Error: could not install opencode: ${error.message}`);
