@@ -38,15 +38,18 @@ const OPENCODE_DIR = path.join(HOME, ".opencode");
 const VERSION_FILE = path.join(OPENCODE_DIR, ".opencode-termux-version");
 const URL = `https://github.com/C04-wq/opencode-termux/releases/download/v${VERSION}/opencode-termux-aarch64.tar.gz`;
 
-function hasCompleteInstall(directory) {
-  const filesPresent = REQUIRED_FILES.every((file) => {
+function hasRequiredFiles(directory) {
+  return REQUIRED_FILES.every((file) => {
     try {
       return fs.statSync(path.join(directory, file)).size > 0;
     } catch (_) {
       return false;
     }
   });
-  if (!filesPresent) return false;
+}
+
+function hasCompleteInstall(directory) {
+  if (!hasRequiredFiles(directory)) return false;
   try {
     return fs.readFileSync(path.join(directory, ".opencode-termux-version"), "utf8").trim() === VERSION;
   } catch (_) {
@@ -86,7 +89,7 @@ try {
 
   fs.mkdirSync(extracted);
   run("tar", ["-xzf", archive, "-C", extracted], { timeout: 60000 });
-  if (!hasCompleteInstall(extracted)) throw new Error("release archive is incomplete");
+  if (!hasRequiredFiles(extracted)) throw new Error("release archive is incomplete");
 
   const binary = path.join(extracted, "opencode");
   const interpreter = path.join(extracted, "ld-musl-aarch64.so.1");
