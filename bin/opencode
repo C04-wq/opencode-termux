@@ -17,6 +17,10 @@ install_opencode() {
   node "$DIR/install.js"
 }
 
+if [ ! -f /data/data/com.termux/files/usr/etc/tls/cert.pem ] || ! command -v timeout >/dev/null 2>&1; then
+  node "$DIR/install.js" --ensure-dependencies || exit $?
+fi
+
 if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libc.musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libgcc_s.so.1" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6.0.33" ] || [ "$CURRENT" != "$INSTALLED_VERSION" ]; then
   install_opencode || exit $?
 fi
@@ -24,12 +28,12 @@ fi
 LATEST="$(timeout 10 npm view opencode-termux version 2>/dev/null || true)"
 
 if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then
-  echo "Updating to v${LATEST}..."
+  printf '  ◇ Updating OpenCode…\n'
   if npm install -g "opencode-termux@${LATEST}" --ignore-scripts --silent; then
     # Re-enter through npm's (now updated) command instead of using stale package files.
     exec "$(command -v opencode)" "$@"
   fi
-  echo "Warning: update failed; continuing with the installed version." >&2
+  echo "Warning: update failed; using the installed version." >&2
 fi
 
 export LD_PRELOAD="$OPENCODE_DIR/ld-musl-aarch64.so.1"

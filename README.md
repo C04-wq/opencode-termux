@@ -10,117 +10,122 @@
   <a href="https://www.npmjs.com/package/opencode-termux"><img src="https://img.shields.io/npm/v/opencode-termux?style=for-the-badge" alt="npm"></a>
   <img src="https://img.shields.io/badge/Platform-Termux-green?style=for-the-badge" alt="Termux">
   <img src="https://img.shields.io/badge/Architecture-aarch64-blue?style=for-the-badge" alt="aarch64">
-  <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/auto-update.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/auto-update.yml?style=for-the-badge&label=release" alt="Estado del workflow"></a>
+  <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/auto-update.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/auto-update.yml?style=for-the-badge&label=release" alt="Release workflow"></a>
 </p>
 
-<p align="center">
-  <b>OpenCode para Termux en Android ARM64, empaquetado y actualizado automáticamente.</b>
-</p>
+<p align="center"><b>OpenCode for Android Termux on ARM64 — automatic, verified, and root-free.</b></p>
 
-`opencode-termux` utiliza el binario ARM64 musl publicado por OpenCode y lo empaqueta con el runtime necesario para Termux. No requiere root.
+`opencode-termux` packages OpenCode's official ARM64 musl build with the runtime required by Termux.
 
-## Instalación
+## Install
 
-En Termux aarch64:
+On Termux aarch64:
 
 ```bash
 npm install -g opencode-termux
 opencode
 ```
 
-En la primera ejecución se descarga la release compatible, se verifica y se configura automáticamente `patchelf` (se instala si hace falta).
+The first run prepares everything needed by the runtime automatically. It installs missing Termux packages, downloads the matching release, verifies it, and starts OpenCode.
 
-## Qué hace
+## First-run experience
 
-| Función | Comportamiento |
+Installation is intentionally quiet. Instead of command logs, it only shows short status messages such as:
+
+```text
+  ◇ Setting up Termux dependencies…
+  ✓ Termux dependencies are ready
+  ◇ Preparing OpenCode for Termux…
+  ✓ OpenCode 1.18.4-8 is ready
+```
+
+Detailed command output is kept hidden unless an error occurs.
+
+## Automatic dependency setup
+
+Before installing or starting OpenCode, the wrapper checks for the runtime prerequisites. When needed, it installs them through Termux's `pkg` command:
+
+- `curl` for release downloads
+- `tar` for archive extraction
+- `patchelf` for the Termux-compatible ELF interpreter
+- `coreutils` for the update timeout command
+- `ca-certificates` for HTTPS certificates
+
+Node.js and npm are the only prerequisites because npm is used to install this package:
+
+```bash
+pkg install nodejs
+```
+
+## How it works
+
+| Feature | Behavior |
 | --- | --- |
-| Instalación | Descarga la release de GitHub que corresponde exactamente a la versión del paquete npm. |
-| Integridad | Comprueba el SHA-256 del tarball contra `release-checksums.json`, incluido en el paquete npm. |
-| Runtime | Instala el binario y las bibliotecas musl, `libgcc` y `libstdc++` bajo `~/.opencode/`. |
-| Actualización | Consulta npm al ejecutar `opencode`. Si existe una versión nueva, instala el paquete, reinicia el wrapper y descarga el runtime coincidente. |
-| Recuperación | Si falla npm o la red, conserva y ejecuta la instalación que ya funciona. |
-| Compatibilidad | Desactiva el auto-update interno de OpenCode para no reemplazar el binario preparado para Termux. |
-
-## Flujo de ejecución
+| Verified downloads | The installer checks the release SHA-256 against `release-checksums.json` bundled in npm. |
+| Complete runtime | The OpenCode binary, musl loader, `libgcc`, and `libstdc++` are stored in `~/.opencode/`. |
+| Safe updates | A newer npm package is installed first. The working runtime is kept if npm or the network fails. |
+| Version matching | `~/.opencode/.opencode-termux-version` ensures the runtime always matches the installed npm package. |
+| OpenCode updates | OpenCode's internal updater is disabled so it cannot replace the Termux-compatible binary. |
 
 ```text
 opencode
   │
-  ├─ ¿runtime completo y versión instalada = versión del paquete npm?
-  │     ├─ no → descargar release → verificar SHA-256 → probar binario → activar runtime
-  │     └─ sí → continuar
-  │
-  ├─ consultar la versión latest de npm (máximo 10 s)
-  │     ├─ hay una versión nueva → npm install → reiniciar wrapper → instalar runtime de esa versión
-  │     └─ no disponible/falla → conservar la versión actual
-  │
-  └─ ejecutar ~/.opencode/opencode
+  ├─ Check and install missing Termux dependencies
+  ├─ Check the installed runtime and its version marker
+  │   └─ If needed: download → verify SHA-256 → test → activate
+  ├─ Check npm for a newer package (up to 10 seconds)
+  │   └─ If newer: install package → restart wrapper → install matching runtime
+  └─ Run ~/.opencode/opencode
 ```
 
-El archivo `~/.opencode/.opencode-termux-version` vincula el runtime instalado con la versión del paquete npm. Esto evita ejecutar un binario antiguo después de una actualización.
+## Automated releases
 
-## Publicación automática
+The [Build and publish Termux package](.github/workflows/auto-update.yml) workflow runs every six hours and can also be started manually.
 
-El workflow [Build and publish Termux package](.github/workflows/auto-update.yml) se ejecuta cada seis horas y también puede iniciarse manualmente.
+1. It detects the latest official OpenCode release through GitHub's API.
+2. It downloads `opencode-linux-arm64-musl.tar.gz` and verifies GitHub's SHA-256 digest.
+3. It packages the binary with ARM64 musl, `libgcc`, and `libstdc++` runtime libraries from Alpine 3.21.
+4. It creates the release archive and records its SHA-256 in `release-checksums.json`.
+5. It publishes the npm package, creates the GitHub Release, and commits the generated checksum metadata.
 
-1. Consulta la última release oficial de OpenCode mediante la API de GitHub.
-2. Obtiene `opencode-linux-arm64-musl.tar.gz` y valida su SHA-256 publicado por GitHub.
-3. Añade bibliotecas ARM64 de Alpine 3.21 para formar el runtime de Termux.
-4. Crea `opencode-termux-aarch64.tar.gz` y registra su SHA-256 en `release-checksums.json`.
-5. Publica el paquete en npm, crea la GitHub Release y confirma los metadatos generados en el repositorio.
+Publish jobs are serialized. If npm already has a version but its GitHub Release is missing, the workflow stops instead of generating an archive with a mismatched checksum.
 
-Las ejecuciones se serializan para impedir dos publicaciones simultáneas. Si npm ya tiene una versión pero falta su release, el workflow se detiene en lugar de crear un artefacto cuyo checksum no coincida.
+## Update or repair
 
-## Requisitos
-
-- Android con [Termux](https://f-droid.org/en/packages/com.termux/)
-- Arquitectura ARM64/aarch64
-- Node.js 14 o superior y npm (`pkg install nodejs`)
-- Conexión a Internet para la primera instalación y para las actualizaciones
-
-## Actualizar o reparar
-
-Normalmente basta con ejecutar `opencode`; el wrapper busca actualizaciones automáticamente.
+Running `opencode` normally checks for updates automatically.
 
 ```bash
-# Ver la última versión publicada
+# Check the latest published version
 npm view opencode-termux version
 
-# Actualizar el paquete inmediatamente
+# Update immediately
 npm install -g opencode-termux@latest
 opencode
 
-# Forzar una reinstalación del runtime sin borrar una copia funcional primero
+# Reinstall the managed runtime without deleting the current files first
 rm -f ~/.opencode/.opencode-termux-version
 opencode
 ```
 
-Si `patchelf` no puede instalarse automáticamente:
-
-```bash
-pkg install patchelf
-opencode
-```
-
-## Desinstalación
+## Uninstall
 
 ```bash
 npm uninstall -g opencode-termux
 rm -rf ~/.opencode
 ```
 
-El segundo comando elimina el runtime administrado por este paquete. La configuración de OpenCode, si existe, puede estar en `~/.config/opencode` y se conserva.
+The second command removes only the runtime managed by this package. OpenCode configuration, if any, is normally kept in `~/.config/opencode`.
 
-## Estructura del proyecto
+## Project layout
 
 ```text
-bin/opencode                       Wrapper de actualización y arranque
-install.js                          Instalador verificado y activación del runtime
-release-checksums.json              SHA-256 de la release asociada al paquete npm
-scripts/build-android-release.sh    Empaquetador reproducible para ARM64/Termux
-.github/workflows/auto-update.yml   Detección y publicación automática
+bin/opencode                       Update and launch wrapper
+install.js                          Quiet verified installer and dependency setup
+release-checksums.json              SHA-256 for the release matching the npm package
+scripts/build-android-release.sh    Reproducible ARM64/Termux package builder
+.github/workflows/auto-update.yml   Automated detection and publishing workflow
 ```
 
-## Licencia
+## License
 
 [MIT](LICENSE)
