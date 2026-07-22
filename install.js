@@ -107,6 +107,9 @@ try {
   });
 
   fs.mkdirSync(OPENCODE_DIR, { recursive: true });
+  // The staged binary was tested with the staged loader. Point it at the
+  // persistent loader before moving either file into the live runtime.
+  run("patchelf", ["--set-interpreter", path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), binary], { timeout: 15000 });
   for (const file of REQUIRED_FILES) {
     fs.renameSync(path.join(extracted, file), path.join(OPENCODE_DIR, file));
   }
