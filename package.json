@@ -1,6 +1,6 @@
 {
   "name": "opencode-termux",
-  "version": "1.18.5-0",
+  "version": "1.18.5-32",
   "description": "OpenCode AI assistant compiled for Android Termux (aarch64) with auto-update support",
   "main": "bin/opencode",
   "bin": {
