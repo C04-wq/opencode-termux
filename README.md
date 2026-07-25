@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://opencode.ai">
-    <img src="opencode-logo.svg" alt="OpenCode" width="64" height="80">
+    <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/opencode-logo.svg" alt="OpenCode" width="64" height="80">
   </a>
 </p>
 
@@ -40,6 +40,20 @@ Installation is intentionally quiet. Instead of command logs, it only shows shor
 ```
 
 Detailed command output is kept hidden unless an error occurs.
+
+## Screenshots
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-1.png" alt="OpenCode running in Termux" width="49%">
+  <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-2.png" alt="OpenCode session in Termux" width="49%">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-3.png" alt="OpenCode coding workflow in Termux" width="49%">
+  <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-4.png" alt="OpenCode interface in Termux" width="49%">
+</p>
+
+The images use absolute GitHub URLs so this exact README renders the same way on GitHub and npm.
 
 ## Automatic dependency setup
 
