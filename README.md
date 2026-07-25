@@ -53,7 +53,6 @@ Detailed command output is kept hidden unless an error occurs.
   <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-4.png" alt="OpenCode interface in Termux" width="49%">
 </p>
 
-The images use absolute GitHub URLs so this exact README renders the same way on GitHub and npm.
 
 ## Automatic dependency setup
 
