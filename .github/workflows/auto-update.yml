@@ -26,6 +26,12 @@ jobs:
       # Pinned commit for supply-chain safety (actions/checkout v4.2.2).
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
+      - name: Install ARM64 musl build toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes gcc-aarch64-linux-gnu
+
       - name: Resolve upstream and publication state
         id: state
         env:

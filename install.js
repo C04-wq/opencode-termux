@@ -9,6 +9,7 @@ const { version: VERSION } = require("./package.json");
 const { archiveSha256, version: checksumVersion } = require("./release-checksums.json");
 const HOME = process.env.HOME;
 const CERTIFICATE_FILE = "/data/data/com.termux/files/usr/etc/tls/cert.pem";
+const RESOLVER_FILE = "/data/data/com.termux/files/usr/etc/resolv.conf";
 const REQUIRED_FILES = [
   "opencode",
   "ld-musl-aarch64.so.1",
@@ -53,6 +54,7 @@ function ensureDependencies() {
   if (!commandExists("patchelf")) packages.push("patchelf");
   if (!commandExists("timeout")) packages.push("coreutils");
   if (!fs.existsSync(CERTIFICATE_FILE)) packages.push("ca-certificates");
+  if (!fs.existsSync(RESOLVER_FILE)) packages.push("resolv-conf");
   if (packages.length === 0) return;
   if (!commandExists("pkg")) throw new Error(`missing required Termux tools: ${packages.join(", ")}`);
 
@@ -69,6 +71,7 @@ function ensureDependencies() {
     !commandExists("patchelf") && "patchelf",
     !commandExists("timeout") && "coreutils",
     !fs.existsSync(CERTIFICATE_FILE) && "ca-certificates",
+    !fs.existsSync(RESOLVER_FILE) && "resolv-conf",
   ].filter(Boolean);
   if (stillMissing.length) throw new Error(`missing dependencies after setup: ${stillMissing.join(", ")}`);
   success("Termux dependencies are ready");

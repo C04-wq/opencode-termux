@@ -50,6 +50,7 @@ Before installing or starting OpenCode, the wrapper checks for the runtime prere
 - `patchelf` for the Termux-compatible ELF interpreter
 - `coreutils` for the update timeout command
 - `ca-certificates` for HTTPS certificates
+- `resolv-conf` for the DNS configuration used by the packaged musl runtime
 
 Node.js and npm are the only prerequisites because npm is used to install this package:
 
@@ -62,7 +63,7 @@ pkg install nodejs
 | Feature | Behavior |
 | --- | --- |
 | Verified downloads | The installer checks the release SHA-256 against `release-checksums.json` bundled in npm. |
-| Complete runtime | The OpenCode binary, musl loader, `libgcc`, and `libstdc++` are stored in `~/.opencode/`. |
+| Complete runtime | The OpenCode binary, musl loader, `libgcc`, and `libstdc++` are stored in `~/.opencode/`. The packaged musl resolver uses Termux's DNS configuration, so API connections work natively on Android. |
 | Safe updates | A newer npm package is installed first. The working runtime is kept if npm or the network fails. |
 | Version matching | `~/.opencode/.opencode-termux-version` ensures the runtime always matches the installed npm package. |
 | OpenCode updates | OpenCode's internal updater is disabled so it cannot replace the Termux-compatible binary. |
@@ -84,7 +85,7 @@ The [Build and publish Termux package](.github/workflows/auto-update.yml) workfl
 
 1. It detects the latest official OpenCode release through GitHub's API.
 2. It downloads `opencode-linux-arm64-musl.tar.gz` and verifies GitHub's SHA-256 digest.
-3. It packages the binary with ARM64 musl, `libgcc`, and `libstdc++` runtime libraries from Alpine 3.21.
+3. It packages the binary with ARM64 musl, `libgcc`, and `libstdc++` runtime libraries. The musl runtime is built from pinned source with Termux's resolver path so it can use Android DNS without Proot.
 4. It creates the release archive and records its SHA-256 in `release-checksums.json`.
 5. It publishes the npm package, creates the GitHub Release, and commits the generated checksum metadata.
 

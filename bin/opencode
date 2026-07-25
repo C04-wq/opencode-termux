@@ -17,7 +17,7 @@ install_opencode() {
   node "$DIR/install.js"
 }
 
-if [ ! -f /data/data/com.termux/files/usr/etc/tls/cert.pem ] || ! command -v timeout >/dev/null 2>&1; then
+if [ ! -f /data/data/com.termux/files/usr/etc/tls/cert.pem ] || [ ! -f /data/data/com.termux/files/usr/etc/resolv.conf ] || ! command -v timeout >/dev/null 2>&1; then
   node "$DIR/install.js" --ensure-dependencies || exit $?
 fi
 
