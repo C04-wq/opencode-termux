@@ -82,6 +82,10 @@ grep -Fq "${TERMUX_RESOLV_CONF}" "$MUSL_SOURCE/src/network/resolvconf.c" || {
   echo "Error: failed to apply the Termux resolver patch." >&2
   exit 1
 }
+(
+  cd "$MUSL_SOURCE"
+  CC=aarch64-linux-gnu-gcc ./configure
+)
 make -C "$MUSL_SOURCE" CC=aarch64-linux-gnu-gcc -j2
 
 LOADER="$MUSL_SOURCE/lib/libc.so"
