@@ -139,10 +139,15 @@ try {
 
     const binary = path.join(extracted, "opencode");
     const interpreter = path.join(extracted, "ld-musl-aarch64.so.1");
-    run("patchelf", ["--set-interpreter", interpreter, binary], { timeout: 15000 });
+    // $ORIGIN keeps the bundled musl libraries next to the binary, so the loader
+    // resolves them without LD_LIBRARY_PATH leaking into child processes.
+    run("patchelf", ["--set-interpreter", interpreter, "--set-rpath", "$ORIGIN", binary], { timeout: 15000 });
+    const smokeEnv = { ...process.env, SSL_CERT_FILE: CERTIFICATE_FILE };
+    delete smokeEnv.LD_PRELOAD;
+    delete smokeEnv.LD_LIBRARY_PATH;
     execFileSync(binary, ["--version"], {
       stdio: "pipe",
-      env: { ...process.env, LD_PRELOAD: interpreter, LD_LIBRARY_PATH: extracted, SSL_CERT_FILE: CERTIFICATE_FILE },
+      env: smokeEnv,
       timeout: 30000,
     });
 
