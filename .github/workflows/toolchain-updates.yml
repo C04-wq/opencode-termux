@@ -45,21 +45,16 @@ jobs:
             echo "current=$PINNED_BRANCH" >> "$GITHUB_OUTPUT"
             echo "latest=$PINNED_BRANCH" >> "$GITHUB_OUTPUT"
           fi
-      - name: Report pinned Alpine action
-        run: echo "Testing the repository allowlist for jirutka/setup-alpine at the pinned commit."
-      - name: Set up Alpine package verifier (no Docker)
-        id: alpine
-        uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050
-        with:
-          branch: v${{ steps.check.outputs.latest }}
-      - name: Validate updated build script
-        if: steps.check.outputs.changed == 'true'
+      - name: Prepare Alpine package verifier without a container action
+        run: |
+          set -euo pipefail
+          bash scripts/setup-alpine-chroot.sh "${{ steps.check.outputs.latest }}" "$RUNNER_TEMP/alpine-root"
+          echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
+      - name: Validate build script
         run: bash -n scripts/build-android-release.sh
       - name: Build and inspect candidate archive
-        if: steps.check.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          ALPINE_ROOT: ${{ steps.alpine.outputs.root-path }}
         run: |
           set -euo pipefail
           sudo apt-get update
