@@ -34,7 +34,7 @@ sudo cp /etc/resolv.conf "$ROOT/etc/resolv.conf"
 KEYS_BASE="https://dl-cdn.alpinelinux.org/alpine/v${BRANCH}/main/x86_64"
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
   "$KEYS_BASE/" -o "$TMP/keys-index.html"
-KEYS_PACKAGE="$(grep -oE 'alpine-keys-[0-9]+\\.[0-9]+-r[0-9]+\\.apk' "$TMP/keys-index.html" | sort -Vu | tail -n 1)"
+KEYS_PACKAGE="$(grep -oE 'alpine-keys-[0-9]+\.[0-9]+-r[0-9]+\.apk' "$TMP/keys-index.html" | sort -Vu | tail -n 1)"
 if [ -z "$KEYS_PACKAGE" ]; then
   echo "Error: could not locate the official Alpine keys package for v${BRANCH}." >&2
   exit 1
