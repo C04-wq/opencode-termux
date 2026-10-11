@@ -152,14 +152,19 @@ try {
     let backup = null;
     try {
       for (const file of REQUIRED_FILES) {
-        fs.cpSync(path.join(extracted, file), path.join(activation, file), {
-          recursive: false,
-          verbatimSymlinks: true,
-        });
+        const source = path.join(extracted, file);
+        const destination = path.join(activation, file);
+        const sourceStat = fs.lstatSync(source);
+        if (sourceStat.isSymbolicLink()) {
+          fs.symlinkSync(fs.readlinkSync(source), destination);
+        } else {
+          fs.copyFileSync(source, destination);
+          fs.chmodSync(destination, sourceStat.mode & 0o777);
+        }
       }
       const stagedBinary = path.join(activation, "opencode");
       run("patchelf", ["--set-interpreter", path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), stagedBinary], { timeout: 15000 });
-      fs.writeFileSync(path.join(activation, ".opencode-termux-version"), `${VERSION}\\n`, { mode: 0o600 });
+      fs.writeFileSync(path.join(activation, ".opencode-termux-version"), `${VERSION}\n`, { mode: 0o600 });
 
       if (fs.existsSync(OPENCODE_DIR)) {
         backup = path.join(HOME, `.opencode-termux-backup-${process.pid}-${Date.now()}`);
