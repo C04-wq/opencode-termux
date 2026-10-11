@@ -19,6 +19,16 @@
 
 This repository does **not** implement a separate AI coding agent or provide AI models/API access. It packages and launches OpenCode and handles platform-specific runtime compatibility.
 
+
+## Screenshots
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-1.png" alt="OpenCode running in Termux" width="49%">
+  <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-2.png" alt="OpenCode session in Termux" width="49%">
+  <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-3.png" alt="OpenCode coding workflow in Termux" width="49%">
+  <img src="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/screenshots/screenshot-4.png" alt="OpenCode interface in Termux" width="49%">
+</p>
+
 ## Contents
 
 - [Requirements and scope](#requirements-and-scope)
