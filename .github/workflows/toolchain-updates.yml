@@ -2,6 +2,7 @@ name: Check toolchain updates
 on:
   push:
     branches:
+      - main
       - codex/maintenance-and-updates
     paths:
       - ".github/workflows/toolchain-updates.yml"
@@ -9,7 +10,7 @@ on:
       - "scripts/check-toolchain-updates.mjs"
       - "scripts/setup-alpine-chroot.sh"
   schedule:
-    - cron: "23 7 * * 1"
+    - cron: "23 7 * * *"
   workflow_dispatch:
 
 permissions:
@@ -87,5 +88,5 @@ jobs:
           if [ -z "$EXISTING" ]; then
             gh pr create --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base main \
               --title "build: review Alpine ${CURRENT} → ${LATEST}" \
-              --body "Automated proposal from Alpine's official release page. This updates the stable branch pin only. Review the build, APK signature verification, runtime compatibility and tests before merging. musl remains pinned until its new source digest is independently verified."
+              --body "Automated compatibility proposal. The workflow detected a newer stable Alpine branch, prepared its version-matched minirootfs, and successfully built the latest official OpenCode ARM64 musl release against it. This updates the Alpine stable-branch pin only. Review CI, APK signature verification, runtime compatibility and tests before merging; this is intentionally a pull request, not an automatic merge. musl remains pinned until its new source digest is independently verified."
           fi
