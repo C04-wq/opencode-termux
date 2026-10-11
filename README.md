@@ -131,7 +131,7 @@ npm uninstall -g opencode-termux
 rm -rf ~/.opencode
 ```
 
-The second command removes only the runtime managed by this package. OpenCode configuration, if any, is normally kept in `~/.config/opencode`.
+The second command removes only the runtime managed by this package. OpenCode configuration, if any, is normally kept in `~/.config/opencode`. Runtime updates are staged in a sibling directory and activated by rename; if activation fails, the previous runtime is restored. Failed npm version checks are not cached, so a temporary network problem does not suppress update checks for a full day.
 
 ## Project layout
 
