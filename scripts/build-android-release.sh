@@ -14,10 +14,10 @@ fi
 VERSION="$1"
 OUTPUT="$2"
 EXPECTED_UPSTREAM_SHA256="${3:-}"
-ALPINE_VERSION="3.21"
+ALPINE_VERSION="3.24"
 ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main/aarch64"
-MUSL_VERSION="1.2.5"
-MUSL_SHA256="a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4"
+MUSL_VERSION="1.2.6"
+MUSL_SHA256="d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"
 TERMUX_RESOLV_CONF="/data/data/com.termux/files/usr/etc/resolv.conf"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -103,8 +103,8 @@ install -m 0755 "$WORKDIR/upstream/opencode" "$WORKDIR/stage/opencode"
 install -m 0755 "$LOADER" "$WORKDIR/stage/ld-musl-aarch64.so.1"
 install -m 0755 "$LOADER" "$WORKDIR/stage/libc.musl-aarch64.so.1"
 install -m 0644 "$LIBGCC" "$WORKDIR/stage/libgcc_s.so.1"
-install -m 0755 "$LIBSTDCXX" "$WORKDIR/stage/libstdc++.so.6.0.33"
-ln -s libstdc++.so.6.0.33 "$WORKDIR/stage/libstdc++.so.6"
+install -m 0755 "$LIBSTDCXX" "$WORKDIR/stage/libstdc++.so.6.runtime"
+ln -s libstdc++.so.6.runtime "$WORKDIR/stage/libstdc++.so.6"
 
 for library in libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6; do
   patchelf --print-needed "$WORKDIR/stage/opencode" | grep -Fxq "$library" || {
@@ -114,4 +114,4 @@ for library in libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6; do
 done
 
 tar -C "$WORKDIR/stage" -czf "$OUTPUT" \
-  opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
+  opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime
