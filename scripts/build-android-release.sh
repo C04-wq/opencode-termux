@@ -69,7 +69,9 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
     --root "$WORKDIR/root" --initdb --arch aarch64 \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
 elif command -v apk >/dev/null 2>&1; then
-  apk --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir /etc/apk/keys \
+  mkdir -p "$WORKDIR/root/etc/apk/keys"
+  cp -a /etc/apk/keys/. "$WORKDIR/root/etc/apk/keys/"
+  apk --root "$WORKDIR/root" --initdb --arch aarch64 \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
 else
   echo "Error: Alpine apk is unavailable. Run this builder in Alpine or set ALPINE_ROOT to a prepared Alpine chroot." >&2
