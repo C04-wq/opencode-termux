@@ -40,32 +40,20 @@ if [ ! -x "$WORKDIR/upstream/opencode" ]; then
   exit 1
 fi
 
-curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors "$ALPINE_REPO/APKINDEX.tar.gz" -o "$WORKDIR/APKINDEX.tar.gz"
-tar -xzf "$WORKDIR/APKINDEX.tar.gz" -C "$WORKDIR"
-
-apk_version() {
-  awk -v package="$1" '
-    $0 == "P:" package { found = 1; next }
-    found && /^V:/ { sub(/^V:/, ""); print; exit }
-    /^$/ { found = 0 }
-  ' "$WORKDIR/APKINDEX"
-}
-
-fetch_apk() {
-  local package="$1"
-  local version
-  version="$(apk_version "$package")"
-  if [ -z "$version" ]; then
-    echo "Error: Alpine package $package was not found." >&2
-    exit 1
-  fi
-  curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
-    "$ALPINE_REPO/${package}-${version}.apk" -o "$WORKDIR/${package}.apk"
-  tar -xzf "$WORKDIR/${package}.apk" -C "$WORKDIR/root"
-}
-
-fetch_apk libgcc
-fetch_apk libstdc++
+# Use Alpine's own package manager and trusted signing keys instead of unpacking
+# APK files directly. apk verifies the signed index and package metadata before
+# installing anything into this disposable root.
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Error: Docker is required to verify Alpine package signatures." >&2
+  exit 1
+fi
+docker run --rm \
+  -v "$WORKDIR:/work" \
+  "alpine:${ALPINE_VERSION}" \
+  sh -ec '
+    apk --root /work/root --initdb --keys-dir /etc/apk/keys \
+      --repository "$1" add --no-cache --no-scripts libgcc libstdc++
+  ' sh "$ALPINE_REPO"
 
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
   "https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz" \
