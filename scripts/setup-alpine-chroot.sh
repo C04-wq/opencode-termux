@@ -29,17 +29,22 @@ sudo mkdir -p "$ROOT"
 sudo tar -xzf "$TMP/$ARCHIVE" -C "$ROOT"
 sudo rm -f "$ROOT/etc/resolv.conf"
 sudo cp /etc/resolv.conf "$ROOT/etc/resolv.conf"
-# The host rootfs is x86_64, while the package index being verified is aarch64.
-# Fetch the official branch's ARM64 signing keys so apk can verify that index.
-KEYS_BASE="https://gitlab.alpinelinux.org/alpine/aports/-/raw/${BRANCH}-stable/main/alpine-keys/aarch64"
-sudo mkdir -p "$ROOT/usr/share/apk/keys/aarch64" "$ROOT/etc/apk/keys"
-for key in \
-  alpine-devel@lists.alpinelinux.org-58199dcc.rsa.pub \
-  alpine-devel@lists.alpinelinux.org-616ae350.rsa.pub; do
-  curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
-    "$KEYS_BASE/$key" -o "$TMP/$key"
-  sudo install -m 0644 "$TMP/$key" "$ROOT/usr/share/apk/keys/aarch64/$key"
-  sudo install -m 0644 "$TMP/$key" "$ROOT/etc/apk/keys/$key"
-done
+# Bootstrap Alpine's trusted key set from the same official stable branch.
+# The rootfs is x86_64; the builder also needs the branch's aarch64 repository keys.
+KEYS_BASE="https://dl-cdn.alpinelinux.org/alpine/v${BRANCH}/main/x86_64"
+curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
+  "$KEYS_BASE/" -o "$TMP/keys-index.html"
+KEYS_PACKAGE="$(grep -oE 'alpine-keys-[0-9]+\\.[0-9]+-r[0-9]+\\.apk' "$TMP/keys-index.html" | sort -Vu | tail -n 1)"
+if [ -z "$KEYS_PACKAGE" ]; then
+  echo "Error: could not locate the official Alpine keys package for v${BRANCH}." >&2
+  exit 1
+fi
+curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
+  "$KEYS_BASE/$KEYS_PACKAGE" -o "$TMP/$KEYS_PACKAGE"
+mkdir -p "$TMP/alpine-keys"
+tar -xzf "$TMP/$KEYS_PACKAGE" -C "$TMP/alpine-keys"
+sudo mkdir -p "$ROOT/etc/apk/keys" "$ROOT/usr/share/apk/keys"
+sudo cp -a "$TMP/alpine-keys/etc/apk/keys/." "$ROOT/etc/apk/keys/"
+sudo cp -a "$TMP/alpine-keys/usr/share/apk/keys/." "$ROOT/usr/share/apk/keys/"
 sudo chroot "$ROOT" /sbin/apk --version
 echo "Prepared Alpine v${BRANCH} chroot at $ROOT"
