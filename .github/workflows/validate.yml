@@ -35,6 +35,7 @@ jobs:
           const installer = fs.readFileSync('install.js', 'utf8');
           const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
           const files = [...installer.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+          if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
           if (!installer.includes('"libstdc++.so.6.runtime"')) throw new Error('installer runtime library filename mismatch');
           NODE
