@@ -1,0 +1,59 @@
+name: Check toolchain updates
+on:
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: opencode-termux-toolchain-update
+  cancel-in-progress: false
+
+jobs:
+  check-alpine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Check official Alpine stable branch
+        id: check
+        run: |
+          set -euo pipefail
+          node scripts/check-toolchain-updates.mjs | tee toolchain-update.log
+          if grep -q '^ALPINE_UPDATE=true$' toolchain-update.log; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "current=$(sed -n 's/^ALPINE_CURRENT=//p' toolchain-update.log)" >> "$GITHUB_OUTPUT"
+            echo "latest=$(sed -n 's/^ALPINE_LATEST=//p' toolchain-update.log)" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate updated build script
+        if: steps.check.outputs.changed == 'true'
+        run: bash -n scripts/build-android-release.sh
+      - name: Create or refresh review branch
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT: ${{ steps.check.outputs.current }}
+          LATEST: ${{ steps.check.outputs.latest }}
+        run: |
+          set -euo pipefail
+          BRANCH="automation/alpine-${LATEST}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add scripts/build-android-release.sh
+          git commit -m "build: review Alpine ${LATEST} toolchain"
+          git push --force origin "$BRANCH"
+          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json url --jq '.[0].url // empty')"
+          if [ -z "$EXISTING" ]; then
+            gh pr create --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base main \
+              --title "build: review Alpine ${CURRENT} → ${LATEST}" \
+              --body "Automated proposal from Alpine's official release page. This updates the stable branch pin only. Review the build, APK signature verification, runtime compatibility and tests before merging. musl remains pinned until its new source digest is independently verified."
+          fi
