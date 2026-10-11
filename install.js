@@ -167,9 +167,15 @@ try {
     const binary = path.join(extracted, "opencode");
     const interpreter = path.join(extracted, "ld-musl-aarch64.so.1");
     run("patchelf", ["--set-interpreter", interpreter, binary], { timeout: 15000 });
-    execFileSync(binary, ["--version"], {
+    const extractedRuntimeEnv = {
+      ...process.env,
+      LD_LIBRARY_PATH: extracted,
+      SSL_CERT_FILE: CERTIFICATE_FILE,
+    };
+    delete extractedRuntimeEnv.LD_PRELOAD;
+    execFileSync(interpreter, ["--library-path", extracted, binary, "--version"], {
       stdio: "pipe",
-      env: { ...process.env, LD_PRELOAD: interpreter, LD_LIBRARY_PATH: extracted, SSL_CERT_FILE: CERTIFICATE_FILE },
+      env: extractedRuntimeEnv,
       timeout: 30000,
     });
 
@@ -204,14 +210,17 @@ try {
         throw activationError;
       }
       try {
-        execFileSync(path.join(OPENCODE_DIR, "opencode"), ["--version"], {
+        const activeRuntimeEnv = {
+          ...process.env,
+          LD_LIBRARY_PATH: OPENCODE_DIR,
+          SSL_CERT_FILE: CERTIFICATE_FILE,
+        };
+        delete activeRuntimeEnv.LD_PRELOAD;
+        execFileSync(path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), [
+          "--library-path", OPENCODE_DIR, path.join(OPENCODE_DIR, "opencode"), "--version",
+        ], {
           stdio: "pipe",
-          env: {
-            ...process.env,
-            LD_PRELOAD: path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"),
-            LD_LIBRARY_PATH: OPENCODE_DIR,
-            SSL_CERT_FILE: CERTIFICATE_FILE,
-          },
+          env: activeRuntimeEnv,
           timeout: 30000,
         });
       } catch (runtimeError) {
