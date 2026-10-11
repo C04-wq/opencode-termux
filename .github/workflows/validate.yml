@@ -41,6 +41,9 @@ jobs:
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
           if (/\bdocker\b/i.test(builder)) throw new Error('release builder must not depend on Docker');
+          for (const workflow of [releaseWorkflow, toolchainWorkflow, fs.readFileSync('.github/workflows/validate.yml', 'utf8')]) {
+            if (workflow.includes('actions/setup-node@')) throw new Error('workflows must use the preinstalled runner Node.js to honor the repository action allowlist');
+          }
           if (!builder.includes('sudo chroot "$ALPINE_ROOT" /sbin/apk')) throw new Error('builder must verify Alpine packages with apk in a chroot');
           if (!releaseWorkflow.includes('jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050')) throw new Error('release workflow must prepare a pinned Alpine chroot');
           if (!toolchainWorkflow.includes('jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050')) throw new Error('toolchain workflow must prepare a pinned Alpine chroot');
