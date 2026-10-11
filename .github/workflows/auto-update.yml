@@ -97,8 +97,6 @@ jobs:
 
       - name: Build Android-compatible release archive
         if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || inputs.force_publish == true
-        env:
-          ALPINE_ROOT: ${{ steps.alpine.outputs.root-path }}
         run: |
           set -euo pipefail
           node --check install.js
