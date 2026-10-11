@@ -18,11 +18,6 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Set up Alpine package verifier (no Docker)
-        id: alpine
-        uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050
-        with:
-          branch: v3.24
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
@@ -30,6 +25,7 @@ jobs:
         id: check
         run: |
           set -euo pipefail
+          PINNED_BRANCH="$(sed -n 's/^ALPINE_VERSION="\([0-9.]*\)"$/\1/p' scripts/build-android-release.sh)"
           node scripts/check-toolchain-updates.mjs | tee toolchain-update.log
           if grep -q '^ALPINE_UPDATE=true$' toolchain-update.log; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -37,7 +33,14 @@ jobs:
             echo "latest=$(sed -n 's/^ALPINE_LATEST=//p' toolchain-update.log)" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "current=$PINNED_BRANCH" >> "$GITHUB_OUTPUT"
           fi
+      - name: Set up Alpine package verifier (no Docker)
+        if: steps.check.outputs.changed == 'true'
+        id: alpine
+        uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050
+        with:
+          branch: v${{ steps.check.outputs.latest }}
       - name: Validate updated build script
         if: steps.check.outputs.changed == 'true'
         run: bash -n scripts/build-android-release.sh
