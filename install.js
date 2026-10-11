@@ -107,7 +107,7 @@ function normalizeLibstdcxx(directory) {
   // The archive checksum is verified before this function is called.
   if (!fs.existsSync(runtime)) {
     const versioned = fs.readdirSync(directory)
-      .filter((file) => /^libstdc\\+\\+\\.so\\.6(?:\\.\\d+)+$/.test(file))
+      .filter((file) => /^libstdc\+\+\.so\.6(?:\.\d+)+$/.test(file))
       .sort()
       .pop();
     if (!versioned) return;
