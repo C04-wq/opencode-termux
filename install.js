@@ -58,7 +58,7 @@ function ensureDependencies() {
   if (packages.length === 0) return;
   if (!commandExists("pkg")) throw new Error(`missing required Termux tools: ${packages.join(", ")}`);
 
-  message("Setting up Termux dependencies…");
+  message("Installing required dependencies…");
   try {
     run("pkg", ["install", "-y", ...packages], { timeout: 180000 });
   } catch (error) {
