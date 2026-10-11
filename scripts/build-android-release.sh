@@ -73,9 +73,7 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
       done < <(find -L "$KEY_DIR" -type f -name '*.rsa.pub' -print0)
     fi
   done
-  echo "Trusted APK keys staged for target root:"
-  find "$WORKDIR/root/etc/apk/keys" -maxdepth 1 -type f -printf "%f\\n" | sort
-  sudo chroot "$ALPINE_ROOT" /sbin/apk --verbose \
+  sudo chroot "$ALPINE_ROOT" /sbin/apk \
     --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir "$WORKDIR/root/etc/apk/keys" \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
 elif command -v apk >/dev/null 2>&1; then
@@ -84,7 +82,7 @@ elif command -v apk >/dev/null 2>&1; then
   if [ -d /usr/share/apk/keys/aarch64 ]; then
     cp -a /usr/share/apk/keys/aarch64/. "$WORKDIR/root/etc/apk/keys/"
   fi
-  apk --root "$WORKDIR/root" --initdb --arch aarch64 \
+  apk --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir "$WORKDIR/root/etc/apk/keys" \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
 else
   echo "Error: Alpine apk is unavailable. Run this builder in Alpine or set ALPINE_ROOT to a prepared Alpine chroot." >&2
