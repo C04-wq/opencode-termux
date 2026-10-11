@@ -37,6 +37,8 @@ jobs:
           const files = [...installer.matchAll(/"([^"]+)"/g)].map(m => m[1]);
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
+          if (installer.includes('fs.cpSync(')) throw new Error('installer uses an API newer than its declared Node engine');
+          if (!installer.includes('fs.renameSync(activation, OPENCODE_DIR)')) throw new Error('installer must activate the staged runtime by directory rename');
           if (!installer.includes('"libstdc++.so.6.runtime"')) throw new Error('installer runtime library filename mismatch');
           NODE
           npm pack --dry-run
