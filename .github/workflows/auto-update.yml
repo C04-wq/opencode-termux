@@ -66,9 +66,9 @@ jobs:
           else
             RELEASE_EXISTS=false
           fi
-          if [ "$NPM_EXISTS" = true ] && [ "$RELEASE_EXISTS" = false ]; then
-            echo "Error: npm already contains v${PACKAGE_VERSION}, but its GitHub release is missing." >&2
-            echo "Refusing to rebuild an archive whose checksum would differ from the published npm metadata." >&2
+          if [ "$NPM_EXISTS" != "$RELEASE_EXISTS" ]; then
+            echo "Error: npm and GitHub Release state disagree for v${PACKAGE_VERSION}." >&2
+            echo "Refusing to rebuild or publish a potentially mismatched archive. Recover the missing side manually." >&2
             exit 1
           fi
 
