@@ -15,7 +15,7 @@ VERSION="$1"
 OUTPUT="$2"
 EXPECTED_UPSTREAM_SHA256="${3:-}"
 ALPINE_VERSION="3.24"
-ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main/aarch64"
+ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main"
 MUSL_VERSION="1.2.6"
 MUSL_SHA256="d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"
 TERMUX_RESOLV_CONF="/data/data/com.termux/files/usr/etc/resolv.conf"
@@ -25,7 +25,11 @@ cleanup() {
   if [ -n "$ALPINE_BIND_MOUNT" ] && mountpoint -q "$ALPINE_BIND_MOUNT"; then
     sudo umount "$ALPINE_BIND_MOUNT"
   fi
-  rm -rf "$WORKDIR"
+  if [ -n "${ALPINE_ROOT:-}" ]; then
+    sudo rm -rf "$WORKDIR"
+  else
+    rm -rf "$WORKDIR"
+  fi
 }
 trap cleanup EXIT
 
