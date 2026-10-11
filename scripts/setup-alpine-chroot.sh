@@ -18,7 +18,7 @@ curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry
 
 ARCHIVE="$(grep -oE 'alpine-minirootfs-[0-9]+\\.[0-9]+\\.[0-9]+-x86_64\\.tar\\.gz' "$TMP/index.html" | sort -Vu | tail -n 1)"
 if [ -z "$ARCHIVE" ]; then
-  echo "Error: no stable Alpine minirootfs found for branch v\${BRANCH}." >&2
+  echo "Error: no stable Alpine minirootfs found for branch v${BRANCH}." >&2
   exit 1
 fi
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors "$BASE/$ARCHIVE" -o "$TMP/$ARCHIVE"
@@ -30,4 +30,4 @@ sudo tar -xzf "$TMP/$ARCHIVE" -C "$ROOT"
 sudo rm -f "$ROOT/etc/resolv.conf"
 sudo cp /etc/resolv.conf "$ROOT/etc/resolv.conf"
 sudo chroot "$ROOT" /sbin/apk --version
-echo "Prepared Alpine v\${BRANCH} chroot at $ROOT"
+echo "Prepared Alpine v${BRANCH} chroot at $ROOT"
