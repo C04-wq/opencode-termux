@@ -63,6 +63,8 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
   ALPINE_BIND_MOUNT="$ALPINE_ROOT$PWD"
   sudo mkdir -p "$ALPINE_BIND_MOUNT"
   sudo mount --bind "$PWD" "$ALPINE_BIND_MOUNT"
+  sudo mkdir -p "$WORKDIR/root/etc/apk/keys"
+  sudo cp -a "$ALPINE_ROOT/etc/apk/keys/." "$WORKDIR/root/etc/apk/keys/"
   sudo chroot "$ALPINE_ROOT" /sbin/apk \
     --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir /etc/apk/keys \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
