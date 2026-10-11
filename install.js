@@ -98,14 +98,30 @@ const OPENCODE_DIR = path.join(HOME, ".opencode");
 const VERSION_FILE = path.join(OPENCODE_DIR, ".opencode-termux-version");
 const URL = `https://github.com/C04-wq/opencode-termux/releases/download/v${VERSION}/opencode-termux-aarch64.tar.gz`;
 
-function hasRequiredFiles(directory) {
-  return REQUIRED_FILES.every((file) => {
-    try {
-      return fs.statSync(path.join(directory, file)).size > 0;
-    } catch (_) {
-      return false;
-    }
-  });
+function normalizeLibstdcxx(directory) {
+  const runtime = path.join(directory, "libstdc++.so.6.runtime");
+  const soname = path.join(directory, "libstdc++.so.6");
+
+  // Older published archives contain the versioned Alpine library directly
+  // (for example libstdc++.so.6.0.33) instead of the normalized runtime name.
+  // The archive checksum is verified before this function is called.
+  if (!fs.existsSync(runtime)) {
+    const versioned = fs.readdirSync(directory)
+      .filter((file) => /^libstdc\\+\\+\\.so\\.6(?:\\.\\d+)+$/.test(file))
+      .sort()
+      .pop();
+    if (!versioned) return;
+    fs.copyFileSync(path.join(directory, versioned), runtime);
+    fs.chmodSync(runtime, 0o644);
+  }
+
+  try {
+    const stat = fs.lstatSync(soname);
+    if (stat.isSymbolicLink()) fs.unlinkSync(soname);
+  } catch (_) {
+    // Create the SONAME link below when it is absent.
+  }
+  if (!fs.existsSync(soname)) fs.symlinkSync("libstdc++.so.6.runtime", soname);
 }
 
 function hasCompleteInstall(directory) {
@@ -135,6 +151,7 @@ try {
 
     fs.mkdirSync(extracted);
     run("tar", ["-xzf", archive, "-C", extracted], { timeout: 60000 });
+    normalizeLibstdcxx(extracted);
     if (!hasRequiredFiles(extracted)) throw new Error("release archive is incomplete");
 
     const binary = path.join(extracted, "opencode");
