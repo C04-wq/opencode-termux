@@ -28,6 +28,7 @@ jobs:
           node --check scripts/check-toolchain-updates.mjs
           bash -n bin/opencode
           bash -n scripts/build-android-release.sh
+          bash -n scripts/setup-alpine-chroot.sh
           node <<'NODE'
           const fs = require('fs');
           const pkg = require('./package.json');
@@ -38,6 +39,7 @@ jobs:
           const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
           const releaseWorkflow = fs.readFileSync('.github/workflows/auto-update.yml', 'utf8');
           const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
+          const alpineBootstrap = fs.readFileSync('scripts/setup-alpine-chroot.sh', 'utf8');
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
           if (/\bdocker\b/i.test(builder)) throw new Error('release builder must not depend on Docker');
@@ -45,8 +47,9 @@ jobs:
             if (workflow.includes(['actions/setup', '-node@'].join(''))) throw new Error('workflows must use the preinstalled runner Node.js to honor the repository action allowlist');
           }
           if (!builder.includes('sudo chroot "$ALPINE_ROOT" /sbin/apk')) throw new Error('builder must verify Alpine packages with apk in a chroot');
-          if (!releaseWorkflow.includes('jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050')) throw new Error('release workflow must prepare a pinned Alpine chroot');
-          if (!toolchainWorkflow.includes('jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050')) throw new Error('toolchain workflow must prepare a pinned Alpine chroot');
+          if (releaseWorkflow.includes('jirutka/setup-alpine@') || toolchainWorkflow.includes('jirutka/setup-alpine@')) throw new Error('workflows must not use the disallowed external Alpine action');
+          if (!releaseWorkflow.includes('scripts/setup-alpine-chroot.sh') || !toolchainWorkflow.includes('scripts/setup-alpine-chroot.sh')) throw new Error('both workflows must use the local Alpine chroot bootstrap');
+          if (!alpineBootstrap.includes('sha256sum --check') || !alpineBootstrap.includes('chroot "$ROOT" /sbin/apk')) throw new Error('Alpine bootstrap must verify the rootfs checksum and apk executable');
           if (installer.includes('fs.cpSync(')) throw new Error('installer uses an API newer than its declared Node engine');
           if (!installer.includes('fs.renameSync(activation, OPENCODE_DIR)')) throw new Error('installer must activate the staged runtime by directory rename');
           if (!installer.includes('"libstdc++.so.6.runtime"')) throw new Error('installer runtime library filename mismatch');
