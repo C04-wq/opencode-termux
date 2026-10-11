@@ -16,7 +16,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors "$BASE/" -o "$TMP/index.html"
 
-ARCHIVE="$(grep -oE 'alpine-minirootfs-[0-9]+\\.[0-9]+\\.[0-9]+-x86_64\\.tar\\.gz' "$TMP/index.html" | sort -Vu | tail -n 1)"
+ARCHIVE="$(grep -oE 'alpine-minirootfs-[0-9]+\.[0-9]+\.[0-9]+-x86_64\.tar\.gz' "$TMP/index.html" | sort -Vu | tail -n 1)"
 if [ -z "$ARCHIVE" ]; then
   echo "Error: no stable Alpine minirootfs found for branch v${BRANCH}." >&2
   exit 1
