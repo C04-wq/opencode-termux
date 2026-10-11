@@ -32,6 +32,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf
 
+      - name: Set up Alpine package verifier (no Docker)
+        id: alpine
+        uses: jirutka/setup-alpine@ae3b3ddba35054804fc4a3507b519fa7e8152050
+        with:
+          branch: v3.24
+
       - name: Resolve upstream and publication state
         id: state
         env:
@@ -80,6 +86,8 @@ jobs:
 
       - name: Build Android-compatible release archive
         if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || inputs.force_publish == true
+        env:
+          ALPINE_ROOT: ${{ steps.alpine.outputs.root-path }}
         run: |
           set -euo pipefail
           node --check install.js
