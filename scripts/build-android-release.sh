@@ -68,7 +68,9 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
   if [ -d "$ALPINE_ROOT/usr/share/apk/keys/aarch64" ]; then
     sudo cp -a "$ALPINE_ROOT/usr/share/apk/keys/aarch64/." "$WORKDIR/root/etc/apk/keys/"
   fi
-  sudo chroot "$ALPINE_ROOT" /sbin/apk \
+  echo "Trusted APK keys staged for target root:"
+  find "$WORKDIR/root/etc/apk/keys" -maxdepth 1 -type f -printf "%f\\n" | sort
+  sudo chroot "$ALPINE_ROOT" /sbin/apk --verbose \
     --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir "$WORKDIR/root/etc/apk/keys" \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
 elif command -v apk >/dev/null 2>&1; then
