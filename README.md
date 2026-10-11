@@ -15,175 +15,197 @@
 
 <p align="center"><b>OpenCode on Android through Termux — automatic setup, verified runtime files, and no root required.</b></p>
 
-**opencode-termux** is a compatibility and distribution layer for running the official OpenCode ARM64 musl build on Android's Termux environment. It provides a command named `opencode`, checks the local prerequisites, downloads and validates the matching runtime, adapts the binary to Termux's filesystem and DNS layout, and optionally updates the npm package automatically.
+**opencode-termux** is a compatibility and distribution layer for running the official OpenCode Linux ARM64/musl build in Termux. It installs a command named `opencode`, checks the Termux prerequisites, downloads and verifies a matching runtime archive, adapts the executable to Termux's filesystem and DNS layout, and can update its own npm package.
 
-This project does not implement a separate AI coding agent. It packages and launches OpenCode, while handling the environment-specific work needed to make its Linux ARM64 musl executable run under Termux.
+This repository does **not** implement a separate AI coding agent or provide AI models/API access. It packages and launches OpenCode and handles platform-specific runtime compatibility.
 
 ## Contents
 
-- [Requirements](#requirements)
-- [Install](#install)
-- [What happens when you run opencode](#what-happens-when-you-run-opencode)
-- [Dependency checks](#dependency-checks)
-- [Runtime installation and integrity](#runtime-installation-and-integrity)
+- [Requirements and scope](#requirements-and-scope)
+- [Installation and first launch](#installation-and-first-launch)
+- [Launch lifecycle](#launch-lifecycle)
+- [Dependencies checked at launch](#dependencies-checked-at-launch)
+- [Runtime files, verification, and recovery](#runtime-files-verification-and-recovery)
 - [Automatic package updates](#automatic-package-updates)
-- [How the Android compatibility layer works](#how-the-android-compatibility-layer-works)
-- [Automated build and release pipeline](#automated-build-and-release-pipeline)
-- [Configuration, troubleshooting, and repair](#configuration-troubleshooting-and-repair)
-- [Uninstall](#uninstall)
-- [Repository layout](#repository-layout)
+- [Why the compatibility layer is needed](#why-the-compatibility-layer-is-needed)
+- [Build and release automation](#build-and-release-automation)
+- [Troubleshooting](#troubleshooting)
+- [Uninstalling](#uninstalling)
+- [Repository map](#repository-map)
 - [Limitations and security notes](#limitations-and-security-notes)
+- [License](#license)
 
-## Requirements
+## Requirements and scope
 
-- Android device or environment running **Termux on ARM64/aarch64**.
-- Node.js and npm in Termux. Install them with:
+- An Android device running **Termux on ARM64/aarch64**.
+- Node.js and npm available inside Termux.
+- Internet access for initial runtime download, dependency installation when required, and npm version checks.
+- Enough free storage for the compressed archive, temporary extraction, and runtime files.
 
-  ```bash
-  pkg update
-  pkg install nodejs
-  ```
-
-- Internet access for initial setup, downloading the runtime, and checking npm for updates.
-- Enough free storage for the downloaded archive, temporary extraction, and installed runtime.
-
-Root access, Proot, Docker, and an Alpine installation inside Termux are **not** required. Alpine is used by the hosted build workflow to obtain and verify runtime libraries; it is not installed on the user's phone.
-
-This package is specifically designed for Termux's standard prefix at `/data/data/com.termux/files/usr`. It is not a generic Linux installer and does not target x86_64 or 32-bit ARM devices.
-
-## Install
-
-Run these commands in Termux:
+Install Node.js from Termux's package repositories if needed:
 
 ```bash
+pkg update
 pkg install nodejs
+```
+
+Check the Node.js architecture with:
+
+```bash
+node -p 'process.arch'
+```
+
+The expected output is `arm64`. The installer exits with an error on other Node architectures. The package is designed for Termux's standard prefix, `/data/data/com.termux/files/usr`; it is not a general-purpose Linux installer.
+
+**Root, Proot, Docker, and Alpine installed on the phone are not required.** Alpine is used by the hosted build process to obtain signed ARM64 support libraries. The phone receives the resulting runtime archive.
+
+## Installation and first launch
+
+Run in Termux:
+
+```bash
 npm install -g opencode-termux
 opencode
 ```
 
-The npm package installs the launcher and installer scripts. The larger OpenCode runtime is downloaded on first launch into `~/.opencode/`, rather than being bundled as a large binary payload inside the npm package.
+The npm package installs the launcher and JavaScript installer. It does not bundle the large OpenCode executable/runtime inside the npm package. On first launch, the installer downloads the runtime archive associated with the installed package version and prepares it under `~/.opencode/`.
 
-To pass arguments to OpenCode, append them as you normally would:
+Useful commands:
 
 ```bash
 opencode --version
 opencode .
 ```
 
-The wrapper forwards the supplied arguments to the OpenCode executable.
+The launcher passes arguments through to OpenCode. Run `opencode --help` to see the options supported by the installed OpenCode version.
 
-## What happens when you run `opencode`
+## Launch lifecycle
 
-The launcher in `bin/opencode` coordinates setup, runtime validation, update checks, and the final process launch. It is designed to make normal launches quiet while stopping with a clear error if a required setup step fails.
-
-```text
-User runs: opencode [arguments]
-        |
-        v
-1. Check Termux dependencies
-        |
-        +-- All present --> continue silently
-        |
-        +-- Missing -----> install missing packages with pkg
-                            show a short English status message
-        |
-        v
-2. Check local OpenCode runtime
-        |
-        +-- Complete and version matches --> reuse it
-        |
-        +-- Missing, incomplete, or stale --> download and validate runtime
-        |
-        v
-3. Check npm for a newer published package
-   (no more than once per 24 hours by default)
-        |
-        +-- No newer version / check unavailable --> keep current package
-        |
-        +-- New version found --> install package and restart the launcher
-                                  so the new package can prepare its runtime
-        |
-        v
-4. Set runtime library and TLS environment
-        |
-        v
-5. Execute OpenCode with the original arguments
-```
-
-### First launch
-
-On the first launch, the runtime normally does not exist yet. The installer downloads the archive corresponding to the installed npm package, verifies its SHA-256 digest, extracts it into a temporary directory, checks that the required files are present, adjusts the executable's interpreter, and runs a version test. Only after these checks does it activate the runtime under `~/.opencode/`.
-
-### Subsequent launches
-
-When all Termux dependencies are already available and the runtime files and version marker match the installed package, the dependency check is silent and the runtime is reused. The launcher still performs its configured npm version-check logic, but the network check is rate-limited by default.
-
-If a required runtime file is missing or the runtime marker does not match the installed npm package, the installer prepares the matching runtime again. A setup error stops the launch rather than intentionally continuing with an incomplete runtime.
-
-## Dependency checks
-
-Every invocation of `opencode` runs the dependency check. If everything is available, it returns without printing a setup message. If something is missing, the installer displays:
+The main entry point is `bin/opencode`; runtime setup and verification are implemented in `install.js`. Each time you run `opencode`, the process is approximately:
 
 ```text
-◇ Installing required dependencies…
-✓ Termux dependencies are ready
+opencode [arguments]
+    |
+    v
+1. Run install.js --ensure-dependencies
+    |-- Required tools/files already present -> no setup message
+    |-- Something missing -> try pkg install -y for the missing items
+    |                            |
+    |                            +-- failure -> stop and report an error
+    v
+2. Check the managed runtime in ~/.opencode/
+    |-- Required files and version marker match -> reuse runtime
+    |-- Missing/incomplete/out of date -> download and prepare runtime
+    |                            |
+    |                            +-- checksum/test/setup failure -> stop
+    v
+3. Optionally query npm for the latest published package version
+    |-- No newer version / check unavailable -> use installed version
+    |-- New version found -> install that package and re-enter the launcher
+    v
+4. Set runtime library and certificate environment
+    v
+5. Execute the packaged OpenCode binary with the original arguments
 ```
 
-The actual package-manager output is kept quiet on successful setup. If installation fails, an error is printed and the launcher exits.
+### Quiet normal launches
 
-The installer checks for these commands and files:
+The dependency check is intentionally silent if every required command and file is already available. It does not reinstall those packages on every launch. If a dependency is missing, the installer prints `Installing required dependencies…`, asks Termux's `pkg` to install the missing package(s), then checks again.
 
-| Requirement | Termux package or source | Purpose |
+The dependency-only mode (`--ensure-dependencies`) exits after checking prerequisites; it does not itself download the OpenCode runtime. The launcher separately checks whether the runtime is ready.
+
+### First launch and later launches
+
+On a first launch, or when the runtime is missing or out of sync with the installed npm package, `install.js`:
+
+1. Checks that the process is ARM64 and that `HOME` is set.
+2. Confirms that `release-checksums.json` describes the same package version as `package.json`, with a valid SHA-256 value.
+3. Downloads the release archive from this project's GitHub Releases over HTTPS, with retries.
+4. Calculates SHA-256 and compares it with the digest included in the npm package.
+5. Extracts into a temporary directory and verifies the required runtime files.
+6. Uses `patchelf` to set the executable's interpreter to the packaged musl loader.
+7. Runs the executable's `--version` test before activation.
+8. Copies the prepared files into a staging directory beside `~/.opencode/`, activates that directory with renames, and tests the executable again from its final path.
+9. Restores the previous runtime if activation or the final-path test fails.
+
+A version marker, `~/.opencode/.opencode-termux-version`, records the npm package version that prepared the runtime. The launcher compares this marker and the required files with the installed package before deciding whether to reuse the runtime.
+
+## Dependencies checked at launch
+
+The installer checks the following commands and fixed Termux paths:
+
+| Check | Package installed if missing | Why it is needed |
 | --- | --- | --- |
-| `curl` | `curl` | Downloads the runtime archive over HTTPS. |
-| `tar` | `tar` | Extracts the downloaded archive. |
-| `patchelf` | `patchelf` | Sets the executable's ELF interpreter for the packaged runtime. |
-| `timeout` | `coreutils` | Bounds the npm version-check request. |
-| TLS certificate bundle | `ca-certificates` | Supplies certificates for HTTPS/TLS verification. |
-| Termux resolver configuration | `resolv-conf` | Provides the DNS configuration used by the packaged musl runtime. |
+| `curl` command | `curl` | Downloads the release archive over HTTPS. |
+| `tar` command | `tar` | Extracts the archive. |
+| `patchelf` command | `patchelf` | Sets the ELF interpreter for the OpenCode executable. |
+| `timeout` command | `coreutils` | Limits the duration of the npm version query. |
+| `/data/data/com.termux/files/usr/etc/tls/cert.pem` | `ca-certificates` | TLS certificate bundle path exported by the launcher. |
+| `/data/data/com.termux/files/usr/etc/resolv.conf` | `resolv-conf` | Resolver configuration used by the patched musl runtime. |
 
-Missing items are installed through Termux's `pkg install -y` command. This requires a working Termux package configuration and network connection when a package needs to be installed. The script checks again after installation; if a requirement is still missing, it reports an error.
+If any item is missing, `install.js` invokes `pkg install -y` for the corresponding package and verifies the requirements again. A working `pkg) command and reachable Termux repositories are therefore needed when repair requires package installation. The installer reports an error and the launcher stops if a dependency remains missing.
 
-## Runtime installation and integrity
+These packages are installed at the Termux environment level. Uninstalling `opencode-termux` does not automatically remove them, because other Termux tools may also depend on them.
 
-### Where files are stored
+## Runtime files, verification, and recovery
 
-- **Launcher and JavaScript installer:** installed by npm, normally under Termux's global npm prefix.
-- **Managed OpenCode runtime:** `~/.opencode/`.
-- **Runtime version marker:** `~/.opencode/.opencode-termux-version`.
-- **Update-check cache:** `$XDG_CACHE_HOME/opencode-termux/last-update-check`, or `~/.cache/opencode-termux/last-update-check` when `XDG_CACHE_HOME` is not set.
-- **OpenCode configuration:** normally `~/.config/opencode/`; this project does not use `~/.opencode/` as the configuration directory.
+### Where things are stored
 
-The managed runtime contains the OpenCode executable, the musl loader and compatibility library, and the required C++ support libraries. The marker records which npm package version prepared that runtime. The marker is used to detect when the npm package and local runtime are out of sync.
+| Path | Purpose |
+| --- | --- |
+| npm global prefix | Launcher, `install.js`, package metadata, and checksum metadata installed by npm. |
+| `~/.opencode/` | Runtime files managed by this package: OpenCode binary, musl loader/libraries, C++ support libraries, and version marker. |
+| `~/.opencode/.opencode-termux-version` | Runtime/package version marker. |
+| `$XDG_CACHE_HOME/opencode-termux/last-update-check` | Timestamp for a successful, valid npm version check when `XDG_CACHE_HOME` is set. |
+| `~/.cache/opencode-termux/last-update-check` | Same update-check timestamp when `XDG_CACHE_HOME` is not set. |
+| `~/.config/opencode/` | OpenCode configuration location; separate from this project's managed runtime directory. |
 
-### Verification and activation
+### What the checksum does—and does not—prove
 
-The npm package includes `release-checksums.json`, which records the expected SHA-256 digest and package version for its runtime archive. Before extraction or activation, the installer checks that the checksum metadata matches the package version and that the downloaded archive's digest matches the expected digest.
+The npm package's `release-checksums.json` contains the package version and expected SHA-256 digest of its runtime archive. The installer refuses to proceed if the checksum metadata version differs from `package.json`, if the digest is malformed, or if the downloaded archive's digest does not match.
 
-The installer then:
+This checks that the downloaded archive matches the digest distributed in the installed npm package. It does not independently prove that the upstream program is secure or that the npm package itself is trustworthy.
 
-1. Downloads only from the project's HTTPS GitHub Release URL, with retries.
-2. Verifies the archive's SHA-256 digest.
-3. Extracts into a temporary directory and checks for all required runtime files.
-4. Adjusts the executable's interpreter and tests that it can print its version.
-5. Stages a complete runtime beside the destination directory.
-6. Activates the staged directory using renames and tests the runtime again at its final path.
-7. Restores the previous runtime if activation or the final-path test fails.
+### Repair the runtime without uninstalling
 
-This reduces the chance of leaving a half-written runtime in the active directory. It does not mean that every possible runtime failure can be prevented, nor does a checksum by itself prove that upstream source code is safe. The checksum protects against an archive that does not match the digest shipped in the npm package.
+First, try updating the wrapper/runtime package and launching again:
+
+```bash
+npm install -g opencode-termux@latest
+opencode
+```
+
+If the runtime files exist but the version marker is stale, remove only the marker and relaunch:
+
+```bash
+rm -f ~/.opencode/.opencode-termux-version
+opencode
+```
+
+The launcher should then ask the installer to prepare the runtime for the currently installed npm package. This command does not intentionally delete OpenCode configuration in `~/.config/opencode/`.
+
+If the managed runtime is corrupted or incomplete, remove the runtime directory and let the launcher recreate it:
+
+```bash
+rm -rf ~/.opencode
+opencode
+```
+
+**Warning:** the last command permanently deletes the entire `~/.opencode/` directory. Use it only for runtime repair when you understand what is stored there. It does not remove the npm package or `~/.config/opencode/`.
 
 ## Automatic package updates
 
-By default, the launcher checks npm for a newer published `opencode-termux` version **at most once every 24 hours**. The request uses `npm view opencode-termux version` with a 10-second timeout. It checks the published package version; it does not upload prompts, project files, or source code as part of that version query.
+Automatic package checking is enabled by default. The launcher queries npm with:
 
-- If the check finds no newer version, OpenCode starts using the installed runtime.
-- If the check cannot complete, the launcher continues with the installed version.
-- If a newer version is found, the launcher attempts to install that exact version of the npm package and restarts through the updated launcher. The new launcher can then install the runtime that matches its own package version.
-- If the npm update fails, the launcher warns and attempts to use the already installed version.
+```bash
+timeout 10 npm view opencode-termux version
+```
 
-The OpenCode executable's own updater is disabled by the wrapper. This prevents OpenCode from replacing the compatibility-adjusted binary with an unmodified upstream build that may not work correctly in Termux.
+A valid returned version is cached for 24 hours. If a check fails or returns no valid version, no new valid timestamp is written, so a later launch can try again. The check only retrieves the published package version; it does not include your prompts or project files in that query.
 
-Control the check with an environment variable:
+When npm reports a different valid version, the launcher attempts to install that exact `opencode-termux` version globally, using `--ignore-scripts --silent`, then re-enters the `opencode` command so the updated launcher and installer are used. If that installation fails, it warns and continues with the already installed version.
+
+Control automatic checking for a launch with an environment variable:
 
 ```bash
 # Disable the automatic npm version check for this launch
@@ -192,133 +214,211 @@ OPENCODE_TERMUX_AUTOUPDATE=0 opencode
 # Explicitly enable it (the default)
 OPENCODE_TERMUX_AUTOUPDATE=1 opencode
 
-# Inspect the latest version published to npm
+# Check the latest version published to npm
 npm view opencode-termux version
 
-# Install the latest published package immediately
+# Update manually, without waiting for the automatic check interval
 npm install -g opencode-termux@latest
 ```
 
-The automatic check is not the same as the build pipeline: a source change on GitHub becomes available to users only after a package version has been successfully published to npm.
+The wrapper sets `OPENCODE_DISABLE_AUTOUPDATE=1` for the packaged OpenCode process. This prevents OpenCode's own updater from replacing the compatibility-adjusted runtime with a different upstream binary.
 
-## How the Android compatibility layer works
+A commit to GitHub is not automatically the same thing as a published npm release. For the latest installable package, check the [npm package page](https://www.npmjs.com/package/opencode-termux) and the [release workflow](https://github.com/C04-wq/opencode-termux/actions/workflows/auto-update.yml).
 
-OpenCode's official Linux ARM64 musl archive is the starting point, but Android and Termux differ from a conventional Linux distribution in important ways.
+## Why the compatibility layer is needed
 
-### Musl loader and libraries
+The project starts from OpenCode's official `opencode-linux-arm64-musl.tar.gz` release archive, then builds a small set of runtime libraries and adjusts the executable for Termux.
 
-The build includes a musl dynamic loader and the runtime libraries needed by the official executable. The launcher starts OpenCode through the packaged loader and explicitly sets the library search path to `~/.opencode/`. It also removes `LD_PRELOAD` for the launch to avoid an inherited preload library interfering with the packaged runtime.
+### Musl loader and shared libraries
 
-### DNS on Android
+Android/Termux is not a conventional glibc-based desktop Linux distribution. The release archive is built for Linux ARM64 with musl. This project packages the musl loader and runtime libraries alongside the executable and starts it explicitly through that loader, with `LD_LIBRARY_PATH` set to `~/.opencode/`. The launcher also removes inherited `LD_PRELOAD` for the OpenCode process to avoid an external preload library interfering with the packaged runtime.
 
-Android does not provide the conventional `/etc/resolv.conf` path expected by a stock musl resolver. Without a suitable resolver configuration, DNS lookups can fail even when the device has network connectivity.
+### DNS resolver path
 
-To address this, the build compiles a pinned musl version with its resolver configuration path changed to Termux's `/data/data/com.termux/files/usr/etc/resolv.conf`. The dependency check ensures the Termux resolver file is present, and the launcher uses the packaged musl loader so this runtime is the one used by OpenCode.
+The build script pins a musl source version and verifies its SHA-256 before compiling it for ARM64. It changes musl's resolver configuration path from the conventional `/etc/resolv.conf` to Termux's `/data/data/com.termux/files/usr/etc/resolv.conf`. Without a resolver file at the path expected by the runtime, hostname resolution may fail even when Android itself has connectivity.
 
-### TLS certificates
+### TLS certificate path
 
-The launcher sets `SSL_CERT_FILE` to Termux's certificate bundle at `/data/data/com.termux/files/usr/etc/tls/cert.pem`. This allows TLS-aware components in the packaged runtime to find the expected certificate file. The `ca-certificates` package is installed if the file is missing.
+The launcher sets `SSL_CERT_FILE` to Termux's `/data/data/com.termux/files/usr/etc/tls/cert.pem`. The dependency check ensures this file exists, installing `ca-certificates` if needed.
 
-### C++ support libraries
+### C++ runtime libraries
 
-The archive includes `libgcc_s.so.1` and `libstdc++.so.6`, obtained from Alpine's ARM64 packages during the hosted build. The build verifies that the expected files exist and that the OpenCode executable declares the relevant library dependencies. The C++ library is normalized to a stable runtime filename so the launcher can find it consistently.
+The build obtains `libgcc_s.so.1` and `libstdc++.so.6` from Alpine's ARM64 packages using Alpine's `apk` package manager and its trusted signing keys. It packages the versioned C++ library under the stable name `libstdc++.so.6.runtime` and creates the `libstdc++.so.6` symbolic link expected by the runtime. The build also checks that the OpenCode binary declares the required shared-library dependencies.
 
-These measures target the compatibility issues handled by this project; they do not turn Android into a full desktop Linux distribution. OpenCode features that depend on other system capabilities may still have platform-specific limitations.
+These changes address the environment-specific runtime issues handled by this project; they do not make Android equivalent to a full desktop Linux installation. Some OpenCode features may still depend on platform capabilities outside this compatibility layer.
 
-## Automated build and release pipeline
+## Build and release automation
 
-The GitHub Actions workflow [Build and publish Termux package](.github/workflows/auto-update.yml) runs on a six-hour schedule, can be started manually, and runs when relevant source or build-tooling files are pushed to `main`. It creates a package revision so changes to this wrapper or its build process can reach users even if upstream OpenCode has not released a new version.
+### Package release workflow
 
-At a high level, the pipeline:
+The [Build and publish Termux package workflow](.github/workflows/auto-update.yml):
 
-1. Queries the official OpenCode GitHub release API for the latest version and the SHA-256 digest of its ARM64 musl archive.
-2. Resolves a package version and checks whether the corresponding npm package and GitHub Release already exist. If only one side exists, it stops rather than risking inconsistent release metadata.
-3. Sets up an isolated Alpine root on the hosted runner and installs ARM64 `libgcc` and `libstdc++` using Alpine's `apk` package manager and trusted signing keys. No container daemon is required.
-4. Downloads the official OpenCode archive over HTTPS and verifies its digest against the digest published by upstream.
-5. Builds the pinned musl runtime with the Termux DNS resolver path, assembles the ARM64 archive, and calculates the archive SHA-256.
-6. Runs syntax checks, inspects the archive contents, and performs an npm packaging dry run.
-7. Publishes the npm package, creates a matching GitHub Release, and commits the generated package-version and checksum metadata.
+- Runs on a six-hour schedule, on relevant pushes to `main`, or when manually triggered.
+- Queries the official OpenCode release API for the current release and its ARM64 musl archive SHA-256 digest.
+- Determines the package version and checks whether that version already exists on npm and as a GitHub Release. If only one exists, the workflow stops rather than rebuilding a potentially mismatched release.
+- Prepares an Alpine chroot on the hosted runner and uses Alpine's package manager to obtain signed ARM64 `libgcc` and `libstdc++` packages. The phone does not need Alpine, and the build does not require Docker.
+- Downloads and verifies the official OpenCode archive, builds the pinned musl runtime with the Termux DNS path, assembles the release archive, and calculates its SHA-256 digest.
+- Runs syntax checks, inspects archive contents, and performs an `npm pack --dry-run`.
+- Publishes the npm package, creates the matching GitHub Release, and commits the generated version/checksum metadata when required.
 
-Publishing jobs are serialized to prevent concurrent runs from publishing conflicting versions. The workflow fails closed when required upstream checksum data is missing or the npm/GitHub Release state disagrees. A successful GitHub commit alone is not proof that publication succeeded: check the [Actions workflow](https://github.com/C04-wq/opencode-termux/actions/workflows/auto-update.yml) and [npm package page](https://www.npmjs.com/package/opencode-termux) to confirm the release.
+The workflow serializes publishing jobs to avoid concurrent releases. It fails when the upstream digest is missing or when the npm and GitHub Release states disagree.
 
-### Toolchain maintenance
+### Toolchain maintenance and validation
 
-The separate [toolchain update workflow](.github/workflows/toolchain-updates.yml) checks Alpine's official stable-release information and validates a candidate build before updating the pinned Alpine branch. The musl source version is intentionally pinned separately; the build checks its SHA-256, so an unreviewed or mismatched source archive fails rather than being silently accepted.
+- [Toolchain update workflow](.github/workflows/toolchain-updates.yml) checks Alpine's official stable-branch information and validates a candidate build before updating the pinned Alpine branch.
+- `scripts/check-toolchain-updates.mjs` discovers the current stable Alpine branch. The musl version and digest are separately pinned in `scripts/build-android-release.sh`; the musl pin is not silently changed by the Alpine update check.
+- [Validation workflow](.github/workflows/validate.yml) checks JavaScript and shell syntax, validates version/checksum metadata, checks build assumptions, and runs an npm packaging dry run.
+- Dependabot is configured to check npm dependencies and GitHub Actions weekly.
 
-## Configuration, troubleshooting, and repair
+To determine whether a release actually published, inspect the relevant [GitHub Actions run](https://github.com/C04-wq/opencode-termux/actions/workflows/auto-update.yml) and the [npm package versions](https://www.npmjs.com/package/opencode-termux).
 
-### Check versions
+## Troubleshooting
+
+Use these checks before changing or deleting files:
 
 ```bash
-# Installed npm package version
-npm list -g opencode-termux --depth=0
+# Confirm Node is installed and running as ARM64
+node --version
+node -p 'process.arch'
 
-# Latest version published to npm
+# Confirm the npm package and version
+npm list -g opencode-termux --depth=0
 npm view opencode-termux version
 
-# OpenCode runtime version
+# Confirm the runtime starts
+opencode --version
+
+# Confirm the required Termux packages are present
+command -v pkg curl tar patchelf timeout
+test -s /data/data/com.termux/files/usr/etc/tls/cert.pem && echo "TLS certificate bundle exists"
+test -s /data/data/com.termux/files/usr/etc/resolv.conf && echo "Resolver file exists"
+```
+
+### `opencode: command not found`
+
+1. Check that npm installation completed: `npm list -g opencode-termux --depth=0`.
+2. Check npm's global executable directory with `npm bin -g` if your npm version supports that command, or inspect `npm prefix -g`.
+3. Ensure the global npm executable directory is included in `PATH`, then open a new Termux shell and try again.
+4. If the package is absent, reinstall it with `npm install -g opencode-termux`.
+
+### Unsupported architecture or Node errors
+
+The installer supports ARM64 only. Check `node -p 'process.arch'`; it must print `arm64`. This project does not support x86_64, 32-bit ARM, or other Node architecture values.
+
+### Dependency setup errors
+
+If the output says that dependencies could not be installed or that `pkg` is missing:
+
+1. Confirm you are running inside Termux, not a different Android shell or a generic Linux environment.
+2. Run `pkg update` and resolve any repository/network errors shown by Termux.
+3. Check the relevant command/path from the dependency table above.
+4. Run `opencode` again. The installer rechecks prerequisites each time.
+
+Do not assume a dependency installed merely because `pkg` ran; the installer verifies the commands and files again and exits if any are still missing.
+
+### Download, HTTP, or checksum errors
+
+- Confirm the device has working internet and GitHub Releases is reachable.
+- Retry after transient network failures; the download command uses HTTPS and retries.
+- Update the npm package with `npm install -g opencode-termux@latest` in case the installed package metadata and available release are out of sync.
+- If the checksum still fails, stop and report the error. Do not disable or bypass checksum verification; the installer intentionally rejects an archive that does not match the package's expected digest.
+
+### `package checksum metadata does not match package.json`
+
+This means the package's embedded version metadata is inconsistent. Install a coherent published package again:
+
+```bash
+npm install -g opencode-termux@latest
+```
+
+If it persists, report the installed version from `npm list -g opencode-termux --depth=0` and the exact error to the repository's issue tracker. Do not manually edit the checksum file to make the error disappear.
+
+### DNS or TLS errors
+
+Check that the resolver file and certificate bundle exist using the commands above. If either is missing, run `pkg install resolv-conf ca-certificates` and then retry. The runtime's musl resolver is built to use Termux's resolver path; changing unrelated Android DNS settings is not the first repair step.
+
+### OpenCode starts but network access fails
+
+First distinguish a Termux/runtime DNS or TLS error from an OpenCode provider/authentication error. Check the resolver and certificate paths above, then retry. If the error names an AI provider, model, API key, or account, configure that provider through OpenCode's normal supported settings; this wrapper does not supply provider credentials or bypass authentication.
+
+### Automatic update does not run immediately
+
+The version-check timestamp suppresses another valid check for 24 hours. Install manually with `npm install -g opencode-termux@latest` to update immediately. If the npm query fails or does not return a valid version string, the launcher keeps using the installed version.
+
+### New source code is visible on GitHub but npm still shows an older version
+
+The source changes have to pass the release workflow and be published before `npm install` can retrieve them. Check the workflow run and npm package page. A successful commit or a failed earlier workflow run alone does not establish that the latest release is available.
+
+### What to include in a bug report
+
+Include the exact error text and the output of:
+
+```bash
+node --version
+node -p 'process.arch'
+npm list -g opencode-termux --depth=0
 opencode --version
 ```
 
-### Update immediately
+Do not post API keys, access tokens, credentials, private prompts, or private project contents.
 
-```bash
-npm install -g opencode-termux@latest
-opencode
-```
+## Uninstalling
 
-### Re-prepare the managed runtime
+### Remove the package and its managed runtime
 
-If the runtime is missing, incomplete, or its version marker is out of date, running `opencode` normally triggers the installer. To explicitly make the installer re-check the runtime, remove only the marker and launch again:
-
-```bash
-rm -f ~/.opencode/.opencode-termux-version
-opencode
-```
-
-The installer will prepare and validate the runtime that matches the currently installed npm package. This does not uninstall the npm package or intentionally remove OpenCode's configuration.
-
-### Common problems
-
-- **Unsupported architecture:** the package supports ARM64/aarch64 only. Check with `node -p 'process.arch'`; the expected result is `arm64`.
-- **Dependency installation fails:** make sure Termux's `pkg` repositories are configured and reachable. The launcher stops if a required dependency cannot be installed.
-- **Download or checksum error:** check connectivity and retry later. Do not bypass checksum verification; the checksum metadata must match the package's runtime archive.
-- **DNS or TLS errors:** verify that Termux's `resolv-conf` and `ca-certificates` packages are installed and that their expected files exist.
-- **Automatic update does not happen immediately:** the check is rate-limited to once per 24 hours. Install the package manually with `npm install -g opencode-termux@latest` to update immediately.
-- **GitHub has newer source changes but npm does not:** the source changes are not yet available through the normal package installation until the release workflow publishes them.
-
-If a problem persists, open an issue with the error message and relevant version information. Avoid including API keys, tokens, private prompts, or other secrets in a bug report.
-
-## Uninstall
+Run:
 
 ```bash
 npm uninstall -g opencode-termux
 rm -rf ~/.opencode
 ```
 
-The first command removes the npm-installed launcher and scripts. The second removes the runtime directory managed by this package. It does not remove `~/.config/opencode/`, which normally contains OpenCode configuration; remove that directory separately only if you intentionally want to delete that configuration too.
+- `npm uninstall -g opencode-termux` removes the globally installed npm package, including the `opencode` launcher and its installer script.
+- `rm -rf ~/.opencode` removes the runtime files managed by this project.
 
-## Repository layout
+The second command is destructive. Check the directory before removing it if you have placed any files there yourself. These commands do not remove `~/.config/opencode/`, which may contain OpenCode settings and other configuration.
+
+### Also remove OpenCode configuration (optional)
+
+Only if you deliberately want to delete the configuration too:
+
+```bash
+rm -rf ~/.config/opencode
+```
+
+Review the directory first if you want to preserve settings. Removing the package does not require deleting configuration.
+
+### What uninstall does not remove
+
+The package does not automatically uninstall Termux packages such as `curl`, `tar`, `patchelf`, `coreutils`, `ca-certificates`, or `resolv-conf`. They are normal Termux packages and may be needed by other software. Remove them manually only if you know no other tool needs them.
+
+The uninstall commands above do not delete your Termux home directory or uninstall Termux itself.
+
+## Repository map
 
 | Path | Responsibility |
 | --- | --- |
-| `bin/opencode` | Entry point: checks dependencies, validates the runtime version, checks for package updates, sets the runtime environment, and launches OpenCode. |
-| `install.js` | Installs missing Termux prerequisites and downloads, verifies, tests, and activates the matching runtime. |
-| `package.json` | npm package metadata, version, and the command entry point. |
-| `release-checksums.json` | Expected SHA-256 and version for the runtime archive associated with the package. |
-| `scripts/build-android-release.sh` | Builds the Termux-compatible ARM64 archive from the official OpenCode binary and runtime libraries. |
-| `.github/workflows/auto-update.yml` | Detects upstream releases, builds the archive, and publishes npm/GitHub releases. |
-| `.github/workflows/toolchain-updates.yml` | Validates and maintains the pinned Alpine build toolchain. |
-| `scripts/check-toolchain-updates.mjs` | Checks Alpine stable-branch information for toolchain maintenance. |
+| `bin/opencode` | Command entry point: checks prerequisites and runtime files, performs the optional npm version check, sets the runtime environment, and launches OpenCode. |
+| `install.js` | Checks/installs prerequisites; validates package metadata; downloads, hashes, extracts, patches, tests, and activates the runtime. |
+| `package.json` | npm package metadata, package version, Node engine requirement, and `opencode` command mapping. |
+| `release-checksums.json` | Package version and expected SHA-256 digest of the corresponding runtime archive. |
+| `scripts/build-android-release.sh` | Builds the Termux-compatible ARM64 archive from the official OpenCode binary, a pinned musl source, and Alpine runtime libraries. |
+| `scripts/setup-alpine-chroot.sh` | Prepares the Alpine chroot used by hosted builds without Docker. |
+| `scripts/check-toolchain-updates.mjs` | Checks the official Alpine release page for stable-branch changes. |
+| `.github/workflows/auto-update.yml` | Builds and publishes npm/GitHub releases. |
+| `.github/workflows/toolchain-updates.yml` | Checks and validates toolchain updates. |
+| `.github/workflows/validate.yml` | Runs static checks and package validation. |
+| `.github/dependabot.yml` | Schedules weekly dependency checks for npm and GitHub Actions. |
 
 ## Limitations and security notes
 
-- This project targets Termux on ARM64/aarch64, not every Android architecture or Linux distribution.
-- The first setup and future updates need network access; already-installed runtime files can be reused when offline, but dependency installation and version checks may need the network.
-- The project does not bypass OpenCode authentication, API-provider requirements, or service terms. Configure providers and credentials through OpenCode's normal supported mechanisms.
-- Checksums validate that the downloaded archive matches the digest packaged with the npm release. They are an integrity check, not a guarantee that upstream software is vulnerability-free.
-- The automatic npm version check sends a request to the npm registry for the package version. It does not send your coding session or project files as part of that check. OpenCode itself may make network requests to the AI providers and services you configure.
-- Runtime files under `~/.opencode/` are managed by this package. Avoid manually replacing individual files there, as doing so can break the version and integrity assumptions.
+- This package targets Termux on ARM64/aarch64, not all Android architectures or Linux distributions.
+- Initial setup and runtime repair need network access. An already-prepared runtime can be reused without downloading it again, but dependency installation and npm update checks may need connectivity.
+- The wrapper does not provide AI models, API keys, paid service access, or authentication bypasses. Configure providers using OpenCode's normal mechanisms.
+- SHA-256 verification detects a runtime archive that differs from the digest embedded in the installed npm package; it is not a general security audit.
+- The automatic update check queries npm for the package version. OpenCode itself may make network requests to the AI providers and other services you configure.
+- Runtime files under `~/.opencode/` are managed by this project. Replacing individual files manually can break the runtime/version assumptions.
+- Do not run destructive repair or uninstall commands against paths you have not checked.
 
 ## License
 
