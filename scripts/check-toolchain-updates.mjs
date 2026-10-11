@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Opens a reviewable PR when Alpine's latest stable branch advances.
 // Runtime package signatures are still verified by apk during the build.
-const fs = require("node:fs");
+import fs from "node:fs";
 
 const builderPath = "scripts/build-android-release.sh";
 const builder = fs.readFileSync(builderPath, "utf8");
