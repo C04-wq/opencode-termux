@@ -11,7 +11,7 @@ if ! [[ "$BRANCH" =~ ^[0-9]+\.[0-9]+$ ]]; then
   echo "Error: invalid Alpine stable branch: $BRANCH" >&2
   exit 64
 fi
-BASE="https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64"
+BASE="https://dl-cdn.alpinelinux.org/alpine/v${BRANCH}/releases/x86_64"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors "$BASE/" -o "$TMP/index.html"
