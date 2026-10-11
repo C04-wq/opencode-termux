@@ -94,7 +94,7 @@ opencode
 
 ## Automated releases
 
-The [Build and publish Termux package](.github/workflows/auto-update.yml) workflow runs every six hours and can also be started manually.
+The [Build and publish Termux package](.github/workflows/auto-update.yml) workflow runs every six hours and can also be started manually. A push to `main` that changes source code or build tooling also triggers a verified package revision; generated version and checksum files are excluded to prevent release loops.
 
 1. It detects the latest official OpenCode release through GitHub's API.
 2. It downloads `opencode-linux-arm64-musl.tar.gz` and verifies GitHub's SHA-256 digest.
