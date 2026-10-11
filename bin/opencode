@@ -17,9 +17,9 @@ install_opencode() {
   node "$DIR/install.js"
 }
 
-if [ ! -f /data/data/com.termux/files/usr/etc/tls/cert.pem ] || [ ! -f /data/data/com.termux/files/usr/etc/resolv.conf ] || ! command -v timeout >/dev/null 2>&1; then
-  node "$DIR/install.js" --ensure-dependencies || exit $?
-fi
+# Check all required Termux dependencies on every launch.
+# install.js stays silent when everything is already available.
+node "$DIR/install.js" --ensure-dependencies || exit $?
 
 if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libc.musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libgcc_s.so.1" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6.runtime" ] || [ "$CURRENT" != "$INSTALLED_VERSION" ]; then
   install_opencode || exit $?
