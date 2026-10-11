@@ -52,7 +52,7 @@ if [ ! -x "$WORKDIR/upstream/opencode" ]; then
 fi
 
 # Verify and install Alpine packages with Alpine's own apk and trusted keys.
-# CI supplies an Alpine chroot via jirutka/setup-alpine. Keeping WORKDIR under the checkout makes it
+# CI supplies a prepared Alpine chroot. Keeping WORKDIR under the checkout makes it
 # visible at the same path inside that chroot.
 if [ -n "${ALPINE_ROOT:-}" ]; then
   if [ ! -x "$ALPINE_ROOT/sbin/apk" ]; then
