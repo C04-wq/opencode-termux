@@ -1,0 +1,40 @@
+name: Validate package
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Validate scripts and metadata
+        run: |
+          set -euo pipefail
+          node --check install.js
+          bash -n bin/opencode
+          bash -n scripts/build-android-release.sh
+          node <<'NODE'
+          const fs = require('fs');
+          const pkg = require('./package.json');
+          const sums = require('./release-checksums.json');
+          if (pkg.version !== sums.version) throw new Error('package.json and release-checksums.json versions differ');
+          if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) throw new Error('invalid release SHA-256');
+          const installer = fs.readFileSync('install.js', 'utf8');
+          const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
+          const files = [...installer.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+          if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
+          if (!installer.includes('"libstdc++.so.6.runtime"')) throw new Error('installer runtime library filename mismatch');
+          NODE
+          npm pack --dry-run
