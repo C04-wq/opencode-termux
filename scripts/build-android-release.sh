@@ -64,10 +64,15 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
   sudo mkdir -p "$ALPINE_BIND_MOUNT"
   sudo mount --bind "$PWD" "$ALPINE_BIND_MOUNT"
   sudo mkdir -p "$WORKDIR/root/etc/apk/keys"
-  sudo cp -a "$ALPINE_ROOT/etc/apk/keys/." "$WORKDIR/root/etc/apk/keys/"
-  if [ -d "$ALPINE_ROOT/usr/share/apk/keys/aarch64" ]; then
-    sudo cp -a "$ALPINE_ROOT/usr/share/apk/keys/aarch64/." "$WORKDIR/root/etc/apk/keys/"
-  fi
+  # Alpine may install additional architecture/repository trust anchors under
+  # /usr/share/apk/keys. Flatten all public keys into apk's configured key dir.
+  for KEY_DIR in "$ALPINE_ROOT/etc/apk/keys" "$ALPINE_ROOT/usr/share/apk/keys"; do
+    if [ -d "$KEY_DIR" ]; then
+      while IFS= read -r -d '' KEY_FILE; do
+        sudo cp -n "$KEY_FILE" "$WORKDIR/root/etc/apk/keys/" || true
+      done < <(find "$KEY_DIR" -type f -name '*.rsa.pub' -print0)
+    fi
+  done
   echo "Trusted APK keys staged for target root:"
   find "$WORKDIR/root/etc/apk/keys" -maxdepth 1 -type f -printf "%f\\n" | sort
   sudo chroot "$ALPINE_ROOT" /sbin/apk --verbose \
