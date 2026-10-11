@@ -16,7 +16,7 @@ const REQUIRED_FILES = [
   "libc.musl-aarch64.so.1",
   "libgcc_s.so.1",
   "libstdc++.so.6",
-  "libstdc++.so.6.0.33",
+  "libstdc++.so.6.runtime",
 ];
 
 function message(text) {
