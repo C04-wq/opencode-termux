@@ -176,6 +176,22 @@ try {
         if (backup && !fs.existsSync(OPENCODE_DIR)) fs.renameSync(backup, OPENCODE_DIR);
         throw activationError;
       }
+      try {
+        execFileSync(path.join(OPENCODE_DIR, "opencode"), ["--version"], {
+          stdio: "pipe",
+          env: {
+            ...process.env,
+            LD_PRELOAD: path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"),
+            LD_LIBRARY_PATH: OPENCODE_DIR,
+            SSL_CERT_FILE: CERTIFICATE_FILE,
+          },
+          timeout: 30000,
+        });
+      } catch (runtimeError) {
+        fs.renameSync(OPENCODE_DIR, activation);
+        if (backup) fs.renameSync(backup, OPENCODE_DIR);
+        throw new Error(`runtime failed verification at its final path: ${runtimeError.message}`);
+      }
       if (backup) {
         try {
           fs.rmSync(backup, { recursive: true, force: true });
