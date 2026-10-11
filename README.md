@@ -140,10 +140,9 @@ bin/opencode                       Update and launch wrapper
 install.js                          Quiet verified installer and dependency setup
 release-checksums.json              SHA-256 for the release matching the npm package
 scripts/build-android-release.sh    Reproducible ARM64/Termux package builder
-.github/workflows/auto-update.yml       OpenCode release detection and publishing
-.github/workflows/toolchain-updates.yml Weekly Alpine stable-branch check and PR proposal
-.github/workflows/validate.yml           Static package and script validation
-scripts/check-toolchain-updates.mjs      Official Alpine stable-branch checker
+.github/workflows/auto-update.yml   OpenCode release detection and publishing
+.github/workflows/toolchain-updates.yml Daily Alpine stable-branch check and validated automatic pin update
+scripts/check-toolchain-updates.mjs Official Alpine stable-branch checker
 ```
 
 ## License
