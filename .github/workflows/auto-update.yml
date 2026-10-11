@@ -3,6 +3,11 @@ name: Build and publish Termux package
 on:
   schedule:
     - cron: "0 */6 * * *"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "package.json"
+      - "release-checksums.json"
   workflow_dispatch:
     inputs:
       force_publish:
@@ -47,9 +52,12 @@ jobs:
           fi
           CURRENT_VERSION="$(node -p "require('./package.json').version")"
           CURRENT_UPSTREAM="${CURRENT_VERSION%%-*}"
-          if [ "${{ inputs.force_publish }}" = "true" ]; then
-            # A package version is immutable on npm. Use GitHub's monotonically
-            # increasing run number to make a genuinely publishable revision.
+          FORCE_PUBLISH="false"
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.force_publish }}" = "true" ]; then
+            FORCE_PUBLISH="true"
+          fi
+          if [ "$FORCE_PUBLISH" = "true" ]; then
+            # Publish source/tooling changes as a unique immutable package revision.
             PACKAGE_VERSION="${OPENCODE_VERSION}-${GITHUB_RUN_NUMBER}"
           elif [ "$OPENCODE_VERSION" = "$CURRENT_UPSTREAM" ]; then
             PACKAGE_VERSION="$CURRENT_VERSION"
@@ -76,18 +84,19 @@ jobs:
           echo "opencode_version=$OPENCODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "upstream_archive_sha256=$UPSTREAM_ARCHIVE_SHA256" >> "$GITHUB_OUTPUT"
           echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "force_publish=$FORCE_PUBLISH" >> "$GITHUB_OUTPUT"
           echo "npm_exists=$NPM_EXISTS" >> "$GITHUB_OUTPUT"
           echo "release_exists=$RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
 
       - name: Read pinned Alpine branch
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || inputs.force_publish == true
+        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || steps.state.outputs.force_publish == 'true'
         id: alpine-pin
         run: |
           set -euo pipefail
           echo "branch=v$(sed -n 's/^ALPINE_VERSION="\([0-9.]*\)"$/\1/p' scripts/build-android-release.sh)" >> "$GITHUB_OUTPUT"
 
       - name: Prepare Alpine package verifier without a container action
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || inputs.force_publish == true
+        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || steps.state.outputs.force_publish == 'true'
         env:
           BRANCH: ${{ steps.alpine-pin.outputs.branch }}
         run: |
@@ -96,7 +105,7 @@ jobs:
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
 
       - name: Build Android-compatible release archive
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || inputs.force_publish == true
+        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || steps.state.outputs.force_publish == 'true'
         run: |
           set -euo pipefail
           node --check install.js
