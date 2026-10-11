@@ -146,11 +146,43 @@ try {
       timeout: 30000,
     });
 
-    fs.mkdirSync(OPENCODE_DIR, { recursive: true });
-    run("patchelf", ["--set-interpreter", path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), binary], { timeout: 15000 });
-    for (const file of REQUIRED_FILES) fs.renameSync(path.join(extracted, file), path.join(OPENCODE_DIR, file));
-    fs.writeFileSync(VERSION_FILE, `${VERSION}\n`, { mode: 0o600 });
-    success(`OpenCode ${VERSION} is ready`);
+    // Prepare the complete runtime beside the destination so activation uses
+    // directory renames on the same filesystem, not a sequence of live file writes.
+    const activation = fs.mkdtempSync(path.join(HOME, ".opencode-termux-activate-"));
+    let backup = null;
+    try {
+      for (const file of REQUIRED_FILES) {
+        fs.cpSync(path.join(extracted, file), path.join(activation, file), {
+          recursive: false,
+          verbatimSymlinks: true,
+        });
+      }
+      const stagedBinary = path.join(activation, "opencode");
+      run("patchelf", ["--set-interpreter", path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), stagedBinary], { timeout: 15000 });
+      fs.writeFileSync(path.join(activation, ".opencode-termux-version"), `${VERSION}\\n`, { mode: 0o600 });
+
+      if (fs.existsSync(OPENCODE_DIR)) {
+        backup = path.join(HOME, `.opencode-termux-backup-${process.pid}-${Date.now()}`);
+        fs.renameSync(OPENCODE_DIR, backup);
+      }
+      try {
+        fs.renameSync(activation, OPENCODE_DIR);
+      } catch (activationError) {
+        if (backup && !fs.existsSync(OPENCODE_DIR)) fs.renameSync(backup, OPENCODE_DIR);
+        throw activationError;
+      }
+      if (backup) {
+        try {
+          fs.rmSync(backup, { recursive: true, force: true });
+        } catch (_) {
+          // The new runtime is active; a stale backup is safer than reporting
+          // a failed installation after a successful activation.
+        }
+      }
+      success(`OpenCode ${VERSION} is ready`);
+    } finally {
+      fs.rmSync(activation, { recursive: true, force: true });
+    }
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }
