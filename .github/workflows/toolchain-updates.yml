@@ -15,7 +15,7 @@ concurrency:
 jobs:
   check-alpine:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -36,6 +36,22 @@ jobs:
       - name: Validate updated build script
         if: steps.check.outputs.changed == 'true'
         run: bash -n scripts/build-android-release.sh
+      - name: Build and inspect candidate archive
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf
+          OPENCODE_VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
+          UPSTREAM_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
+          if ! [[ "$UPSTREAM_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "Official OpenCode release did not provide a valid SHA-256 digest." >&2
+            exit 1
+          fi
+          bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz" "$UPSTREAM_SHA256"
+          tar -tzf "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
       - name: Create or refresh review branch
         if: steps.check.outputs.changed == 'true'
         env:
