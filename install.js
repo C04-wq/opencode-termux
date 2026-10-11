@@ -124,6 +124,16 @@ function normalizeLibstdcxx(directory) {
   if (!fs.existsSync(soname)) fs.symlinkSync("libstdc++.so.6.runtime", soname);
 }
 
+function hasRequiredFiles(directory) {
+  return REQUIRED_FILES.every((file) => {
+    try {
+      return fs.statSync(path.join(directory, file)).size > 0;
+    } catch (_) {
+      return false;
+    }
+  });
+}
+
 function hasCompleteInstall(directory) {
   if (!hasRequiredFiles(directory)) return false;
   try {
