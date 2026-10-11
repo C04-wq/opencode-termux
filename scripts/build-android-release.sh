@@ -19,7 +19,7 @@ ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main/aarch
 MUSL_VERSION="1.2.6"
 MUSL_SHA256="d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"
 TERMUX_RESOLV_CONF="/data/data/com.termux/files/usr/etc/resolv.conf"
-WORKDIR="$(mktemp -d)"
+WORKDIR="$(mktemp -d "$PWD/.opencode-termux-build.XXXXXX")"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 mkdir -p "$WORKDIR/upstream" "$WORKDIR/root" "$WORKDIR/stage"
@@ -40,20 +40,25 @@ if [ ! -x "$WORKDIR/upstream/opencode" ]; then
   exit 1
 fi
 
-# Use Alpine's own package manager and trusted signing keys instead of unpacking
-# APK files directly. apk verifies the signed index and package metadata before
-# installing anything into this disposable root.
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Error: Docker is required to verify Alpine package signatures." >&2
+# Verify and install Alpine packages with Alpine's own apk and trusted keys.
+# CI supplies an Alpine chroot via jirutka/setup-alpine; no Docker daemon or
+# container runtime is needed. Keeping WORKDIR under the checkout makes it
+# visible at the same path inside that chroot.
+if [ -n "${ALPINE_ROOT:-}" ]; then
+  if [ ! -x "$ALPINE_ROOT/sbin/apk" ]; then
+    echo "Error: ALPINE_ROOT does not contain Alpine's apk executable." >&2
+    exit 1
+  fi
+  sudo chroot "$ALPINE_ROOT" /sbin/apk \
+    --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir /etc/apk/keys \
+    --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
+elif command -v apk >/dev/null 2>&1; then
+  apk --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir /etc/apk/keys \
+    --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
+else
+  echo "Error: Alpine apk is unavailable. Run this builder in Alpine or set ALPINE_ROOT to a prepared Alpine chroot." >&2
   exit 1
 fi
-docker run --rm \
-  -v "$WORKDIR:/work" \
-  "alpine:${ALPINE_VERSION}" \
-  sh -ec '
-    apk --root /work/root --initdb --arch aarch64 --keys-dir /etc/apk/keys \
-      --repository "$1" add --no-cache --no-scripts libgcc libstdc++
-  ' sh "$ALPINE_REPO"
 
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
   "https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz" \
