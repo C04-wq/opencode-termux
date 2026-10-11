@@ -98,7 +98,7 @@ The [Build and publish Termux package](.github/workflows/auto-update.yml) workfl
 
 1. It detects the latest official OpenCode release through GitHub's API.
 2. It downloads `opencode-linux-arm64-musl.tar.gz` and verifies GitHub's SHA-256 digest.
-3. It obtains `libgcc` and `libstdc++` using Alpine's own `apk` package manager inside Docker. Alpine's trusted signing keys verify the repository index and packages before extraction. The musl runtime is built from pinned source with Termux's resolver path so it can use Android DNS without Proot.
+3. It obtains `libgcc` and `libstdc++` using Alpine's own `apk` package manager in a temporary Alpine chroot on the GitHub Actions runner. Alpine's trusted signing keys verify the repository index and packages. No Docker daemon or container runtime is required, and nothing related to Alpine or Docker is installed in Termux. The musl runtime is built from pinned source with Termux's resolver path so it can use Android DNS without Proot.
 4. It creates the release archive and records its SHA-256 in `release-checksums.json`.
 5. It publishes the npm package, creates the GitHub Release, and commits the generated checksum metadata.
 
