@@ -66,7 +66,7 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
   sudo mkdir -p "$WORKDIR/root/etc/apk/keys"
   sudo cp -a "$ALPINE_ROOT/etc/apk/keys/." "$WORKDIR/root/etc/apk/keys/"
   sudo chroot "$ALPINE_ROOT" /sbin/apk \
-    --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir /etc/apk/keys \
+    --root "$WORKDIR/root" --initdb --arch aarch64 \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
 elif command -v apk >/dev/null 2>&1; then
   apk --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir /etc/apk/keys \
