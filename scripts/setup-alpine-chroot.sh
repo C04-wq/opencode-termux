@@ -29,22 +29,12 @@ sudo mkdir -p "$ROOT"
 sudo tar -xzf "$TMP/$ARCHIVE" -C "$ROOT"
 sudo rm -f "$ROOT/etc/resolv.conf"
 sudo cp /etc/resolv.conf "$ROOT/etc/resolv.conf"
-# Bootstrap Alpine's trusted key set from the same official stable branch.
-# The rootfs is x86_64; the builder also needs the branch's aarch64 repository keys.
-KEYS_BASE="https://dl-cdn.alpinelinux.org/alpine/v${BRANCH}/main/x86_64"
-curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
-  "$KEYS_BASE/" -o "$TMP/keys-index.html"
-KEYS_PACKAGE="$(grep -oE 'alpine-keys-[0-9]+\.[0-9]+-r[0-9]+\.apk' "$TMP/keys-index.html" | sort -Vu | tail -n 1)"
-if [ -z "$KEYS_PACKAGE" ]; then
-  echo "Error: could not locate the official Alpine keys package for v${BRANCH}." >&2
-  exit 1
-fi
-curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
-  "$KEYS_BASE/$KEYS_PACKAGE" -o "$TMP/$KEYS_PACKAGE"
-mkdir -p "$TMP/alpine-keys"
-tar -xzf "$TMP/$KEYS_PACKAGE" -C "$TMP/alpine-keys"
-sudo mkdir -p "$ROOT/etc/apk/keys" "$ROOT/usr/share/apk/keys"
-sudo cp -a "$TMP/alpine-keys/etc/apk/keys/." "$ROOT/etc/apk/keys/"
-sudo cp -a "$TMP/alpine-keys/usr/share/apk/keys/." "$ROOT/usr/share/apk/keys/"
+# Refresh Alpine's trusted keys using Alpine's own package manager.
+# APK packages contain a signature archive followed by the payload; do not
+# treat an .apk as a plain gzip tarball. The minirootfs supplies the bootstrap
+# trust anchors, and apk verifies the signed alpine-keys package from this branch.
+sudo chroot "$ROOT" /sbin/apk \
+  --repository "https://dl-cdn.alpinelinux.org/alpine/v${BRANCH}/main" \
+  add --no-cache alpine-keys
 sudo chroot "$ROOT" /sbin/apk --version
 echo "Prepared Alpine v${BRANCH} chroot at $ROOT"
