@@ -2,6 +2,7 @@ name: Check toolchain updates
 on:
   push:
     branches:
+      - main
       - codex/maintenance-and-updates
     paths:
       - ".github/workflows/toolchain-updates.yml"
@@ -9,7 +10,7 @@ on:
       - "scripts/check-toolchain-updates.mjs"
       - "scripts/setup-alpine-chroot.sh"
   schedule:
-    - cron: "23 7 * * 1"
+    - cron: "23 7 * * *"
   workflow_dispatch:
 
 permissions:
@@ -68,24 +69,18 @@ jobs:
           fi
           bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz" "$UPSTREAM_SHA256"
           tar -tzf "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
-      - name: Create or refresh review branch
+      - name: Update Alpine pin automatically after successful validation
         if: steps.check.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
-          CURRENT: ${{ steps.check.outputs.current }}
           LATEST: ${{ steps.check.outputs.latest }}
         run: |
           set -euo pipefail
-          BRANCH="automation/alpine-${LATEST}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$BRANCH"
           git add scripts/build-android-release.sh
-          git commit -m "build: review Alpine ${LATEST} toolchain"
-          git push --force origin "$BRANCH"
-          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json url --jq '.[0].url // empty')"
-          if [ -z "$EXISTING" ]; then
-            gh pr create --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base main \
-              --title "build: review Alpine ${CURRENT} → ${LATEST}" \
-              --body "Automated proposal from Alpine's official release page. This updates the stable branch pin only. Review the build, APK signature verification, runtime compatibility and tests before merging. musl remains pinned until its new source digest is independently verified."
+          if git diff --cached --quiet; then
+            echo "No Alpine pin change to commit."
+            exit 0
           fi
+          git commit -m "build: update Alpine stable branch to ${LATEST}"
+          git push origin HEAD:main
