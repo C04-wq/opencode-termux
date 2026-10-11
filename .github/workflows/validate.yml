@@ -1,0 +1,57 @@
+name: Validate package
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Check runner Node.js and npm
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+      - name: Validate scripts and metadata
+        run: |
+          set -euo pipefail
+          node --check install.js
+          node --check scripts/check-toolchain-updates.mjs
+          bash -n bin/opencode
+          bash -n scripts/build-android-release.sh
+          bash -n scripts/setup-alpine-chroot.sh
+          node <<'NODE'
+          const fs = require('fs');
+          const pkg = require('./package.json');
+          const sums = require('./release-checksums.json');
+          if (pkg.version !== sums.version) throw new Error('package.json and release-checksums.json versions differ');
+          if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) throw new Error('invalid release SHA-256');
+          const installer = fs.readFileSync('install.js', 'utf8');
+          const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
+          const releaseWorkflow = fs.readFileSync('.github/workflows/auto-update.yml', 'utf8');
+          const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
+          const alpineBootstrap = fs.readFileSync('scripts/setup-alpine-chroot.sh', 'utf8');
+          if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
+          if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
+          if (/\bdocker\b/i.test(builder)) throw new Error('release builder must not depend on Docker');
+          for (const workflow of [releaseWorkflow, toolchainWorkflow, fs.readFileSync('.github/workflows/validate.yml', 'utf8')]) {
+            if (workflow.includes(['actions/setup', '-node@'].join(''))) throw new Error('workflows must use the preinstalled runner Node.js to honor the repository action allowlist');
+          }
+          if (!builder.includes('sudo chroot "$ALPINE_ROOT" /sbin/apk')) throw new Error('builder must verify Alpine packages with apk in a chroot');
+          if (releaseWorkflow.includes('jirutka/setup-alpine@') || toolchainWorkflow.includes('jirutka/setup-alpine@')) throw new Error('workflows must not use the disallowed external Alpine action');
+          if (!releaseWorkflow.includes('scripts/setup-alpine-chroot.sh') || !toolchainWorkflow.includes('scripts/setup-alpine-chroot.sh')) throw new Error('both workflows must use the local Alpine chroot bootstrap');
+          if (!alpineBootstrap.includes('sha256sum --check') || !alpineBootstrap.includes('chroot "$ROOT" /sbin/apk')) throw new Error('Alpine bootstrap must verify the rootfs checksum and apk executable');
+          if (installer.includes('fs.cpSync(')) throw new Error('installer uses an API newer than its declared Node engine');
+          if (!installer.includes('fs.renameSync(activation, OPENCODE_DIR)')) throw new Error('installer must activate the staged runtime by directory rename');
+          if (!installer.includes('"libstdc++.so.6.runtime"')) throw new Error('installer runtime library filename mismatch');
+          NODE
+          npm pack --dry-run

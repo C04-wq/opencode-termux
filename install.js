@@ -16,7 +16,7 @@ const REQUIRED_FILES = [
   "libc.musl-aarch64.so.1",
   "libgcc_s.so.1",
   "libstdc++.so.6",
-  "libstdc++.so.6.0.33",
+  "libstdc++.so.6.runtime",
 ];
 
 function message(text) {
@@ -98,6 +98,32 @@ const OPENCODE_DIR = path.join(HOME, ".opencode");
 const VERSION_FILE = path.join(OPENCODE_DIR, ".opencode-termux-version");
 const URL = `https://github.com/C04-wq/opencode-termux/releases/download/v${VERSION}/opencode-termux-aarch64.tar.gz`;
 
+function normalizeLibstdcxx(directory) {
+  const runtime = path.join(directory, "libstdc++.so.6.runtime");
+  const soname = path.join(directory, "libstdc++.so.6");
+
+  // Older published archives contain the versioned Alpine library directly
+  // (for example libstdc++.so.6.0.33) instead of the normalized runtime name.
+  // The archive checksum is verified before this function is called.
+  if (!fs.existsSync(runtime)) {
+    const versioned = fs.readdirSync(directory)
+      .filter((file) => /^libstdc\+\+\.so\.6(?:\.\d+)+$/.test(file))
+      .sort()
+      .pop();
+    if (!versioned) return;
+    fs.copyFileSync(path.join(directory, versioned), runtime);
+    fs.chmodSync(runtime, 0o644);
+  }
+
+  try {
+    const stat = fs.lstatSync(soname);
+    if (stat.isSymbolicLink()) fs.unlinkSync(soname);
+  } catch (_) {
+    // Create the SONAME link below when it is absent.
+  }
+  if (!fs.existsSync(soname)) fs.symlinkSync("libstdc++.so.6.runtime", soname);
+}
+
 function hasRequiredFiles(directory) {
   return REQUIRED_FILES.every((file) => {
     try {
@@ -135,22 +161,85 @@ try {
 
     fs.mkdirSync(extracted);
     run("tar", ["-xzf", archive, "-C", extracted], { timeout: 60000 });
+    normalizeLibstdcxx(extracted);
     if (!hasRequiredFiles(extracted)) throw new Error("release archive is incomplete");
 
     const binary = path.join(extracted, "opencode");
     const interpreter = path.join(extracted, "ld-musl-aarch64.so.1");
     run("patchelf", ["--set-interpreter", interpreter, binary], { timeout: 15000 });
-    execFileSync(binary, ["--version"], {
+    const extractedRuntimeEnv = {
+      ...process.env,
+      LD_LIBRARY_PATH: extracted,
+      SSL_CERT_FILE: CERTIFICATE_FILE,
+    };
+    delete extractedRuntimeEnv.LD_PRELOAD;
+    execFileSync(interpreter, ["--library-path", extracted, binary, "--version"], {
       stdio: "pipe",
-      env: { ...process.env, LD_PRELOAD: interpreter, LD_LIBRARY_PATH: extracted, SSL_CERT_FILE: CERTIFICATE_FILE },
+      env: extractedRuntimeEnv,
       timeout: 30000,
     });
 
-    fs.mkdirSync(OPENCODE_DIR, { recursive: true });
-    run("patchelf", ["--set-interpreter", path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), binary], { timeout: 15000 });
-    for (const file of REQUIRED_FILES) fs.renameSync(path.join(extracted, file), path.join(OPENCODE_DIR, file));
-    fs.writeFileSync(VERSION_FILE, `${VERSION}\n`, { mode: 0o600 });
-    success(`OpenCode ${VERSION} is ready`);
+    // Prepare the complete runtime beside the destination so activation uses
+    // directory renames on the same filesystem, not a sequence of live file writes.
+    const activation = fs.mkdtempSync(path.join(HOME, ".opencode-termux-activate-"));
+    let backup = null;
+    try {
+      for (const file of REQUIRED_FILES) {
+        const source = path.join(extracted, file);
+        const destination = path.join(activation, file);
+        const sourceStat = fs.lstatSync(source);
+        if (sourceStat.isSymbolicLink()) {
+          fs.symlinkSync(fs.readlinkSync(source), destination);
+        } else {
+          fs.copyFileSync(source, destination);
+          fs.chmodSync(destination, sourceStat.mode & 0o777);
+        }
+      }
+      const stagedBinary = path.join(activation, "opencode");
+      run("patchelf", ["--set-interpreter", path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), stagedBinary], { timeout: 15000 });
+      fs.writeFileSync(path.join(activation, ".opencode-termux-version"), `${VERSION}\n`, { mode: 0o600 });
+
+      if (fs.existsSync(OPENCODE_DIR)) {
+        backup = path.join(HOME, `.opencode-termux-backup-${process.pid}-${Date.now()}`);
+        fs.renameSync(OPENCODE_DIR, backup);
+      }
+      try {
+        fs.renameSync(activation, OPENCODE_DIR);
+      } catch (activationError) {
+        if (backup && !fs.existsSync(OPENCODE_DIR)) fs.renameSync(backup, OPENCODE_DIR);
+        throw activationError;
+      }
+      try {
+        const activeRuntimeEnv = {
+          ...process.env,
+          LD_LIBRARY_PATH: OPENCODE_DIR,
+          SSL_CERT_FILE: CERTIFICATE_FILE,
+        };
+        delete activeRuntimeEnv.LD_PRELOAD;
+        execFileSync(path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), [
+          "--library-path", OPENCODE_DIR, path.join(OPENCODE_DIR, "opencode"), "--version",
+        ], {
+          stdio: "pipe",
+          env: activeRuntimeEnv,
+          timeout: 30000,
+        });
+      } catch (runtimeError) {
+        fs.renameSync(OPENCODE_DIR, activation);
+        if (backup) fs.renameSync(backup, OPENCODE_DIR);
+        throw new Error(`runtime failed verification at its final path: ${runtimeError.message}`);
+      }
+      if (backup) {
+        try {
+          fs.rmSync(backup, { recursive: true, force: true });
+        } catch (_) {
+          // The new runtime is active; a stale backup is safer than reporting
+          // a failed installation after a successful activation.
+        }
+      }
+      success(`OpenCode ${VERSION} is ready`);
+    } finally {
+      fs.rmSync(activation, { recursive: true, force: true });
+    }
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }

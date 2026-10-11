@@ -98,7 +98,7 @@ The [Build and publish Termux package](.github/workflows/auto-update.yml) workfl
 
 1. It detects the latest official OpenCode release through GitHub's API.
 2. It downloads `opencode-linux-arm64-musl.tar.gz` and verifies GitHub's SHA-256 digest.
-3. It packages the binary with ARM64 musl, `libgcc`, and `libstdc++` runtime libraries. The musl runtime is built from pinned source with Termux's resolver path so it can use Android DNS without Proot.
+3. It obtains `libgcc` and `libstdc++` using Alpine's own `apk` package manager in a temporary Alpine chroot on the GitHub Actions runner. Alpine's trusted signing keys verify the repository index and packages. No Docker daemon or container runtime is required, and nothing related to Alpine or Docker is installed in Termux. The musl runtime is built from pinned source with Termux's resolver path so it can use Android DNS without Proot.
 4. It creates the release archive and records its SHA-256 in `release-checksums.json`.
 5. It publishes the npm package, creates the GitHub Release, and commits the generated checksum metadata.
 
@@ -106,7 +106,7 @@ Publish jobs are serialized. If npm already has a version but its GitHub Release
 
 ## Update or repair
 
-Running `opencode` normally checks for updates automatically.
+Running `opencode` checks for a new npm package at most once every 24 hours by default. The check only queries npm for the published version; it does not upload prompts or code. Set `OPENCODE_TERMUX_AUTOUPDATE=0` to disable the check, or set `OPENCODE_TERMUX_AUTOUPDATE=1` to keep it enabled.
 
 ```bash
 # Check the latest published version
@@ -115,6 +115,9 @@ npm view opencode-termux version
 # Update immediately
 npm install -g opencode-termux@latest
 opencode
+
+# Disable automatic npm version checks for one session
+OPENCODE_TERMUX_AUTOUPDATE=0 opencode
 
 # Reinstall the managed runtime without deleting the current files first
 rm -f ~/.opencode/.opencode-termux-version
@@ -128,7 +131,7 @@ npm uninstall -g opencode-termux
 rm -rf ~/.opencode
 ```
 
-The second command removes only the runtime managed by this package. OpenCode configuration, if any, is normally kept in `~/.config/opencode`.
+The second command removes only the runtime managed by this package. OpenCode configuration, if any, is normally kept in `~/.config/opencode`. Runtime updates are staged in a sibling directory and activated by rename; if activation fails, the previous runtime is restored. Failed npm version checks are not cached, so a temporary network problem does not suppress update checks for a full day.
 
 ## Project layout
 
@@ -137,7 +140,10 @@ bin/opencode                       Update and launch wrapper
 install.js                          Quiet verified installer and dependency setup
 release-checksums.json              SHA-256 for the release matching the npm package
 scripts/build-android-release.sh    Reproducible ARM64/Termux package builder
-.github/workflows/auto-update.yml   Automated detection and publishing workflow
+.github/workflows/auto-update.yml       OpenCode release detection and publishing
+.github/workflows/toolchain-updates.yml Weekly Alpine stable-branch check and PR proposal
+.github/workflows/validate.yml           Static package and script validation
+scripts/check-toolchain-updates.mjs      Official Alpine stable-branch checker
 ```
 
 ## License

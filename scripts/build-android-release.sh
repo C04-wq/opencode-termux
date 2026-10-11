@@ -14,13 +14,24 @@ fi
 VERSION="$1"
 OUTPUT="$2"
 EXPECTED_UPSTREAM_SHA256="${3:-}"
-ALPINE_VERSION="3.21"
-ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main/aarch64"
-MUSL_VERSION="1.2.5"
-MUSL_SHA256="a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4"
+ALPINE_VERSION="3.24"
+ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main"
+MUSL_VERSION="1.2.6"
+MUSL_SHA256="d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"
 TERMUX_RESOLV_CONF="/data/data/com.termux/files/usr/etc/resolv.conf"
-WORKDIR="$(mktemp -d)"
-trap 'rm -rf "$WORKDIR"' EXIT
+WORKDIR="$(mktemp -d "$PWD/.opencode-termux-build.XXXXXX")"
+ALPINE_BIND_MOUNT=""
+cleanup() {
+  if [ -n "$ALPINE_BIND_MOUNT" ] && mountpoint -q "$ALPINE_BIND_MOUNT"; then
+    sudo umount "$ALPINE_BIND_MOUNT"
+  fi
+  if [ -n "${ALPINE_ROOT:-}" ]; then
+    sudo rm -rf "$WORKDIR"
+  else
+    rm -rf "$WORKDIR"
+  fi
+}
+trap cleanup EXIT
 
 mkdir -p "$WORKDIR/upstream" "$WORKDIR/root" "$WORKDIR/stage"
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
@@ -40,32 +51,43 @@ if [ ! -x "$WORKDIR/upstream/opencode" ]; then
   exit 1
 fi
 
-curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors "$ALPINE_REPO/APKINDEX.tar.gz" -o "$WORKDIR/APKINDEX.tar.gz"
-tar -xzf "$WORKDIR/APKINDEX.tar.gz" -C "$WORKDIR"
-
-apk_version() {
-  awk -v package="$1" '
-    $0 == "P:" package { found = 1; next }
-    found && /^V:/ { sub(/^V:/, ""); print; exit }
-    /^$/ { found = 0 }
-  ' "$WORKDIR/APKINDEX"
-}
-
-fetch_apk() {
-  local package="$1"
-  local version
-  version="$(apk_version "$package")"
-  if [ -z "$version" ]; then
-    echo "Error: Alpine package $package was not found." >&2
+# Verify and install Alpine packages with Alpine's own apk and trusted keys.
+# CI supplies a prepared Alpine chroot. Keeping WORKDIR under the checkout makes it
+# visible at the same path inside that chroot.
+if [ -n "${ALPINE_ROOT:-}" ]; then
+  if [ ! -x "$ALPINE_ROOT/sbin/apk" ]; then
+    echo "Error: ALPINE_ROOT does not contain Alpine's apk executable." >&2
     exit 1
   fi
-  curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
-    "$ALPINE_REPO/${package}-${version}.apk" -o "$WORKDIR/${package}.apk"
-  tar -xzf "$WORKDIR/${package}.apk" -C "$WORKDIR/root"
-}
-
-fetch_apk libgcc
-fetch_apk libstdc++
+  # Make the workspace visible at the same absolute path inside the chroot.
+  ALPINE_BIND_MOUNT="$ALPINE_ROOT$PWD"
+  sudo mkdir -p "$ALPINE_BIND_MOUNT"
+  sudo mount --bind "$PWD" "$ALPINE_BIND_MOUNT"
+  sudo mkdir -p "$WORKDIR/root/etc/apk/keys"
+  # Alpine may install additional architecture/repository trust anchors under
+  # /usr/share/apk/keys. Flatten all public keys into apk's configured key dir.
+  for KEY_DIR in "$ALPINE_ROOT/etc/apk/keys" "$ALPINE_ROOT/usr/share/apk/keys"; do
+    if [ -d "$KEY_DIR" ]; then
+      while IFS= read -r -d '' KEY_FILE; do
+        sudo cp -L -n "$KEY_FILE" "$WORKDIR/root/etc/apk/keys/" || true
+      done < <(find -L "$KEY_DIR" -type f -name '*.rsa.pub' -print0)
+    fi
+  done
+  sudo chroot "$ALPINE_ROOT" /sbin/apk \
+    --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir "$WORKDIR/root/etc/apk/keys" \
+    --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
+elif command -v apk >/dev/null 2>&1; then
+  mkdir -p "$WORKDIR/root/etc/apk/keys"
+  cp -a /etc/apk/keys/. "$WORKDIR/root/etc/apk/keys/"
+  if [ -d /usr/share/apk/keys/aarch64 ]; then
+    cp -a /usr/share/apk/keys/aarch64/. "$WORKDIR/root/etc/apk/keys/"
+  fi
+  apk --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir "$WORKDIR/root/etc/apk/keys" \
+    --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
+else
+  echo "Error: Alpine apk is unavailable. Run this builder in Alpine or set ALPINE_ROOT to a prepared Alpine chroot." >&2
+  exit 1
+fi
 
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
   "https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz" \
@@ -103,8 +125,8 @@ install -m 0755 "$WORKDIR/upstream/opencode" "$WORKDIR/stage/opencode"
 install -m 0755 "$LOADER" "$WORKDIR/stage/ld-musl-aarch64.so.1"
 install -m 0755 "$LOADER" "$WORKDIR/stage/libc.musl-aarch64.so.1"
 install -m 0644 "$LIBGCC" "$WORKDIR/stage/libgcc_s.so.1"
-install -m 0755 "$LIBSTDCXX" "$WORKDIR/stage/libstdc++.so.6.0.33"
-ln -s libstdc++.so.6.0.33 "$WORKDIR/stage/libstdc++.so.6"
+install -m 0755 "$LIBSTDCXX" "$WORKDIR/stage/libstdc++.so.6.runtime"
+ln -s libstdc++.so.6.runtime "$WORKDIR/stage/libstdc++.so.6"
 
 for library in libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6; do
   patchelf --print-needed "$WORKDIR/stage/opencode" | grep -Fxq "$library" || {
@@ -114,4 +136,4 @@ for library in libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6; do
 done
 
 tar -C "$WORKDIR/stage" -czf "$OUTPUT" \
-  opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.0.33
+  opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime
