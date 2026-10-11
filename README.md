@@ -106,7 +106,7 @@ Publish jobs are serialized. If npm already has a version but its GitHub Release
 
 ## Update or repair
 
-Running `opencode` normally checks for updates automatically.
+Running `opencode` checks for a new npm package at most once every 24 hours by default. The check only queries npm for the published version; it does not upload prompts or code. Set `OPENCODE_TERMUX_AUTOUPDATE=0` to disable the check, or set `OPENCODE_TERMUX_AUTOUPDATE=1` to keep it enabled.
 
 ```bash
 # Check the latest published version
@@ -115,6 +115,9 @@ npm view opencode-termux version
 # Update immediately
 npm install -g opencode-termux@latest
 opencode
+
+# Disable automatic npm version checks for one session
+OPENCODE_TERMUX_AUTOUPDATE=0 opencode
 
 # Reinstall the managed runtime without deleting the current files first
 rm -f ~/.opencode/.opencode-termux-version
