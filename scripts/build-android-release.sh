@@ -20,7 +20,14 @@ MUSL_VERSION="1.2.6"
 MUSL_SHA256="d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"
 TERMUX_RESOLV_CONF="/data/data/com.termux/files/usr/etc/resolv.conf"
 WORKDIR="$(mktemp -d "$PWD/.opencode-termux-build.XXXXXX")"
-trap 'rm -rf "$WORKDIR"' EXIT
+ALPINE_BIND_MOUNT=""
+cleanup() {
+  if [ -n "$ALPINE_BIND_MOUNT" ] && mountpoint -q "$ALPINE_BIND_MOUNT"; then
+    sudo umount "$ALPINE_BIND_MOUNT"
+  fi
+  rm -rf "$WORKDIR"
+}
+trap cleanup EXIT
 
 mkdir -p "$WORKDIR/upstream" "$WORKDIR/root" "$WORKDIR/stage"
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
@@ -48,6 +55,10 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
     echo "Error: ALPINE_ROOT does not contain Alpine's apk executable." >&2
     exit 1
   fi
+  # Make the workspace visible at the same absolute path inside the chroot.
+  ALPINE_BIND_MOUNT="$ALPINE_ROOT$PWD"
+  sudo mkdir -p "$ALPINE_BIND_MOUNT"
+  sudo mount --bind "$PWD" "$ALPINE_BIND_MOUNT"
   sudo chroot "$ALPINE_ROOT" /sbin/apk \
     --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir /etc/apk/keys \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
