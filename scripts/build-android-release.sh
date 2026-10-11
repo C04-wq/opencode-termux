@@ -69,8 +69,8 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
   for KEY_DIR in "$ALPINE_ROOT/etc/apk/keys" "$ALPINE_ROOT/usr/share/apk/keys"; do
     if [ -d "$KEY_DIR" ]; then
       while IFS= read -r -d '' KEY_FILE; do
-        sudo cp -n "$KEY_FILE" "$WORKDIR/root/etc/apk/keys/" || true
-      done < <(find "$KEY_DIR" -type f -name '*.rsa.pub' -print0)
+        sudo cp -L -n "$KEY_FILE" "$WORKDIR/root/etc/apk/keys/" || true
+      done < <(find -L "$KEY_DIR" -type f -name '*.rsa.pub' -print0)
     fi
   done
   echo "Trusted APK keys staged for target root:"
