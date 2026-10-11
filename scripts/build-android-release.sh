@@ -51,7 +51,7 @@ docker run --rm \
   -v "$WORKDIR:/work" \
   "alpine:${ALPINE_VERSION}" \
   sh -ec '
-    apk --root /work/root --initdb --keys-dir /etc/apk/keys \
+    apk --root /work/root --initdb --arch aarch64 --keys-dir /etc/apk/keys \
       --repository "$1" add --no-cache --no-scripts libgcc libstdc++
   ' sh "$ALPINE_REPO"
 
