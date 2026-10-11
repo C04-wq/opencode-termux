@@ -36,7 +36,7 @@ Installation is intentionally quiet. Instead of command logs, it only shows shor
   ◇ Setting up Termux dependencies…
   ✓ Termux dependencies are ready
   ◇ Preparing OpenCode for Termux…
-  ✓ OpenCode 1.18.4-8 is ready
+  ✓ OpenCode <version> is ready
 ```
 
 Detailed command output is kept hidden unless an error occurs.
