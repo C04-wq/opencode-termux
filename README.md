@@ -143,7 +143,7 @@ The installer checks the following commands and fixed Termux paths:
 | `/data/data/com.termux/files/usr/etc/tls/cert.pem` | `ca-certificates` | TLS certificate bundle path exported by the launcher. |
 | `/data/data/com.termux/files/usr/etc/resolv.conf` | `resolv-conf` | Resolver configuration used by the patched musl runtime. |
 
-If any item is missing, `install.js` invokes `pkg install -y` for the corresponding package and verifies the requirements again. A working `pkg) command and reachable Termux repositories are therefore needed when repair requires package installation. The installer reports an error and the launcher stops if a dependency remains missing.
+If any item is missing, `install.js` invokes `pkg install -y` for the corresponding package and verifies the requirements again. A working `pkg` command and reachable Termux repositories are therefore needed when repair requires package installation. The installer reports an error and the launcher stops if a dependency remains missing.
 
 These packages are installed at the Termux environment level. Uninstalling `opencode-termux` does not automatically remove them, because other Termux tools may also depend on them.
 
