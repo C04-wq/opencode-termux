@@ -2,10 +2,11 @@
 // Opens a reviewable PR when Alpine's latest stable branch advances.
 // Runtime package signatures are still verified by apk during the build.
 import fs from "node:fs";
+import { findStableBranches } from "./alpine-release-branches.mjs";
 
 const builderPath = "scripts/build-android-release.sh";
 const builder = fs.readFileSync(builderPath, "utf8");
-const currentMatch = builder.match(/^ALPINE_VERSION="(\d+\.\d+)"$/m);
+const currentMatch = builder.match(/^ALPINE_VERSION="(\\d+\\.\\d+)"$/m);
 if (!currentMatch) throw new Error("Could not find pinned ALPINE_VERSION in build script");
 const current = currentMatch[1];
 
@@ -16,18 +17,15 @@ const response = await fetch("https://alpinelinux.org/releases/", {
 if (!response.ok) throw new Error(`Alpine release page returned HTTP ${response.status}`);
 const html = await response.text();
 
-// Read only release-branch links from the official releases page. Searching all
-// page text can mistake prose, archived notes, or edge mentions for stable branches.
-const versions = [...html.matchAll(/href=["'](?:https?:\/\/alpinelinux\.org)?\/releases\/(?:v)?(\d+)\.(\d+)\/?(?:["'#?])/gi)]
-  .map((m) => ({ major: Number(m[1]), minor: Number(m[2]), text: `${m[1]}.${m[2]}` }))
-  .filter((v) => Number.isInteger(v.major) && Number.isInteger(v.minor) && v.major >= 3 && v.minor >= 0);
-const unique = [...new Map(versions.map((v) => [v.text, v])).values()];
-if (!unique.length) throw new Error("No Alpine stable release-branch links found on the official release page");
-unique.sort((a, b) => a.major - b.major || a.minor - b.minor);
-const latest = unique.at(-1).text;
+// The release table links stable branches to dl-cdn.alpinelinux.org/alpine/vX.Y/.
+// The old parser expected /releases/X.Y on the website itself, so it stopped
+// finding branches when the official page linked directly to the mirror.
+const branches = findStableBranches(html);
+if (!branches.length) throw new Error("No Alpine stable release-branch links found on the official release page");
+const latest = branches.at(-1);
 
 if (latest !== current) {
-  const updated = builder.replace(/^ALPINE_VERSION="\d+\.\d+"$/m, `ALPINE_VERSION="${latest}"`);
+  const updated = builder.replace(/^ALPINE_VERSION="\\d+\\.\\d+"$/m, `ALPINE_VERSION="${latest}"`);
   if (updated === builder) throw new Error("Could not update the pinned Alpine branch");
   fs.writeFileSync(builderPath, updated);
   console.log("ALPINE_UPDATE=true");
