@@ -243,6 +243,7 @@ jobs:
       - name: Publish npm package only after its release asset exists
         if: steps.state.outputs.npm_exists == 'false'
         env:
+          GH_TOKEN: ${{ github.token }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
