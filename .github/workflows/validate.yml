@@ -42,6 +42,17 @@ jobs:
           const releaseWorkflow = fs.readFileSync('.github/workflows/auto-update.yml', 'utf8');
           const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
           const alpineBootstrap = fs.readFileSync('scripts/setup-alpine-chroot.sh', 'utf8');
+          const toolchainChecker = fs.readFileSync('scripts/check-toolchain-updates.mjs', 'utf8');
+          const publishPaths = releaseWorkflow.split('paths:')[1]?.split('workflow_dispatch:')[0] ?? '';
+          if (/README\\.md/.test(publishPaths)) throw new Error('documentation-only changes must not trigger package publication');
+          const releaseCreateIndex = releaseWorkflow.indexOf('Create GitHub release before publishing to npm');
+          const npmPublishIndex = releaseWorkflow.indexOf('Publish npm package only after its release asset exists');
+          const metadataCommitIndex = releaseWorkflow.indexOf('Commit package metadata');
+          if (releaseCreateIndex < 0 || npmPublishIndex < 0 || releaseCreateIndex > npmPublishIndex) throw new Error('GitHub release must be created before npm publication');
+          if (metadataCommitIndex < 0 || metadataCommitIndex > releaseCreateIndex) throw new Error('package metadata must be committed before external publication for safe retries');
+          if (!releaseWorkflow.includes('recover_release') || !releaseWorkflow.includes('gh release download')) throw new Error('publication workflow must support retrying an existing release after npm publish failure');
+          if (!releaseWorkflow.includes('restore the exact archive')) throw new Error('workflow must fail safely when an already-published npm version has no release asset');
+          if (!toolchainChecker.includes('href=') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
           if (/\bdocker\b/i.test(builder)) throw new Error('release builder must not depend on Docker');
