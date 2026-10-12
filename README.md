@@ -318,6 +318,12 @@ test -s /data/data/com.termux/files/usr/etc/tls/cert.pem && echo "TLS certificat
 test -s /data/data/com.termux/files/usr/etc/resolv.conf && echo "Resolver file exists"
 ```
 
+### Direct execution of the managed binary fails
+
+Always start OpenCode with the installed `opencode` command, for example `opencode --version`. Do not run `~/.opencode/opencode` directly as a troubleshooting shortcut. The launcher removes an inherited `LD_PRELOAD` (which can load Termux's `libtermux-exec-ld-preload.so` into the separately packaged musl runtime), sets the runtime library and certificate paths, and starts the binary through the bundled musl loader. Bypassing the launcher skips that compatibility setup and can produce misleading dynamic-linker or relocation errors.
+
+If `opencode --version` still fails, capture the exact error from that command and include it in a bug report; do not copy individual system libraries into `~/.opencode/` or bypass the runtime checks.
+
 ### `opencode: command not found`
 
 1. Check that npm installation completed: `npm list -g opencode-termux --depth=0`.
