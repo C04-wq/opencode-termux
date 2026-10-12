@@ -57,7 +57,7 @@ jobs:
           if (!releaseWorkflow.includes("if: github.ref == 'refs/heads/main'")) throw new Error('publishing workflow must run only from main');
           if (!releaseWorkflow.includes('const orphanedNpm')) throw new Error('workflow must stop if any published npm version lacks a GitHub release');
           if (!releaseWorkflow.includes('restore the exact archive')) throw new Error('workflow must fail safely when an already-published npm version has no release asset');
-          if (!toolchainChecker.includes('href=') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
+          if (!toolchainChecker.includes('findStableBranches') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
           if (/\bdocker\b/i.test(builder)) throw new Error('release builder must not depend on Docker');
