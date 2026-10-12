@@ -67,7 +67,7 @@ jobs:
             echo "Error: could not query published npm versions; refusing to guess publication state." >&2
             exit 1
           fi
-          if ! RELEASE_TAGS="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '[.[].tagName]')"; then
+          if ! RELEASE_TAGS="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '[.[].tagName]')"; then
             echo "Error: could not query GitHub releases; refusing to guess publication state." >&2
             exit 1
           fi
