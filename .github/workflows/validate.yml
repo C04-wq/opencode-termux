@@ -27,6 +27,9 @@ jobs:
           set -euo pipefail
           node --check install.js
           node --check scripts/check-toolchain-updates.mjs
+          node --check scripts/alpine-release-branches.mjs
+          node --check scripts/test-toolchain-updates.mjs
+          node scripts/test-toolchain-updates.mjs
           bash -n bin/opencode
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
