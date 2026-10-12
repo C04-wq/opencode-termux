@@ -277,15 +277,15 @@ These changes address the environment-specific runtime issues handled by this pr
 
 The [Build and publish Termux package workflow](.github/workflows/auto-update.yml):
 
-- Runs on a six-hour schedule, on relevant pushes to `main`, or when manually triggered.
+- Runs on a six-hour schedule, on runtime/build changes pushed to `main`, or when manually triggered from `main`. Documentation-only changes do not trigger a package publication.
 - Queries the official OpenCode release API for the current release and its ARM64 musl archive SHA-256 digest.
-- Determines the package version and checks whether that version already exists on npm and as a GitHub Release. If only one exists, the workflow stops rather than rebuilding a potentially mismatched release.
+- Determines the package version and checks npm versions against GitHub Releases. It fails closed if any published npm version has no matching release asset, instead of hiding a broken install URL by publishing a newer version.
 - Prepares an Alpine chroot on the hosted runner and uses Alpine's package manager to obtain signed ARM64 `libgcc` and `libstdc++` packages. The phone does not need Alpine, and the build does not require Docker.
 - Downloads and verifies the official OpenCode archive, builds the pinned musl runtime with the Termux DNS path, assembles the release archive, and calculates its SHA-256 digest.
 - Runs syntax checks, inspects archive contents, and performs an `npm pack --dry-run`.
-- Publishes the npm package, creates the matching GitHub Release, and commits the generated version/checksum metadata when required.
+- Commits version/checksum metadata before publication, creates the GitHub Release first, downloads that exact asset again to verify its digest, and only then publishes the npm package. If release creation succeeds but npm publication fails, a later run can resume from that exact release asset instead of rebuilding it. If npm exists but its release is missing, automation stops for manual restoration of the exact archive.
 
-The workflow serializes publishing jobs to avoid concurrent releases. A relevant push to `main` forces a new package revision for the current upstream version; custom revisions use the next unused `-1`, `-2`, and so on suffix. It fails when the upstream digest is missing or when the npm and GitHub Release states disagree.
+The workflow serializes publishing jobs to avoid concurrent releases and refuses to publish from a non-`main` branch. A relevant runtime/build push to `main` forces a new package revision for the current upstream version; custom revisions use the next unused `-1`, `-2`, and so on suffix. It fails when the upstream digest is missing or when a published npm version lacks its corresponding GitHub Release.
 
 ### Toolchain maintenance and validation
 
