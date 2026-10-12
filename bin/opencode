@@ -27,7 +27,7 @@ if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so
   install_opencode || exit $?
 fi
 
-# Check npm on every launch so newly published fixes are not delayed by a cache.
+# Query the npm registry on every launch; do not cache update availability.
 # Set OPENCODE_TERMUX_AUTOUPDATE=0 to disable. Network failures are non-fatal.
 if [ "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" ]; then
   LATEST="$(timeout 10 npm view opencode-termux version 2>/dev/null || true)"
