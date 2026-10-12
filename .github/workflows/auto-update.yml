@@ -11,7 +11,6 @@ on:
       - "README.md"
       - "scripts/build-android-release.sh"
       - "scripts/setup-alpine-chroot.sh"
-      - "release-checksums.json"
   workflow_dispatch:
     inputs:
       force_publish:
