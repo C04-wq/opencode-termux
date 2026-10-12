@@ -289,7 +289,7 @@ The workflow serializes publishing jobs to avoid concurrent releases. A relevant
 
 ### Toolchain maintenance and validation
 
-- [Toolchain update workflow](.github/workflows/toolchain-updates.yml) checks Alpine's official stable-branch information and validates a candidate build before updating the pinned Alpine branch.
+- [Toolchain update workflow](.github/workflows/toolchain-updates.yml) checks Alpine's official stable-branch information, validates a candidate build, and opens or updates a reviewable pull request for a new pin; it never pushes the change directly to `main`.
 - `scripts/check-toolchain-updates.mjs` discovers the current stable Alpine branch. The musl version and digest are separately pinned in `scripts/build-android-release.sh`; the musl pin is not silently changed by the Alpine update check.
 - [Validation workflow](.github/workflows/validate.yml) checks JavaScript and shell syntax, validates version/checksum metadata, checks build assumptions, and runs an npm packaging dry run.
 - Dependabot is configured to check npm dependencies and GitHub Actions weekly.
