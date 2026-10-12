@@ -285,7 +285,7 @@ The [Build and publish Termux package workflow](.github/workflows/auto-update.ym
 - Runs syntax checks, inspects archive contents, and performs an `npm pack --dry-run`.
 - Publishes the npm package, creates the matching GitHub Release, and commits the generated version/checksum metadata when required.
 
-The workflow serializes publishing jobs to avoid concurrent releases. It fails when the upstream digest is missing or when the npm and GitHub Release states disagree.
+The workflow serializes publishing jobs to avoid concurrent releases. A relevant push to `main` forces a new package revision for the current upstream version; custom revisions use the next unused `-1`, `-2`, and so on suffix. It fails when the upstream digest is missing or when the npm and GitHub Release states disagree.
 
 ### Toolchain maintenance and validation
 
