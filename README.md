@@ -105,8 +105,8 @@ opencode [arguments]
     |                            +-- failure -> stop and report an error
     v
 2. Check the managed runtime in ~/.opencode/
-    |-- Required files and version marker match -> reuse runtime
-    |-- Missing/incomplete/out of date -> download and prepare runtime
+    |-- All required paths exist and version marker matches -> reuse runtime
+    |-- A required path is missing or marker differs -> download and prepare runtime
     |                            |
     |                            +-- checksum/test/setup failure -> stop
     v
@@ -139,7 +139,7 @@ On a first launch, or when the runtime is missing or out of sync with the instal
 8. Copies the prepared files into a staging directory beside `~/.opencode/`, activates that directory with renames, and tests the executable again from its final path.
 9. Restores the previous runtime if activation or the final-path test fails.
 
-A version marker, `~/.opencode/.opencode-termux-version`, records the npm package version that prepared the runtime. The launcher compares this marker and the required files with the installed package before deciding whether to reuse the runtime.
+A version marker, `~/.opencode/.opencode-termux-version`, records the npm package version that prepared the runtime. The launcher checks that the six required runtime paths exist and that this marker matches the installed npm package version. It does not hash or execute-test the runtime on every launch, and a file that exists but is empty or damaged may not be detected by this quick check. The installer checks that required files are non-empty and runs `opencode --version` when it prepares a runtime.
 
 ## Dependencies checked at launch
 
@@ -206,7 +206,7 @@ opencode
 
 The launcher should then ask the installer to prepare the runtime for the currently installed npm package. This command does not intentionally delete OpenCode configuration in `~/.config/opencode/`.
 
-If the managed runtime is corrupted or incomplete, remove the runtime directory and let the launcher recreate it:
+If runtime files are missing or you suspect the runtime is damaged (including damage the launcher's existence check may not detect), remove the managed runtime directory and let the launcher download and prepare it again:
 
 ```bash
 rm -rf ~/.opencode
@@ -283,7 +283,7 @@ The [Build and publish Termux package workflow](.github/workflows/auto-update.ym
 - Runs syntax checks, inspects archive contents, and performs an `npm pack --dry-run`.
 - Commits version/checksum metadata before publication, creates the GitHub Release first, downloads that exact asset again to verify its digest, and only then publishes the npm package. If release creation succeeds but npm publication fails, a later run can resume from that exact release asset instead of rebuilding it. If npm exists but its release is missing, automation stops for manual restoration of the exact archive.
 
-The workflow serializes publishing jobs to avoid concurrent releases and refuses to publish from a non-`main` branch. When a new official OpenCode version appears, the package starts at that exact version (for example, `1.20.0`), resetting the project-specific revision suffix from the previous series. Additional Termux-specific rebuilds for that same official version use the next unused `-1`, `-2`, and so on suffix; a retry resumes an already-created release instead of consuming another number. It fails when the upstream digest is missing or when a published npm version lacks its corresponding GitHub Release.
+The workflow serializes publishing jobs to avoid concurrent releases and refuses to publish from a non-`main` branch. When the official OpenCode version changes to a version that has not appeared in this project's npm/Release history, the package starts at that exact version (for example, `1.20.0`), without carrying over the previous series' revision suffix. Further Termux-specific revisions in that series use the next unused `-1`, `-2`, and so on. If that upstream version already appears in publication history, the workflow follows its existing history instead of assuming it is new; a retry can resume an already-created release rather than consuming another revision. It fails when the upstream digest is missing or when a published npm version lacks its corresponding GitHub Release.
 
 ### Toolchain maintenance and validation
 
