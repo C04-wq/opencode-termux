@@ -16,19 +16,21 @@ const response = await fetch("https://alpinelinux.org/releases/", {
 if (!response.ok) throw new Error(`Alpine release page returned HTTP ${response.status}`);
 const html = await response.text();
 
-// The official release page lists supported stable branches as vX.Y.
-// Ignore edge and release-candidate strings; choose the highest stable branch.
-const versions = [...html.matchAll(/\bv(\d+)\.(\d+)\b/g)]
+// Read only release-branch links from the official releases page. Searching all
+// page text can mistake prose, archived notes, or edge mentions for stable branches.
+const versions = [...html.matchAll(/href=["'](?:https?:\/\/alpinelinux\.org)?\/releases\/(?:v)?(\d+)\.(\d+)\/?(?:["'#?])/gi)]
   .map((m) => ({ major: Number(m[1]), minor: Number(m[2]), text: `${m[1]}.${m[2]}` }))
-  .filter((v) => Number.isInteger(v.major) && Number.isInteger(v.minor));
-if (!versions.length) throw new Error("No Alpine stable branch versions found on the official release page");
-versions.sort((a, b) => a.major - b.major || a.minor - b.minor);
-const latest = versions.at(-1).text;
+  .filter((v) => Number.isInteger(v.major) && Number.isInteger(v.minor) && v.major >= 3 && v.minor >= 0);
+const unique = [...new Map(versions.map((v) => [v.text, v])).values()];
+if (!unique.length) throw new Error("No Alpine stable release-branch links found on the official release page");
+unique.sort((a, b) => a.major - b.major || a.minor - b.minor);
+const latest = unique.at(-1).text;
 
 if (latest !== current) {
   const updated = builder.replace(/^ALPINE_VERSION="\d+\.\d+"$/m, `ALPINE_VERSION="${latest}"`);
+  if (updated === builder) throw new Error("Could not update the pinned Alpine branch");
   fs.writeFileSync(builderPath, updated);
-  console.log(`ALPINE_UPDATE=true`);
+  console.log("ALPINE_UPDATE=true");
   console.log(`ALPINE_CURRENT=${current}`);
   console.log(`ALPINE_LATEST=${latest}`);
 } else {
