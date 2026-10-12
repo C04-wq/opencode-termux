@@ -5,10 +5,11 @@ on:
     - cron: "0 */6 * * *"
   push:
     branches: [main]
+    # Documentation/workflow-only changes must not trigger a package publication.
+    # Runtime/build changes intentionally produce a new immutable package revision.
     paths:
       - "bin/**"
       - "install.js"
-      - "README.md"
       - "scripts/build-android-release.sh"
       - "scripts/setup-alpine-chroot.sh"
   workflow_dispatch:
@@ -29,7 +30,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       # Pinned full commit SHA approved by the repository Actions allowlist.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -51,7 +52,6 @@ jobs:
             echo "Error: unexpected official OpenCode version: $OPENCODE_VERSION" >&2
             exit 1
           fi
-
           UPSTREAM_ARCHIVE_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
           if ! [[ "$UPSTREAM_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
             echo "Error: the official ARM64 musl asset has no SHA-256 digest." >&2
@@ -59,49 +59,55 @@ jobs:
           fi
 
           CURRENT_VERSION="$(node -p "require('./package.json').version")"
-          CURRENT_UPSTREAM="${CURRENT_VERSION%%-*}"
           FORCE_PUBLISH="false"
           if [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.force_publish }}" = "true" ]; then
             FORCE_PUBLISH="true"
           fi
-
-          # npm versions are immutable. Use the clean official version for a new
-          # upstream base when available; custom publications increment -1, -2...
-          # within that same base. This also continues safely from legacy suffixes.
-          # Fail closed: a registry/network/auth error must never look like an empty registry.
           if ! PUBLISHED_VERSIONS="$(npm view opencode-termux versions --json)"; then
             echo "Error: could not query published npm versions; refusing to guess publication state." >&2
             exit 1
           fi
-          PACKAGE_VERSION="$(node - "$OPENCODE_VERSION" "$CURRENT_VERSION" "$FORCE_PUBLISH" "$PUBLISHED_VERSIONS" <<'NODE'
-          const [upstream, current, force, raw] = process.argv.slice(2);
-          let versions;
-          try {
-            versions = JSON.parse(raw);
-          } catch {
-            throw new Error("Could not parse published npm versions.");
-          }
-          if (!Array.isArray(versions)) versions = [versions];
-          const published = new Set(versions.filter(v => typeof v === "string"));
-          const nextRevision = base => {
-            const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            const pattern = new RegExp("^" + escaped + "-(\\d+)$");
-            let max = 0;
-            for (const version of published) {
-              const match = version.match(pattern);
-              if (match) max = Math.max(max, Number(match[1]));
-            }
-            return `${base}-${max + 1}`;
+          if ! RELEASE_TAGS="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '[.[].tagName]')"; then
+            echo "Error: could not query GitHub releases; refusing to guess publication state." >&2
+            exit 1
+          fi
+
+          PACKAGE_VERSION="$(node - "$OPENCODE_VERSION" "$CURRENT_VERSION" "$FORCE_PUBLISH" "$PUBLISHED_VERSIONS" "$RELEASE_TAGS" <<'NODE'
+          const [upstream, current, force, rawNpm, rawReleases] = process.argv.slice(2);
+          const parseArray = (raw, label) => {
+            let value;
+            try { value = JSON.parse(raw); } catch { throw new Error(`Could not parse ${label} response.`); }
+            if (!Array.isArray(value)) throw new Error(`${label} response was not an array.`);
+            return value;
           };
+          const published = new Set(parseArray(rawNpm, "npm versions").filter(v => typeof v === "string"));
+          const releases = new Set(parseArray(rawReleases, "GitHub releases").filter(v => typeof v === "string").map(v => v.replace(/^v/, "")));
+          const existsSomewhere = v => published.has(v) || releases.has(v);
+          const revisions = set => [...set].map(v => {
+            const match = v.match(new RegExp("^" + upstream.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "-(\\d+)$"));
+            return match ? Number(match[1]) : 0;
+          });
+          const nextRevision = () => {
+            const max = Math.max(0, ...revisions(published), ...revisions(releases));
+            return `${upstream}-${max + 1}`;
+          };
+          // If a prior run created the release but npm publish failed, resume that
+          // exact version rather than minting a new version or rebuilding its asset.
+          const orphanedReleases = [...releases].filter(v =>
+            (v === upstream || v.startsWith(upstream + "-")) && !published.has(v)
+          ).sort((a, b) => {
+            const rev = v => v === upstream ? 0 : Number(v.slice(upstream.length + 1));
+            return rev(b) - rev(a);
+          });
           let candidate;
-          if (force === "true" && upstream === current.split("-")[0]) {
-            candidate = published.has(upstream) || [...published].some(v => v.startsWith(upstream + "-"))
-              ? nextRevision(upstream)
-              : upstream;
+          if (orphanedReleases.length) candidate = orphanedReleases[0];
+          else if (force === "true" && upstream === current.split("-")[0]) {
+            candidate = existsSomewhere(upstream) || [...published, ...releases].some(v => v.startsWith(upstream + "-"))
+              ? nextRevision() : upstream;
           } else if (upstream === current.split("-")[0]) {
             candidate = current;
           } else {
-            candidate = published.has(upstream) ? nextRevision(upstream) : upstream;
+            candidate = existsSomewhere(upstream) ? nextRevision() : upstream;
           }
           process.stdout.write(candidate);
           NODE
@@ -117,7 +123,7 @@ jobs:
             exit 1
           fi
 
-          if gh release view "v${PACKAGE_VERSION}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>"$RUNNER_TEMP/gh-release-check.err"; then
+          if gh release view "v${PACKAGE_VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>"$RUNNER_TEMP/gh-release-check.err"; then
             RELEASE_EXISTS=true
           elif grep -qiE 'release not found|HTTP 404|Not Found' "$RUNNER_TEMP/gh-release-check.err"; then
             RELEASE_EXISTS=false
@@ -126,10 +132,14 @@ jobs:
             echo "Error: GitHub Release lookup failed for v${PACKAGE_VERSION}; refusing to publish." >&2
             exit 1
           fi
-          if [ "$NPM_EXISTS" != "$RELEASE_EXISTS" ]; then
-            echo "Error: npm and GitHub Release state disagree for v${PACKAGE_VERSION}." >&2
-            echo "Refusing to rebuild or publish a potentially mismatched archive. Recover the missing side manually." >&2
+
+          if [ "$NPM_EXISTS" = "true" ] && [ "$RELEASE_EXISTS" = "false" ]; then
+            echo "::error::npm version v${PACKAGE_VERSION} exists but its GitHub release is missing. Refusing to publish a package with a broken installer URL; restore the exact archive whose SHA-256 is recorded in that npm version."
             exit 1
+          fi
+          RECOVER_RELEASE="false"
+          if [ "$NPM_EXISTS" = "false" ] && [ "$RELEASE_EXISTS" = "true" ]; then
+            RECOVER_RELEASE="true"
           fi
 
           echo "opencode_version=$OPENCODE_VERSION" >> "$GITHUB_OUTPUT"
@@ -138,67 +148,95 @@ jobs:
           echo "force_publish=$FORCE_PUBLISH" >> "$GITHUB_OUTPUT"
           echo "npm_exists=$NPM_EXISTS" >> "$GITHUB_OUTPUT"
           echo "release_exists=$RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
-
-      - name: Read pinned Alpine branch
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false'
-        id: alpine-pin
-        run: |
-          set -euo pipefail
-          echo "branch=v$(sed -n 's/^ALPINE_VERSION=\"\([0-9.]*\)\"$/\1/p' scripts/build-android-release.sh)" >> "$GITHUB_OUTPUT"
+          echo "recover_release=$RECOVER_RELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Prepare Alpine package verifier without a container action
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false'
-        env:
-          BRANCH: ${{ steps.alpine-pin.outputs.branch }}
+        if: steps.state.outputs.npm_exists == 'false' && steps.state.outputs.recover_release == 'false'
         run: |
           set -euo pipefail
-          bash scripts/setup-alpine-chroot.sh "${BRANCH#v}" "$RUNNER_TEMP/alpine-root"
+          BRANCH="$(sed -n 's/^ALPINE_VERSION="\([0-9.]*\)"$/\1/p' scripts/build-android-release.sh)"
+          test -n "$BRANCH"
+          bash scripts/setup-alpine-chroot.sh "$BRANCH" "$RUNNER_TEMP/alpine-root"
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
 
       - name: Build Android-compatible release archive
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false'
+        if: steps.state.outputs.npm_exists == 'false' && steps.state.outputs.recover_release == 'false'
+        env:
+          PACKAGE_VERSION: ${{ steps.state.outputs.package_version }}
+          OPENCODE_VERSION: ${{ steps.state.outputs.opencode_version }}
+          UPSTREAM_SHA256: ${{ steps.state.outputs.upstream_archive_sha256 }}
         run: |
           set -euo pipefail
           node --check install.js
           bash -n bin/opencode
           bash -n scripts/build-android-release.sh
-          npm version "${{ steps.state.outputs.package_version }}" --no-git-tag-version --allow-same-version
-          bash scripts/build-android-release.sh "${{ steps.state.outputs.opencode_version }}" opencode-termux-aarch64.tar.gz "${{ steps.state.outputs.upstream_archive_sha256 }}"
+          npm version "$PACKAGE_VERSION" --no-git-tag-version --allow-same-version
+          bash scripts/build-android-release.sh "$OPENCODE_VERSION" opencode-termux-aarch64.tar.gz "$UPSTREAM_SHA256"
           ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
-          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "${{ steps.state.outputs.package_version }}" "$ARCHIVE_SHA256"
-          sha256sum opencode-termux-aarch64.tar.gz
+          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "$PACKAGE_VERSION" "$ARCHIVE_SHA256"
           tar -tzf opencode-termux-aarch64.tar.gz
           npm pack --dry-run
 
-      - name: Publish npm package
-        if: steps.state.outputs.npm_exists == 'false'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          NPM_CONFIG_USERCONFIG="$(mktemp)"
-          export NPM_CONFIG_USERCONFIG
-          trap 'rm -f "$NPM_CONFIG_USERCONFIG"' EXIT
-          npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
-          npm publish --tag latest
-
-      - name: Create GitHub release
-        if: steps.state.outputs.release_exists == 'false'
+      - name: Recover archive from an already-created GitHub release
+        if: steps.state.outputs.recover_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ steps.state.outputs.package_version }}
         run: |
           set -euo pipefail
-          gh release create "v${{ steps.state.outputs.package_version }}" opencode-termux-aarch64.tar.gz \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "v${{ steps.state.outputs.package_version }}" \
-            --notes "OpenCode v${{ steps.state.outputs.opencode_version }} packaged for Termux ARM64."
+          gh release download "v$PACKAGE_VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir .
+          tar -tzf opencode-termux-aarch64.tar.gz
+          ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
+          EXISTING_VERSION="$(node -p "require('./release-checksums.json').version")"
+          EXISTING_SHA="$(node -p "require('./release-checksums.json').archiveSha256")"
+          if [ "$EXISTING_VERSION" = "$PACKAGE_VERSION" ] && [ "$EXISTING_SHA" != "$ARCHIVE_SHA256" ]; then
+            echo "Error: existing checksum metadata conflicts with the immutable release asset; refusing to publish." >&2
+            exit 1
+          fi
+          npm version "$PACKAGE_VERSION" --no-git-tag-version --allow-same-version
+          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "$PACKAGE_VERSION" "$ARCHIVE_SHA256"
+          npm pack --dry-run
 
-      - name: Commit generated checksum metadata
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false'
+      # Commit metadata before external publication. A retry can then identify and
+      # resume the same version after any failure without creating a new revision.
+      - name: Commit package metadata
+        if: steps.state.outputs.npm_exists == 'false'
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json release-checksums.json
-          git diff --cached --quiet || git commit -m "chore: publish v${{ steps.state.outputs.package_version }}"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: prepare v${{ steps.state.outputs.package_version }}"
+            git push origin "HEAD:main"
+          fi
+
+      - name: Create GitHub release before publishing to npm
+        if: steps.state.outputs.release_exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ steps.state.outputs.package_version }}
+          OPENCODE_VERSION: ${{ steps.state.outputs.opencode_version }}
+        run: |
+          set -euo pipefail
+          gh release create "v$PACKAGE_VERSION" opencode-termux-aarch64.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "v$PACKAGE_VERSION" \
+            --notes "OpenCode v$OPENCODE_VERSION packaged for Termux ARM64."
+
+      - name: Publish npm package only after its release asset exists
+        if: steps.state.outputs.npm_exists == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release view "v${{ steps.state.outputs.package_version }}" --repo "$GITHUB_REPOSITORY" >/dev/null
+          gh release download "v${{ steps.state.outputs.package_version }}" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir "$RUNNER_TEMP/release-verify"
+          EXPECTED="$(node -p "require('./release-checksums.json').archiveSha256")"
+          ACTUAL="$(sha256sum "$RUNNER_TEMP/release-verify/opencode-termux-aarch64.tar.gz" | awk '{print $1}')"
+          test "$EXPECTED" = "$ACTUAL"
+          NPM_CONFIG_USERCONFIG="$(mktemp)"
+          export NPM_CONFIG_USERCONFIG
+          trap 'rm -f "$NPM_CONFIG_USERCONFIG"' EXIT
+          npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
+          npm publish --tag latest
