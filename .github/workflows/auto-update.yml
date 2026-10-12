@@ -83,22 +83,28 @@ jobs:
           const published = new Set(parseArray(rawNpm, "npm versions").filter(v => typeof v === "string"));
           const releases = new Set(parseArray(rawReleases, "GitHub releases").filter(v => typeof v === "string").map(v => v.replace(/^v/, "")));
           const existsSomewhere = v => published.has(v) || releases.has(v);
+          const revision = v => v === upstream ? 0 : Number(v.slice(upstream.length + 1));
+          const inUpstreamSeries = v => v === upstream || v.startsWith(upstream + "-");
+          // A published npm version without its release asset is a broken install
+          // URL. Never mask it by publishing a newer version over the problem.
+          const orphanedNpm = [...published].filter(v => !releases.has(v));
+          if (orphanedNpm.length) {
+            throw new Error("Published npm version(s) lack matching GitHub releases: " + orphanedNpm.join(", ") + ". Restore the exact release asset before publishing anything else.");
+          }
           const revisions = set => [...set].map(v => {
-            const match = v.match(new RegExp("^" + upstream.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "-(\\d+)$"));
+            const match = v.match(new RegExp("^" + upstream.split(".").join("\\.") + "-(\\d+)$"));
             return match ? Number(match[1]) : 0;
           });
           const nextRevision = () => {
             const max = Math.max(0, ...revisions(published), ...revisions(releases));
-            return `${upstream}-${max + 1}`;
+            return upstream + "-" + (max + 1);
           };
-          // If a prior run created the release but npm publish failed, resume that
-          // exact version rather than minting a new version or rebuilding its asset.
+          // Resume only an unmatched release newer than all npm versions in this
+          // upstream series; do not roll the latest tag back to an older orphan.
+          const maxPublishedRevision = Math.max(-1, ...[...published].filter(inUpstreamSeries).map(revision));
           const orphanedReleases = [...releases].filter(v =>
-            (v === upstream || v.startsWith(upstream + "-")) && !published.has(v)
-          ).sort((a, b) => {
-            const rev = v => v === upstream ? 0 : Number(v.slice(upstream.length + 1));
-            return rev(b) - rev(a);
-          });
+            inUpstreamSeries(v) && !published.has(v) && revision(v) > maxPublishedRevision
+          ).sort((a, b) => revision(b) - revision(a));
           let candidate;
           if (orphanedReleases.length) candidate = orphanedReleases[0];
           else if (force === "true" && upstream === current.split("-")[0]) {
