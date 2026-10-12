@@ -1,6 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -o pipefail
 # Keep Termux's shell preload out of installer, npm, and OpenCode child processes.
+# Trigger automatic publication of the next immutable package revision.
 unset LD_PRELOAD
 export OPENCODE_DISABLE_AUTOUPDATE=1
 
