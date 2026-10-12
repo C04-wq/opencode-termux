@@ -110,7 +110,7 @@ opencode [arguments]
     |                            |
     |                            +-- checksum/test/setup failure -> stop
     v
-3. Optionally query npm for the latest published package version
+3. Query npm for the latest published package version (10-second timeout)
     |-- No newer version / check unavailable -> use installed version
     |-- New version found -> install that package and re-enter the launcher
     v
@@ -167,8 +167,6 @@ These packages are installed at the Termux environment level. Uninstalling `open
 | npm global prefix | Launcher, `install.js`, package metadata, and checksum metadata installed by npm. |
 | `~/.opencode/` | Runtime files managed by this package: OpenCode binary, musl loader/libraries, C++ support libraries, and version marker. |
 | `~/.opencode/.opencode-termux-version` | Runtime/package version marker. |
-| `$XDG_CACHE_HOME/opencode-termux/last-update-check` | Timestamp for a successful, valid npm version check when `XDG_CACHE_HOME` is set. |
-| `~/.cache/opencode-termux/last-update-check` | Same update-check timestamp when `XDG_CACHE_HOME` is not set. |
 | `~/.config/opencode/` | OpenCode configuration location; separate from this project's managed runtime directory. |
 | `~/.local/share/opencode/auth.json` | OpenCode provider credentials/API keys and authentication data; managed by OpenCode, not by this wrapper. |
 
@@ -219,13 +217,13 @@ opencode
 
 ## Automatic package updates
 
-Automatic package checking is enabled by default. The launcher queries npm with:
+Automatic package checking is enabled by default. **Every launch of `opencode` queries npm** with a 10-second timeout:
 
 ```bash
 timeout 10 npm view opencode-termux version
 ```
 
-A valid returned version is cached for 24 hours. If a check fails or returns no valid version, no new valid timestamp is written, so a later launch can try again. The check only retrieves the published package version; it does not include your prompts or project files in that query.
+There is no 24-hour cache, so a newly published package can be detected on the next launch. If the network is unavailable, npm times out, or the result is invalid, the launcher keeps using the installed version and starts OpenCode normally. The check only retrieves the published package version; it does not include your prompts or project files in that query. The trade-off is that launches may wait up to 10 seconds for the version check when npm is unreachable.
 
 When npm reports a different valid version, the launcher attempts to install that exact `opencode-termux` version globally, using `--ignore-scripts --silent`, then re-enters the `opencode` command so the updated launcher and installer are used. If that installation fails, it warns and continues with the already installed version.
 
@@ -241,7 +239,7 @@ OPENCODE_TERMUX_AUTOUPDATE=1 opencode
 # Check the latest version published to npm
 npm view opencode-termux version
 
-# Update manually, without waiting for the automatic check interval
+# Update manually if needed
 npm install -g opencode-termux@latest
 ```
 
@@ -371,9 +369,9 @@ Check that the resolver file and certificate bundle exist using the commands abo
 
 First distinguish a Termux/runtime DNS or TLS error from an OpenCode provider/authentication error. Check the resolver and certificate paths above, then retry. If the error names an AI provider, model, API key, or account, configure that provider through OpenCode's normal supported settings; this wrapper does not supply provider credentials or bypass authentication.
 
-### Automatic update does not run immediately
+### Automatic update does not run
 
-The version-check timestamp suppresses another valid check for 24 hours. Install manually with `npm install -g opencode-termux@latest` to update immediately. If the npm query fails or does not return a valid version string, the launcher keeps using the installed version.
+The launcher checks npm on every launch, with a 10-second timeout. If npm is unreachable, the query times out, or it returns an invalid version, the current installed version is used so OpenCode can still start. Check connectivity and run `npm view opencode-termux version` to confirm the version published on npm. You can also update manually with `npm install -g opencode-termux@latest`.
 
 ### New source code is visible on GitHub but npm still shows an older version
 
@@ -428,7 +426,7 @@ The uninstall commands above do not delete your Termux home directory or uninsta
 
 | Path | Responsibility |
 | --- | --- |
-| `bin/opencode` | Command entry point: checks prerequisites and runtime files, performs the optional npm version check, sets the runtime environment, and launches OpenCode. |
+| `bin/opencode` | Command entry point: checks prerequisites and runtime files, queries npm for updates on launch, sets the runtime environment, and launches OpenCode. |
 | `install.js` | Checks/installs prerequisites; validates package metadata; downloads, hashes, extracts, patches, tests, and activates the runtime. |
 | `package.json` | npm package metadata, package version, Node engine requirement, and `opencode` command mapping. |
 | `release-checksums.json` | Package version and expected SHA-256 digest of the corresponding runtime archive. |
