@@ -8,7 +8,7 @@ const OFFICIAL_HOSTS = new Set([
 
 export function findStableBranches(html) {
   const versions = new Set();
-  for (const match of html.matchAll(/\\bhref\\s*=\\s*(["'])(.*?)\\1/gi)) {
+  for (const match of html.matchAll(/\bhref\s*=\s*(["'])(.*?)\1/gi)) {
     let url;
     try {
       url = new URL(match[2], "https://alpinelinux.org/releases/");
@@ -17,10 +17,8 @@ export function findStableBranches(html) {
     }
     if (!OFFICIAL_HOSTS.has(url.hostname.toLowerCase())) continue;
 
-    // Current official links point to /alpine/vX.Y/ on dl-cdn. Keep support
-    // for /releases/vX.Y links in case the website returns to relative links.
-    const branchMatch = url.pathname.match(/^\\/alpine\\/v(\\d+)\\.(\\d+)\\/?$/)
-      ?? url.pathname.match(/^\\/releases\\/v?(\\d+)\\.(\\d+)\\/?$/);
+    const branchMatch = url.pathname.match(/^\/alpine\/v(\d+)\.(\d+)\/?$/)
+      ?? url.pathname.match(/^\/releases\/v?(\d+)\.(\d+)\/?$/);
     if (!branchMatch) continue;
 
     const major = Number(branchMatch[1]);
