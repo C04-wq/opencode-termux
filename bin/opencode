@@ -27,21 +27,10 @@ if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so
   install_opencode || exit $?
 fi
 
-# Check at most once per 24 hours. Set OPENCODE_TERMUX_AUTOUPDATE=0 to disable.
+# Check npm on every launch so newly published fixes are not delayed by a cache.
+# Set OPENCODE_TERMUX_AUTOUPDATE=0 to disable. Network failures are non-fatal.
 if [ "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" ]; then
-  CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/opencode-termux"
-  CHECK_FILE="$CACHE_DIR/last-update-check"
-  NOW="$(date +%s)"
-  LAST_CHECK="$(cat "$CHECK_FILE" 2>/dev/null || echo 0)"
-  if ! [[ "$LAST_CHECK" =~ ^[0-9]+$ ]] || [ $((NOW - LAST_CHECK)) -ge 86400 ] || [ "$NOW" -lt "$LAST_CHECK" ]; then
-    mkdir -p "$CACHE_DIR" 2>/dev/null || true
-    LATEST="$(timeout 10 npm view opencode-termux version 2>/dev/null || true)"
-    if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-    printf '%s\n' "$NOW" > "$CHECK_FILE" 2>/dev/null || true
-    fi
-  else
-    LATEST=""
-  fi
+  LATEST="$(timeout 10 npm view opencode-termux version 2>/dev/null || true)"
 else
   LATEST=""
 fi
