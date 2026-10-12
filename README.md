@@ -255,7 +255,7 @@ The project starts from OpenCode's official `opencode-linux-arm64-musl.tar.gz` r
 
 ### Musl loader and shared libraries
 
-Android/Termux is not a conventional glibc-based desktop Linux distribution. The release archive is built for Linux ARM64 with musl. This project packages the musl loader and runtime libraries alongside the executable and starts it explicitly through that loader, with `LD_LIBRARY_PATH` set to `~/.opencode/`. The launcher also removes inherited `LD_PRELOAD` for the OpenCode process to avoid an external preload library interfering with the packaged runtime.
+Android/Termux is not a conventional glibc-based desktop Linux distribution. The release archive is built for Linux ARM64 with musl. This project packages the musl loader and runtime libraries alongside the executable and starts it explicitly through that loader, passing `~/.opencode/` as the loader-specific library search path. It does not export `LD_LIBRARY_PATH` to child processes. The launcher also clears inherited `LD_PRELOAD` so Termux’s Bionic preload library does not interfere with the packaged musl runtime.
 
 ### DNS resolver path
 
