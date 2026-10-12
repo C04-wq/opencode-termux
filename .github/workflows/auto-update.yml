@@ -231,6 +231,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release view "v${{ steps.state.outputs.package_version }}" --repo "$GITHUB_REPOSITORY" >/dev/null
+          mkdir -p "$RUNNER_TEMP/release-verify"
           gh release download "v${{ steps.state.outputs.package_version }}" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir "$RUNNER_TEMP/release-verify"
           EXPECTED="$(node -p "require('./release-checksums.json').archiveSha256")"
           ACTUAL="$(sha256sum "$RUNNER_TEMP/release-verify/opencode-termux-aarch64.tar.gz" | awk '{print $1}')"
