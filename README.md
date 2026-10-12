@@ -285,7 +285,7 @@ The [Build and publish Termux package workflow](.github/workflows/auto-update.ym
 - Runs syntax checks, inspects archive contents, and performs an `npm pack --dry-run`.
 - Commits version/checksum metadata before publication, creates the GitHub Release first, downloads that exact asset again to verify its digest, and only then publishes the npm package. If release creation succeeds but npm publication fails, a later run can resume from that exact release asset instead of rebuilding it. If npm exists but its release is missing, automation stops for manual restoration of the exact archive.
 
-The workflow serializes publishing jobs to avoid concurrent releases and refuses to publish from a non-`main` branch. A relevant runtime/build push to `main` forces a new package revision for the current upstream version; custom revisions use the next unused `-1`, `-2`, and so on suffix. It fails when the upstream digest is missing or when a published npm version lacks its corresponding GitHub Release.
+The workflow serializes publishing jobs to avoid concurrent releases and refuses to publish from a non-`main` branch. When a new official OpenCode version appears, the package starts at that exact version (for example, `1.20.0`), resetting the project-specific revision suffix from the previous series. Additional Termux-specific rebuilds for that same official version use the next unused `-1`, `-2`, and so on suffix; a retry resumes an already-created release instead of consuming another number. It fails when the upstream digest is missing or when a published npm version lacks its corresponding GitHub Release.
 
 ### Toolchain maintenance and validation
 

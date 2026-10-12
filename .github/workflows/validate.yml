@@ -56,6 +56,9 @@ jobs:
           if (!releaseWorkflow.includes('recover_release') || !releaseWorkflow.includes('gh release download')) throw new Error('publication workflow must support retrying an existing release after npm publish failure');
           if (!releaseWorkflow.includes("if: github.ref == 'refs/heads/main'")) throw new Error('publishing workflow must run only from main');
           if (!releaseWorkflow.includes('const orphanedNpm')) throw new Error('workflow must stop if any published npm version lacks a GitHub release');
+          if (!releaseWorkflow.includes('upstream !== current.split("-")[0] && !existsSomewhere(upstream)')) throw new Error('a new official OpenCode version must start with its plain version number, without the previous project revision suffix');
+          if (!releaseWorkflow.includes('candidate = upstream;')) throw new Error('new upstream versions must reset the project revision counter');
+          if (!releaseWorkflow.includes('candidate = nextRevision();')) throw new Error('existing upstream versions must use a new project revision when needed');
           if (!releaseWorkflow.includes('restore the exact archive')) throw new Error('workflow must fail safely when an already-published npm version has no release asset');
           if (!toolchainChecker.includes('findStableBranches') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
