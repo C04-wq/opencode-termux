@@ -5,8 +5,12 @@ on:
     - cron: "0 */6 * * *"
   push:
     branches: [main]
-    paths-ignore:
-      - "package.json"
+    paths:
+      - "bin/**"
+      - "install.js"
+      - "README.md"
+      - "scripts/build-android-release.sh"
+      - "scripts/setup-alpine-chroot.sh"
       - "release-checksums.json"
   workflow_dispatch:
     inputs:
@@ -37,7 +41,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf
 
-
       - name: Resolve upstream and publication state
         id: state
         env:
@@ -45,25 +48,61 @@ jobs:
         run: |
           set -euo pipefail
           OPENCODE_VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
+          if ! [[ "$OPENCODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: unexpected official OpenCode version: $OPENCODE_VERSION" >&2
+            exit 1
+          fi
+
           UPSTREAM_ARCHIVE_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
           if ! [[ "$UPSTREAM_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
             echo "Error: the official ARM64 musl asset has no SHA-256 digest." >&2
             exit 1
           fi
+
           CURRENT_VERSION="$(node -p "require('./package.json').version")"
           CURRENT_UPSTREAM="${CURRENT_VERSION%%-*}"
           FORCE_PUBLISH="false"
           if [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.force_publish }}" = "true" ]; then
             FORCE_PUBLISH="true"
           fi
-          if [ "$FORCE_PUBLISH" = "true" ]; then
-            # Publish source/tooling changes as a unique immutable package revision.
-            PACKAGE_VERSION="${OPENCODE_VERSION}-${GITHUB_RUN_NUMBER}"
-          elif [ "$OPENCODE_VERSION" = "$CURRENT_UPSTREAM" ]; then
-            PACKAGE_VERSION="$CURRENT_VERSION"
-          else
-            PACKAGE_VERSION="${OPENCODE_VERSION}-0"
-          fi
+
+          # npm versions are immutable. Use the clean official version for a new
+          # upstream base when available; custom publications increment -1, -2...
+          # within that same base. This also continues safely from legacy suffixes.
+          PUBLISHED_VERSIONS="$(npm view opencode-termux versions --json 2>/dev/null || echo '[]')"
+          PACKAGE_VERSION="$(node - "$OPENCODE_VERSION" "$CURRENT_VERSION" "$FORCE_PUBLISH" "$PUBLISHED_VERSIONS" <<'NODE'
+          const [upstream, current, force, raw] = process.argv.slice(2);
+          let versions;
+          try {
+            versions = JSON.parse(raw);
+          } catch {
+            throw new Error("Could not parse published npm versions.");
+          }
+          if (!Array.isArray(versions)) versions = [versions];
+          const published = new Set(versions.filter(v => typeof v === "string"));
+          const nextRevision = base => {
+            const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const pattern = new RegExp("^" + escaped + "-(\\d+)$");
+            let max = 0;
+            for (const version of published) {
+              const match = version.match(pattern);
+              if (match) max = Math.max(max, Number(match[1]));
+            }
+            return `${base}-${max + 1}`;
+          };
+          let candidate;
+          if (force === "true" && upstream === current.split("-")[0]) {
+            candidate = published.has(upstream) || [...published].some(v => v.startsWith(upstream + "-"))
+              ? nextRevision(upstream)
+              : upstream;
+          } else if (upstream === current.split("-")[0]) {
+            candidate = current;
+          } else {
+            candidate = published.has(upstream) ? nextRevision(upstream) : upstream;
+          }
+          process.stdout.write(candidate);
+          NODE
+          )"
 
           if npm view "opencode-termux@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
             NPM_EXISTS=true
@@ -89,14 +128,14 @@ jobs:
           echo "release_exists=$RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
 
       - name: Read pinned Alpine branch
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || steps.state.outputs.force_publish == 'true'
+        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false'
         id: alpine-pin
         run: |
           set -euo pipefail
-          echo "branch=v$(sed -n 's/^ALPINE_VERSION="\([0-9.]*\)"$/\1/p' scripts/build-android-release.sh)" >> "$GITHUB_OUTPUT"
+          echo "branch=v$(sed -n 's/^ALPINE_VERSION=\"\([0-9.]*\)\"$/\1/p' scripts/build-android-release.sh)" >> "$GITHUB_OUTPUT"
 
       - name: Prepare Alpine package verifier without a container action
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || steps.state.outputs.force_publish == 'true'
+        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false'
         env:
           BRANCH: ${{ steps.alpine-pin.outputs.branch }}
         run: |
@@ -105,7 +144,7 @@ jobs:
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
 
       - name: Build Android-compatible release archive
-        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false' || steps.state.outputs.force_publish == 'true'
+        if: steps.state.outputs.npm_exists == 'false' || steps.state.outputs.release_exists == 'false'
         run: |
           set -euo pipefail
           node --check install.js
