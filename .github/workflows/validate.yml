@@ -44,7 +44,7 @@ jobs:
           const alpineBootstrap = fs.readFileSync('scripts/setup-alpine-chroot.sh', 'utf8');
           const toolchainChecker = fs.readFileSync('scripts/check-toolchain-updates.mjs', 'utf8');
           const publishPaths = releaseWorkflow.split('paths:')[1]?.split('workflow_dispatch:')[0] ?? '';
-          if (/README\\.md/.test(publishPaths)) throw new Error('documentation-only changes must not trigger package publication');
+          if (/README[.]md/.test(publishPaths)) throw new Error('documentation-only changes must not trigger package publication');
           const releaseCreateIndex = releaseWorkflow.indexOf('Create GitHub release before publishing to npm');
           const npmPublishIndex = releaseWorkflow.indexOf('Publish npm package only after its release asset exists');
           const metadataCommitIndex = releaseWorkflow.indexOf('Commit package metadata');
