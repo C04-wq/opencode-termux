@@ -26,8 +26,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      # Pinned full commit SHA allowed by repository Actions policy (actions/checkout v4.2.2; repository runner compatibility policy).
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      # Pinned full commit SHA allowed by repository Actions policy (actions/checkout v5.0.0; Node.js 24).
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
       - name: Check runner Node.js and npm
         run: |
           set -euo pipefail
