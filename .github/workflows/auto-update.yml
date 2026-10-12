@@ -31,8 +31,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      # Pinned full commit SHA for supply-chain safety (actions/checkout v7.0.1).
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      # Pinned full commit SHA for supply-chain safety (actions/checkout v4.2.2; runner currently forces Node.js 24).
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Install ARM64 musl build toolchain
         run: |
