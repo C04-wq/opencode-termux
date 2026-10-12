@@ -56,7 +56,7 @@ jobs:
           if (!installer.includes('fs.renameSync(activation, OPENCODE_DIR)')) throw new Error('installer must activate the staged runtime by directory rename');
           if (!installer.includes('"libstdc++.so.6.runtime"')) throw new Error('installer runtime library filename mismatch');
           if (!launcher.includes('unset LD_PRELOAD')) throw new Error('launcher must clear inherited LD_PRELOAD before starting the musl runtime');
-          if (!launcher.includes('"--library-path",')) throw new Error('launcher must use the packaged musl library path');
+          if (!launcher.includes('--library-path "$OPENCODE_DIR"')) throw new Error('launcher must use the packaged musl library path');
           if (!launcher.includes('ld-musl-aarch64.so.1')) throw new Error('launcher must invoke the packaged musl loader');
           NODE
           npm pack --dry-run
