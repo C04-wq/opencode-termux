@@ -51,6 +51,8 @@ jobs:
           if (releaseCreateIndex < 0 || npmPublishIndex < 0 || releaseCreateIndex > npmPublishIndex) throw new Error('GitHub release must be created before npm publication');
           if (metadataCommitIndex < 0 || metadataCommitIndex > releaseCreateIndex) throw new Error('package metadata must be committed before external publication for safe retries');
           if (!releaseWorkflow.includes('recover_release') || !releaseWorkflow.includes('gh release download')) throw new Error('publication workflow must support retrying an existing release after npm publish failure');
+          if (!releaseWorkflow.includes("if: github.ref == 'refs/heads/main'")) throw new Error('publishing workflow must run only from main');
+          if (!releaseWorkflow.includes('const orphanedNpm')) throw new Error('workflow must stop if any published npm version lacks a GitHub release');
           if (!releaseWorkflow.includes('restore the exact archive')) throw new Error('workflow must fail safely when an already-published npm version has no release asset');
           if (!toolchainChecker.includes('href=') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
