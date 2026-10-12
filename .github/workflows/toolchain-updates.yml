@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - codex/maintenance-and-updates
     paths:
       - ".github/workflows/toolchain-updates.yml"
       - "scripts/build-android-release.sh"
@@ -70,18 +69,31 @@ jobs:
           fi
           bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz" "$UPSTREAM_SHA256"
           tar -tzf "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
-      - name: Update Alpine pin automatically after successful validation
-        if: steps.check.outputs.changed == 'true'
+      - name: Open pull request for validated Alpine update
+        if: steps.check.outputs.changed == 'true' && github.ref == 'refs/heads/main'
         env:
+          GH_TOKEN: ${{ github.token }}
           LATEST: ${{ steps.check.outputs.latest }}
         run: |
           set -euo pipefail
+          BRANCH="automation/alpine-${LATEST//./-}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
           git add scripts/build-android-release.sh
           if git diff --cached --quiet; then
             echo "No Alpine pin change to commit."
             exit 0
           fi
           git commit -m "build: update Alpine stable branch to ${LATEST}"
-          git push origin HEAD:main
+          # Publish only to a dedicated automation branch; never push a workflow
+          # checkout directly to the protected main branch.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          PR_NUMBER="$(gh pr list --state open --base main --head "$BRANCH" --json number --jq '.[0].number // empty')"
+          PR_TITLE="build: update Alpine stable branch to ${LATEST}"
+          PR_BODY="Alpine stable branch ${LATEST} was discovered and the candidate ARM64 runtime archive passed the hosted build checks. Please review this toolchain update before merging."
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit "$PR_NUMBER" --title "$PR_TITLE" --body "$PR_BODY"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$PR_TITLE" --body "$PR_BODY"
+          fi
