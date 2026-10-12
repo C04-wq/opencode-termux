@@ -68,7 +68,10 @@ jobs:
           # npm versions are immutable. Use the clean official version for a new
           # upstream base when available; custom publications increment -1, -2...
           # within that same base. This also continues safely from legacy suffixes.
-          PUBLISHED_VERSIONS="$(npm view opencode-termux versions --json 2>/dev/null || echo '[]')"
+          if ! PUBLISHED_VERSIONS="$(npm view opencode-termux versions --json)"; then
+            echo "Error: could not query published npm versions; refusing to guess publication state." >&2
+            exit 1
+          fi
           PACKAGE_VERSION="$(node - "$OPENCODE_VERSION" "$CURRENT_VERSION" "$FORCE_PUBLISH" "$PUBLISHED_VERSIONS" <<'NODE'
           const [upstream, current, force, raw] = process.argv.slice(2);
           let versions;
