@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 15
     steps:
       # Pinned full commit SHA for supply-chain safety (actions/checkout v5.0.0; Node.js 24).
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
 
       - name: Install ARM64 musl build toolchain
         run: |
