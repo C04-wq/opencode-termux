@@ -31,8 +31,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      # Pinned commit for supply-chain safety (actions/checkout v5.0.0; Node.js 24).
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      # Pinned full commit SHA for supply-chain safety (actions/checkout v7.0.1).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install ARM64 musl build toolchain
         run: |
@@ -68,7 +68,11 @@ jobs:
           # npm versions are immutable. Use the clean official version for a new
           # upstream base when available; custom publications increment -1, -2...
           # within that same base. This also continues safely from legacy suffixes.
-          PUBLISHED_VERSIONS="$(npm view opencode-termux versions --json 2>/dev/null || echo '[]')"
+          # Fail closed: a registry/network/auth error must never look like an empty registry.
+          if ! PUBLISHED_VERSIONS="$(npm view opencode-termux versions --json)"; then
+            echo "Error: could not query published npm versions; refusing to guess publication state." >&2
+            exit 1
+          fi
           PACKAGE_VERSION="$(node - "$OPENCODE_VERSION" "$CURRENT_VERSION" "$FORCE_PUBLISH" "$PUBLISHED_VERSIONS" <<'NODE'
           const [upstream, current, force, raw] = process.argv.slice(2);
           let versions;
@@ -103,15 +107,24 @@ jobs:
           NODE
           )"
 
-          if npm view "opencode-termux@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+          if npm view "opencode-termux@${PACKAGE_VERSION}" version >/dev/null 2>"$RUNNER_TEMP/npm-version-check.err"; then
             NPM_EXISTS=true
-          else
+          elif grep -q 'E404' "$RUNNER_TEMP/npm-version-check.err"; then
             NPM_EXISTS=false
-          fi
-          if gh release view "v${PACKAGE_VERSION}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            RELEASE_EXISTS=true
           else
+            cat "$RUNNER_TEMP/npm-version-check.err" >&2
+            echo "Error: npm version lookup failed for ${PACKAGE_VERSION}; refusing to publish." >&2
+            exit 1
+          fi
+
+          if gh release view "v${PACKAGE_VERSION}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>"$RUNNER_TEMP/gh-release-check.err"; then
+            RELEASE_EXISTS=true
+          elif grep -qiE 'release not found|HTTP 404|Not Found' "$RUNNER_TEMP/gh-release-check.err"; then
             RELEASE_EXISTS=false
+          else
+            cat "$RUNNER_TEMP/gh-release-check.err" >&2
+            echo "Error: GitHub Release lookup failed for v${PACKAGE_VERSION}; refusing to publish." >&2
+            exit 1
           fi
           if [ "$NPM_EXISTS" != "$RELEASE_EXISTS" ]; then
             echo "Error: npm and GitHub Release state disagree for v${PACKAGE_VERSION}." >&2
