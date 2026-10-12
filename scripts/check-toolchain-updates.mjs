@@ -6,7 +6,7 @@ import { findStableBranches } from "./alpine-release-branches.mjs";
 
 const builderPath = "scripts/build-android-release.sh";
 const builder = fs.readFileSync(builderPath, "utf8");
-const currentMatch = builder.match(/^ALPINE_VERSION="(\\d+\\.\\d+)"$/m);
+const currentMatch = builder.match(/^ALPINE_VERSION="(\d+\.\d+)"$/m);
 if (!currentMatch) throw new Error("Could not find pinned ALPINE_VERSION in build script");
 const current = currentMatch[1];
 
@@ -25,7 +25,7 @@ if (!branches.length) throw new Error("No Alpine stable release-branch links fou
 const latest = branches.at(-1);
 
 if (latest !== current) {
-  const updated = builder.replace(/^ALPINE_VERSION="\\d+\\.\\d+"$/m, `ALPINE_VERSION="${latest}"`);
+  const updated = builder.replace(/^ALPINE_VERSION="\d+\.\d+"$/m, `ALPINE_VERSION="${latest}"`);
   if (updated === builder) throw new Error("Could not update the pinned Alpine branch");
   fs.writeFileSync(builderPath, updated);
   console.log("ALPINE_UPDATE=true");
@@ -36,8 +36,5 @@ if (latest !== current) {
   console.log(`Alpine stable branch unchanged: ${current}`);
 }
 
-// musl is intentionally not bumped automatically here: its source hash must be
-// independently checked before changing the pin. The build fails closed on a
-// hash mismatch, and a maintainer should review a new upstream release first.
 const muslMatch = builder.match(/^MUSL_VERSION="([^"]+)"$/m);
 console.log(`MUSL_PINNED=${muslMatch?.[1] ?? "unknown"}`);
