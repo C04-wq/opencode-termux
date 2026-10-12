@@ -36,6 +36,7 @@ This repository does **not** implement a separate AI coding agent or provide AI 
 - [Launch lifecycle](#launch-lifecycle)
 - [Dependencies checked at launch](#dependencies-checked-at-launch)
 - [Runtime files, verification, and recovery](#runtime-files-verification-and-recovery)
+- [API keys and provider credentials](#api-keys-and-provider-credentials)
 - [Automatic package updates](#automatic-package-updates)
 - [Why the compatibility layer is needed](#why-the-compatibility-layer-is-needed)
 - [Build and release automation](#build-and-release-automation)
@@ -169,6 +170,19 @@ These packages are installed at the Termux environment level. Uninstalling `open
 | `$XDG_CACHE_HOME/opencode-termux/last-update-check` | Timestamp for a successful, valid npm version check when `XDG_CACHE_HOME` is set. |
 | `~/.cache/opencode-termux/last-update-check` | Same update-check timestamp when `XDG_CACHE_HOME` is not set. |
 | `~/.config/opencode/` | OpenCode configuration location; separate from this project's managed runtime directory. |
+| `~/.local/share/opencode/auth.json` | OpenCode provider credentials/API keys and authentication data; managed by OpenCode, not by this wrapper. |
+
+### API keys and provider credentials
+
+The launcher in `bin/opencode` passes the supplied arguments to the packaged OpenCode executable; this repository does not implement its own API-key storage or credential-management system. OpenCode's provider documentation identifies the credentials file as:
+
+```text
+~/.local/share/opencode/auth.json
+```
+
+Use OpenCode's `/connect` command to add provider credentials rather than adding keys to this repository's files. The path above is OpenCode's credential storage, not the runtime directory `~/.opencode/` managed by this project. See the [official OpenCode provider documentation](https://opencode.ai/docs/providers).
+
+Treat `auth.json` as sensitive: do not publish it, commit it to a Git repository, or share its contents in issues or screenshots.
 
 ### What the checksum does—and does not—prove
 
