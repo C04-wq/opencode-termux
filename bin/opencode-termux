@@ -118,11 +118,14 @@ function select(items, heading, label) {
   let selected = 0;
   const stdin = process.stdin;
   return new Promise((resolve, reject) => {
+    // Use the terminal's alternate screen for a clean menu and hide the shell cursor.
+    // Restore the normal screen and cursor when the selector exits.
+    process.stdout.write("\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H");
     const cleanup = () => {
       if (stdin.isRaw) stdin.setRawMode(false);
       stdin.pause();
       stdin.removeListener("data", onData);
-      process.stdout.write("\x1b[?25h\n");
+      process.stdout.write("\x1b[?1049l\x1b[?25h");
     };
     const paint = () => {
       process.stdout.write("\x1b[?25l\x1b[2J\x1b[H" + heading + "\n\n");
