@@ -73,7 +73,7 @@ function fetchReleases() {
 function releaseChannel(release) {
   const tag = String(release.tag_name || "").toLowerCase();
   const text = String(release.name || "").toLowerCase();
-  if (/\b(alpha|a)[.-]?\d*\b/.test(tag) || /\balpha\b/.test(text)) return "alpha";
+  if (/alpha(?:[.-]?\d+)?/.test(tag) || /\balpha\b/.test(text)) return null;
   if (/\b(beta|b)[.-]?\d*\b/.test(tag) || /\bbeta\b/.test(text)) return "beta";
   if (release.prerelease) return "beta";
   return "stable";
@@ -209,7 +209,7 @@ async function main() {
     if (!target) return versions();
     if (!isBankVersion(target)) throw new Error("Invalid version or version is older than OpenCode 1.20.0.");
     const releases = fetchReleases();
-    const release = releases.find((r) => releaseVersion(r) === target && !r.draft && verifiedAsset(r));
+    const release = releases.find((r) => releaseVersion(r) === target && !r.draft && releaseChannel(r) !== null && verifiedAsset(r));
     if (!release || !publishedVersion(target)) throw new Error("Version is not an installable, verified GitHub Release with a matching npm package.");
     const currentChannel = config().installedChannel || config().channel;
     const targetChannel = releaseChannel(release);
