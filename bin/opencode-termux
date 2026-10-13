@@ -142,7 +142,6 @@ async function chooseChannel() {
   const c = config();
   const chosen = await select(CHANNELS, "Choose a release channel (current: " + c.channel + ")", (x) => x[0].toUpperCase() + x.slice(1) + (x === c.channel ? " (current)" : ""));
   if (!chosen) return null;
-  saveConfig({ ...c, channel: chosen });
   return chosen;
 }
 async function versions() {
@@ -158,7 +157,6 @@ async function versions() {
   const selected = await select(rows, "Verified " + chosenChannel + " versions (OpenCode 1.20.0+)", (r) => r.packageVersion + (r.packageVersion === current ? " (installed)" : "") + (r.published_at ? " — " + r.published_at.slice(0, 10) : ""));
   if (!selected) { console.log("Cancelled. No installation started."); return; }
   if (selected.packageVersion === current) { console.log("That version is already installed."); return; }
-  if (chosenChannel !== config().channel) throw new Error("Channel selection changed unexpectedly. Run the command again.");
   const c = config();
   const installedChannel = c.installedChannel || c.channel;
   if (chosenChannel !== installedChannel) {
