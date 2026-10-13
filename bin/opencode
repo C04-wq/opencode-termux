@@ -25,6 +25,9 @@ if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so
   install_opencode || exit $?
 fi
 
+# Record only after the installed package has a verified, active runtime.
+node "$DIR/bin/opencode-termux" record >/dev/null 2>&1 || true
+
 # Check at most once per 24 hours. Updates are never installed without consent.
 # OPENCODE_TERMUX_AUTOUPDATE=0 disables the version check entirely.
 if [ "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" ]; then
