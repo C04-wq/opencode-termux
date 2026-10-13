@@ -11,7 +11,7 @@ const CONFIG = path.join(ROOT, "config.json");
 const STATE = path.join(process.env.XDG_STATE_HOME || path.join(HOME, ".local", "state"), "opencode-termux");
 const HISTORY = path.join(STATE, "versions.json");
 const API = "https://api.github.com/repos/C04-wq/opencode-termux/releases?per_page=100&page=";
-const CHANNELS = ["stable", "beta", "alpha"];
+const CHANNELS = ["stable", "beta"];
 
 function ensureDir(file) { fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 }); }
 function readJson(file, fallback) {
@@ -71,7 +71,6 @@ function fetchReleases() {
 function releaseChannel(release) {
   const tag = String(release.tag_name || "").toLowerCase();
   const text = String(release.name || "").toLowerCase();
-  if (/\b(alpha|a)[.-]?\d*\b/.test(tag) || /\balpha\b/.test(text)) return "alpha";
   if (/\b(beta|b)[.-]?\d*\b/.test(tag) || /\bbeta\b/.test(text)) return "beta";
   if (release.prerelease) return "beta";
   return "stable";
@@ -158,11 +157,11 @@ async function versions() {
   if (!selected) { console.log("Cancelled. No installation started."); return; }
   if (selected.packageVersion === current) { console.log("That version is already installed."); return; }
   const c = config();
-  const installedChannel = c.installedChannel || c.channel;
+  const installedChannel = c.installedChannel || "unknown";
   if (chosenChannel !== installedChannel) {
     const consequences = [
       "WARNING: You are switching release channels.",
-      "Current channel: " + installedChannel,
+      "Previously verified installed channel: " + installedChannel,
       "Selected channel: " + chosenChannel,
       "Possible consequences: the selected build may be less stable, may contain regressions, and may change behavior or compatibility. Returning to the previous channel may require reinstalling its exact version.",
       "Your OpenCode settings and credentials are not intentionally deleted."
@@ -180,16 +179,16 @@ async function versions() {
 function channel() {
   const c = config();
   const answer = process.argv[3];
-  if (!answer) { console.log("Current channel: " + c.channel + "\nUsage: opencode-termux channel stable|beta|alpha"); return; }
+  if (!answer) { console.log("Current channel: " + c.channel + "\nUsage: opencode-termux channel stable|beta"); return; }
   const value = answer.toLowerCase();
-  if (!CHANNELS.includes(value)) throw new Error("Invalid channel. Choose stable, beta, or alpha.");
+  if (!CHANNELS.includes(value)) throw new Error("Invalid channel. Choose stable or beta.");
   saveConfig({ ...c, channel: value });
   console.log("Preferred release channel set to " + value + ". Installable versions are determined from verified GitHub Releases.");
 }
 async function main() {
   const cmd = process.argv[2] || "help";
   if (cmd === "help" || cmd === "--help" || cmd === "-h") {
-    console.log("opencode-termux — version manager\n\n  channel [stable|beta|alpha]  Show/set preferred release channel\n  versions                    Browse verified GitHub Releases by channel\n  record                      Record the active package version (local metadata only)\n  rollback [version]          Browse verified releases or install an exact version\n  config                      Show configuration\n  help                        Show this help");
+    console.log("opencode-termux — version manager\n\n  channel [stable|beta]  Show/set preferred release channel\n  versions                    Browse verified GitHub Releases by channel\n  record                      Record the active package version (local metadata only)\n  rollback [version]          Browse verified releases or install an exact version\n  config                      Show configuration\n  help                        Show this help");
     return;
   }
   if (cmd === "channel") return channel();
