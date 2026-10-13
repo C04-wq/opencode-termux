@@ -43,58 +43,59 @@ if [ "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" ]; then
   if ! [[ "$LAST_CHECK" =~ ^[0-9]+$ ]] || [ $((NOW - LAST_CHECK)) -ge 86400 ] || [ "$NOW" -lt "$LAST_CHECK" ]; then
     mkdir -p "$CACHE_DIR" 2>/dev/null || true
     LATEST="$(timeout 10 npm view opencode-termux version 2>/dev/null || true)"
-    if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-      printf '%s\n' "$NOW" > "$CHECK_FILE" 2>/dev/null || true
-    else
-      LATEST=""
-    fi
-  else
-    LATEST=""
-  fi
-else
-  LATEST=""
-fi
-
-if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then
-  printf '  New update available: %s (installed: %s)\n' "$LATEST" "$CURRENT"
+    if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then
   UPDATE_ANSWER="no"
   if [ -t 0 ] && [ -t 1 ]; then
-    printf '\n  Would you like to update?\n\n'
+    # Dedicated alternate screen keeps the prompt separate from shell output.
+    printf '\033[?1049h\033[?25l\033[2J\033[H'
     UPDATE_CHOICE=1
     while :; do
+      printf '\033[H\033[J'
+      printf '\033[1;36m  OpenCode Termux\033[0m\n\n'
+      printf '  Update available\n  Installed  %s\n  Available  %s\n\n' "$CURRENT" "$LATEST"
+      printf '  Install this update?\n\n'
       if [ "$UPDATE_CHOICE" -eq 0 ]; then
-        printf '\r  \033[32m●\033[0m Yes      ○ No'
+        printf '  \033[32m❯ Yes\033[0m\n    No\n'
       else
-        printf '\r  ○ Yes      \033[32m●\033[0m No'
+        printf '    Yes\n  \033[32m❯ No\033[0m\n'
       fi
+      printf '\n  Use ↑/↓ and Enter to confirm. Press q to skip.\n'
       IFS= read -rsn1 KEY || KEY=""
       case "$KEY" in
         $'\x1b')
           IFS= read -rsn1 -t 1 K1 || K1=""
           IFS= read -rsn1 -t 1 K2 || K2=""
-          if [ "$K1" = "[" ]; then case "$K2" in A|B|C|D) UPDATE_CHOICE=$((1 - UPDATE_CHOICE));; esac; fi
+          if [ "$K1" = "[" ]; then case "$K2" in A|B) UPDATE_CHOICE=$((1 - UPDATE_CHOICE));; esac; fi
           ;;
         "") break ;;
         " ") UPDATE_CHOICE=$((1 - UPDATE_CHOICE));;
         y|Y) UPDATE_CHOICE=0; break ;;
-        n|N) UPDATE_CHOICE=1; break ;;
+        n|N|q|Q) UPDATE_CHOICE=1; break ;;
       esac
     done
-    printf '\n'
+    printf '\033[?1049l\033[?25h'
     [ "$UPDATE_CHOICE" -eq 0 ] && UPDATE_ANSWER="yes" || UPDATE_ANSWER="no"
   else
-    printf '  Non-interactive session; keeping the installed version.\n'
+    printf 'Update available: %s (installed: %s). Non-interactive session; keeping the installed version.\n' "$LATEST" "$CURRENT"
   fi
   if [ "$UPDATE_ANSWER" = "yes" ]; then
+    if [ -t 1 ]; then
+      printf '\033[?1049h\033[?25l\033[2J\033[H'
+      printf '\033[1;36m  OpenCode Termux\033[0m\n\n'
+      printf '  Updating %s -> %s\n\n  Please wait while the package is installed...\n' "$CURRENT" "$LATEST"
+    else
+      printf 'Updating opencode-termux %s to %s...\n' "$CURRENT" "$LATEST"
+    fi
     if npm install -g "opencode-termux@${LATEST}" --ignore-scripts --silent; then
+      [ -t 1 ] && printf '\033[?1049l\033[?25h'
       exec "$(command -v opencode)" "$@"
     fi
-    echo "Warning: update failed; keeping the installed version." >&2
+    [ -t 1 ] && printf '\033[?1049l\033[?25h'
+    printf 'Warning: update failed; keeping the installed version %s.\n' "$CURRENT" >&2
   else
-    echo "Keeping the installed version $CURRENT."
+    printf 'Keeping the installed version %s.\n' "$CURRENT"
   fi
 fi
-
 unset LD_PRELOAD
 export LD_LIBRARY_PATH="$OPENCODE_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
