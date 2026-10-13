@@ -86,9 +86,9 @@ elif command -v apk >/dev/null 2>&1; then
   mkdir -p "$WORKDIR/root/etc/apk/keys"
   cp -a /etc/apk/keys/. "$WORKDIR/root/etc/apk/keys/"
   if [ -d /usr/share/apk/keys/$ALPINE_ARCH ]; then
-    cp -a /usr/share/apk/keys/aarch64/. "$WORKDIR/root/etc/apk/keys/"
+    cp -a "/usr/share/apk/keys/$ALPINE_ARCH/." "$WORKDIR/root/etc/apk/keys/"
   fi
-  apk --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir "$WORKDIR/root/etc/apk/keys" \
+  apk --root "$WORKDIR/root" --initdb --arch "$ALPINE_ARCH" --keys-dir "$WORKDIR/root/etc/apk/keys" \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
 else
   echo "Error: Alpine apk is unavailable. Run this builder in Alpine or set ALPINE_ROOT to a prepared Alpine chroot." >&2
