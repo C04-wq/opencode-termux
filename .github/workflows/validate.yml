@@ -36,7 +36,7 @@ jobs:
           const pkg = require('./package.json');
           const sums = require('./release-checksums.json');
           if (pkg.version !== sums.version) throw new Error('package.json and release-checksums.json versions differ');
-          if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) throw new Error('invalid release SHA-256');
+          if (sums.archives) { for (const arch of ['aarch64', 'x86_64']) if (sums.archives[arch] && !/^[a-f0-9]{64}$/.test(sums.archives[arch].sha256)) throw new Error('invalid ' + arch + ' release SHA-256'); } else if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) throw new Error('invalid legacy ARM64 release SHA-256');
           const installer = fs.readFileSync('install.js', 'utf8');
           const launcher = fs.readFileSync('bin/opencode', 'utf8');
           const versionManager = fs.readFileSync('bin/opencode-termux', 'utf8');
@@ -57,7 +57,7 @@ jobs:
           if (!releaseWorkflow.includes('const orphanedNpm')) throw new Error('workflow must stop if any published npm version lacks a GitHub release');
           if (!releaseWorkflow.includes('restore the exact archive')) throw new Error('workflow must fail safely when an already-published npm version has no release asset');
           if (!toolchainChecker.includes('href=') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
-          if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
+          if (!builder.includes('--arch "$ALPINE_ARCH"') || !builder.includes('x86_64) UPSTREAM_ARCH="x64"')) throw new Error('builder must support explicit ARM64 and x86_64 targets');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
           if (/\bdocker\b/i.test(builder)) throw new Error('release builder must not depend on Docker');
           for (const workflow of [releaseWorkflow, toolchainWorkflow, fs.readFileSync('.github/workflows/validate.yml', 'utf8')]) {
@@ -74,7 +74,7 @@ jobs:
           if (!installer.includes('"libstdc++.so.6.runtime"')) throw new Error('installer runtime library filename mismatch');
           if (!launcher.includes('unset LD_PRELOAD')) throw new Error('launcher must clear inherited LD_PRELOAD before starting the musl runtime');
           if (!launcher.includes('--library-path "$OPENCODE_DIR"')) throw new Error('launcher must use the packaged musl library path');
-          if (!launcher.includes('ld-musl-aarch64.so.1')) throw new Error('launcher must invoke the packaged musl loader');
+          if (!launcher.includes('ld-musl-aarch64.so.1') || !launcher.includes('ld-musl-x86_64.so.1')) throw new Error('launcher must select the packaged musl loader for both architectures');
           if (!launcher.includes('¿Desea actualizar?')) throw new Error('launcher must ask before installing an update');
           if (!launcher.includes('Non-interactive session; keeping the installed version.')) throw new Error('launcher must not install updates in non-interactive sessions');
           if (!launcher.includes('UPDATE_CHOICE=$((1 - UPDATE_CHOICE))')) throw new Error('launcher must support arrow-key selection for update consent');
@@ -83,9 +83,9 @@ jobs:
           if (!launcher.includes('bin/opencode-termux" record')) throw new Error('launcher must record a version after runtime setup');
           if (!versionManager.includes('OpenCode 1.20.0') || !versionManager.includes('function isBankVersion')) throw new Error('version bank must start at OpenCode 1.20.0');
           if (!versionManager.includes('api.github.com/repos/C04-wq/opencode-termux/releases')) throw new Error('version bank must query the project GitHub Releases API');
-          if (!versionManager.includes('opencode-termux-aarch64.tar.gz') || !versionManager.includes('sha256:')) throw new Error('version bank must require the Termux ARM64 asset and SHA-256 digest');
+          if (!versionManager.includes('opencode-termux-aarch64.tar.gz') || !versionManager.includes('opencode-termux-x86_64.tar.gz') || !versionManager.includes('sha256:')) throw new Error('version bank must require the architecture-specific Termux asset and SHA-256 digest');
           if (!versionManager.includes('Choose a release channel') || !versionManager.includes('Continue') || !versionManager.includes('Go back')) throw new Error('version manager must offer channel selection and explicit cross-channel confirmation choices');
-          if (!versionManager.includes('const CHANNELS = ["stable", "beta"]') || versionManager.includes('alpha')) throw new Error('version manager must offer Stable and Beta only, with Alpha excluded');
+          if (!versionManager.includes('const CHANNELS = ["stable", "beta", "alpha"]')) throw new Error('version manager must offer Stable, Beta, and Alpha channels');
           if (!versionManager.includes('publishedVersion(version)')) throw new Error('version bank must require a matching published npm package');
           if (!versionManager.includes('npm", ["install", "-g", "opencode-termux@" + target, "--ignore-scripts", "--silent"]')) throw new Error('rollback must install an exact verified package without lifecycle scripts');
           NODE
