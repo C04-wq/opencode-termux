@@ -85,7 +85,7 @@ jobs:
           if (!versionManager.includes('api.github.com/repos/C04-wq/opencode-termux/releases')) throw new Error('version bank must query the project GitHub Releases API');
           if (!versionManager.includes('opencode-termux-aarch64.tar.gz') || !versionManager.includes('opencode-termux-x86_64.tar.gz') || !versionManager.includes('sha256:')) throw new Error('version bank must require the architecture-specific Termux asset and SHA-256 digest');
           if (!versionManager.includes('Choose a release channel') || !versionManager.includes('Continue') || !versionManager.includes('Go back')) throw new Error('version manager must offer channel selection and explicit cross-channel confirmation choices');
-          if (!versionManager.includes('const CHANNELS = ["stable", "beta", "alpha"]')) throw new Error('version manager must offer Stable, Beta, and Alpha channels');
+          if (!versionManager.includes('const CHANNELS = ["stable", "beta"]')) throw new Error('version manager must offer Stable and Beta channels');
           if (!versionManager.includes('publishedVersion(version)')) throw new Error('version bank must require a matching published npm package');
           if (!versionManager.includes('npm", ["install", "-g", "opencode-termux@" + target, "--ignore-scripts", "--silent"]')) throw new Error('rollback must install an exact verified package without lifecycle scripts');
           NODE
