@@ -51,26 +51,43 @@ else
 fi
 
 if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then
-  printf '  ◇ A new opencode-termux package is available: %s (installed: %s)\n' "$LATEST" "$CURRENT"
-  UPDATE_ANSWER="n"
+  printf '  Nueva actualización disponible: %s (instalada: %s)\n' "$LATEST" "$CURRENT"
+  UPDATE_ANSWER="no"
   if [ -t 0 ] && [ -t 1 ]; then
-    printf '  Install this update now? [y/N] '
-    IFS= read -r UPDATE_ANSWER || UPDATE_ANSWER="n"
-  else
-    printf '  Non-interactive session; keeping the installed version. Run npm install -g opencode-termux@%s to update manually.\n' "$LATEST"
-  fi
-  case "$UPDATE_ANSWER" in
-    y|Y|yes|YES|Yes)
-      if npm install -g "opencode-termux@${LATEST}" --ignore-scripts --silent; then
-        exec "$(command -v opencode)" "$@"
+    printf '\n  ¿Desea actualizar?\n\n'
+    UPDATE_CHOICE=1
+    while :; do
+      if [ "$UPDATE_CHOICE" -eq 0 ]; then
+        printf '\r  \033[32m●\033[0m Si       ○ No'
+      else
+        printf '\r  ○ Si       \033[32m●\033[0m No'
       fi
-      echo "Warning: update failed; using the installed version." >&2
-      ;;
-    *)
-      echo "Keeping installed version $CURRENT."
-      ;;
-  esac
-fi
+      IFS= read -rsn1 KEY || KEY=""
+      case "$KEY" in
+        $'\x1b')
+          IFS= read -rsn1 -t 1 K1 || K1=""
+          IFS= read -rsn1 -t 1 K2 || K2=""
+          if [ "$K1" = "[" ]; then case "$K2" in A|B|C|D) UPDATE_CHOICE=$((1 - UPDATE_CHOICE));; esac; fi
+          ;;
+        "") break ;;
+        " ") UPDATE_CHOICE=$((1 - UPDATE_CHOICE));;
+        s|S|y|Y) UPDATE_CHOICE=0; break ;;
+        n|N) UPDATE_CHOICE=1; break ;;
+      esac
+    done
+    printf '\n'
+    [ "$UPDATE_CHOICE" -eq 0 ] && UPDATE_ANSWER="si" || UPDATE_ANSWER="no"
+  else
+    printf '  Sesión no interactiva; se conserva la versión instalada.\n'
+  fi
+  if [ "$UPDATE_ANSWER" = "si" ]; then
+    if npm install -g "opencode-termux@${LATEST}" --ignore-scripts --silent; then
+      exec "$(command -v opencode)" "$@"
+    fi
+    echo "Aviso: la actualización falló; se usará la versión instalada." >&2
+  else
+    echo "Se conserva la versión instalada $CURRENT."
+  fifi
 
 unset LD_PRELOAD
 export LD_LIBRARY_PATH="$OPENCODE_DIR"
