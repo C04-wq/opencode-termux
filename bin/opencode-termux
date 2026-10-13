@@ -28,6 +28,7 @@ function writeJson(file, value) {
   fs.renameSync(temp, file);
 }
 function validVersion(v) { return typeof v === "string" && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(v); }
+function displayVersion(v) { return String(v).replace(/-\d+$/, ""); }
 function tuple(v) { return v.split(/[+-]/, 1)[0].split(".").map(Number); }
 function isBankVersion(v) { if (!validVersion(v)) return false; const t = tuple(v); return t[0] > 1 || (t[0] === 1 && (t[1] > 20 || (t[1] === 20 && t[2] >= 0))); }
 function currentVersion() {
@@ -155,7 +156,7 @@ async function versions() {
     return;
   }
   const current = currentVersion();
-  const selected = await select(rows, "Verified " + chosenChannel + " versions (OpenCode 1.20.0+)", (r) => r.packageVersion + (r.packageVersion === current ? " (installed)" : "") + (r.published_at ? " — " + r.published_at.slice(0, 10) : ""));
+  const selected = await select(rows, "Verified " + chosenChannel + " versions (OpenCode 1.20.0+)", (r) => displayVersion(r.packageVersion) + (r.packageVersion === current ? " (installed)" : "") + (r.published_at ? " — " + r.published_at.slice(0, 10) : ""));
   if (!selected) { console.log("Cancelled. No installation started."); return; }
   if (selected.packageVersion === current) { console.log("That version is already installed."); return; }
   const c = config();
