@@ -76,7 +76,7 @@ jobs:
           if (!launcher.includes('--library-path "$OPENCODE_DIR"')) throw new Error('launcher must use the packaged musl library path');
           if (!launcher.includes('ld-musl-aarch64.so.1') || !launcher.includes('ld-musl-x86_64.so.1')) throw new Error('launcher must select the packaged musl loader for both architectures');
           if (!launcher.includes('¿Desea actualizar?')) throw new Error('launcher must ask before installing an update');
-          if (!launcher.includes('Non-interactive session; keeping the installed version.')) throw new Error('launcher must not install updates in non-interactive sessions');
+          if (!launcher.includes('Sesión no interactiva; se conserva la versión instalada.')) throw new Error('launcher must not install updates in non-interactive sessions');
           if (!launcher.includes('UPDATE_CHOICE=$((1 - UPDATE_CHOICE))')) throw new Error('launcher must support arrow-key selection for update consent');
           if (!launcher.includes('\\033[32m●')) throw new Error('launcher must show a green selection dot');
           if (pkg.bin['opencode-termux'] !== 'bin/opencode-termux') throw new Error('version manager command must be packaged');
