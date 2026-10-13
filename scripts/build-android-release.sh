@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
-# Creates a Termux-compatible ARM64 package from OpenCode's official musl build.
+# Creates a Termux-compatible ARM64 or x86_64 package from OpenCode's official musl build.
 #
 # Android does not expose /etc/resolv.conf.  A stock musl resolver therefore
 # falls back to localhost and OpenCode cannot reach model APIs from Termux.  We
 # build the small musl runtime used by this package with Termux's resolver path.
 set -euo pipefail
 
-if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
-  echo "Usage: $0 <opencode-version> <output-tarball> [official-archive-sha256]" >&2
+if [ "$#" -lt 2 ] || [ "$#" -gt 4 ]; then
+  echo "Usage: $0 <opencode-version> <output-tarball> [official-archive-sha256] [aarch64|x86_64]" >&2
   exit 64
 fi
 
 VERSION="$1"
 OUTPUT="$2"
 EXPECTED_UPSTREAM_SHA256="${3:-}"
+TARGET_ARCH="${4:-aarch64}"
+case "$TARGET_ARCH" in
+  aarch64) UPSTREAM_ARCH="arm64"; ALPINE_ARCH="aarch64"; GNU_TRIPLET="aarch64-linux-gnu"; LOADER_NAME="ld-musl-aarch64.so.1"; LIBC_NAME="libc.musl-aarch64.so.1" ;;
+  x86_64) UPSTREAM_ARCH="x64"; ALPINE_ARCH="x86_64"; GNU_TRIPLET="x86_64-linux-gnu"; LOADER_NAME="ld-musl-x86_64.so.1"; LIBC_NAME="libc.musl-x86_64.so.1" ;;
+  *) echo "Error: unsupported architecture: $TARGET_ARCH" >&2; exit 64 ;;
+esac
 ALPINE_VERSION="3.24"
 ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main"
 MUSL_VERSION="1.2.6"
@@ -35,7 +41,7 @@ trap cleanup EXIT
 
 mkdir -p "$WORKDIR/upstream" "$WORKDIR/root" "$WORKDIR/stage"
 curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
-  "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz" \
+  "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-${UPSTREAM_ARCH}-musl.tar.gz" \
   -o "$WORKDIR/upstream.tar.gz"
 if [ -n "$EXPECTED_UPSTREAM_SHA256" ]; then
   ACTUAL_UPSTREAM_SHA256="$(sha256sum "$WORKDIR/upstream.tar.gz" | awk '{print $1}')"
@@ -74,12 +80,12 @@ if [ -n "${ALPINE_ROOT:-}" ]; then
     fi
   done
   sudo chroot "$ALPINE_ROOT" /sbin/apk \
-    --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir "$WORKDIR/root/etc/apk/keys" \
+    --root "$WORKDIR/root" --initdb --arch "$ALPINE_ARCH" --keys-dir "$WORKDIR/root/etc/apk/keys" \
     --repository "$ALPINE_REPO" add --no-cache --no-scripts libgcc libstdc++
 elif command -v apk >/dev/null 2>&1; then
   mkdir -p "$WORKDIR/root/etc/apk/keys"
   cp -a /etc/apk/keys/. "$WORKDIR/root/etc/apk/keys/"
-  if [ -d /usr/share/apk/keys/aarch64 ]; then
+  if [ -d /usr/share/apk/keys/$ALPINE_ARCH ]; then
     cp -a /usr/share/apk/keys/aarch64/. "$WORKDIR/root/etc/apk/keys/"
   fi
   apk --root "$WORKDIR/root" --initdb --arch aarch64 --keys-dir "$WORKDIR/root/etc/apk/keys" \
@@ -106,9 +112,9 @@ grep -Fq "${TERMUX_RESOLV_CONF}" "$MUSL_SOURCE/src/network/resolvconf.c" || {
 }
 (
   cd "$MUSL_SOURCE"
-  CC=aarch64-linux-gnu-gcc ./configure
+  CC="${GNU_TRIPLET}-gcc" ./configure
 )
-make -C "$MUSL_SOURCE" CC=aarch64-linux-gnu-gcc -j2
+make -C "$MUSL_SOURCE" CC="${GNU_TRIPLET}-gcc" -j2
 
 LOADER="$MUSL_SOURCE/lib/libc.so"
 LIBGCC="$WORKDIR/root/usr/lib/libgcc_s.so.1"
@@ -122,13 +128,13 @@ for required in "$LOADER" "$LIBGCC" "$LIBSTDCXX"; do
 done
 
 install -m 0755 "$WORKDIR/upstream/opencode" "$WORKDIR/stage/opencode"
-install -m 0755 "$LOADER" "$WORKDIR/stage/ld-musl-aarch64.so.1"
-install -m 0755 "$LOADER" "$WORKDIR/stage/libc.musl-aarch64.so.1"
+install -m 0755 "$LOADER" "$WORKDIR/stage/$LOADER_NAME"
+install -m 0755 "$LOADER" "$WORKDIR/stage/$LIBC_NAME"
 install -m 0644 "$LIBGCC" "$WORKDIR/stage/libgcc_s.so.1"
 install -m 0755 "$LIBSTDCXX" "$WORKDIR/stage/libstdc++.so.6.runtime"
 ln -s libstdc++.so.6.runtime "$WORKDIR/stage/libstdc++.so.6"
 
-for library in libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6; do
+for library in "$LIBC_NAME" libgcc_s.so.1 libstdc++.so.6; do
   patchelf --print-needed "$WORKDIR/stage/opencode" | grep -Fxq "$library" || {
     echo "Error: official binary does not declare required library $library." >&2
     exit 1
@@ -136,4 +142,4 @@ for library in libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6; do
 done
 
 tar -C "$WORKDIR/stage" -czf "$OUTPUT" \
-  opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime
+  opencode "$LOADER_NAME" "$LIBC_NAME" libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime
