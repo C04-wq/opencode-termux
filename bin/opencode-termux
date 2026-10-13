@@ -11,7 +11,8 @@ const CONFIG = path.join(ROOT, "config.json");
 const STATE = path.join(process.env.XDG_STATE_HOME || path.join(HOME, ".local", "state"), "opencode-termux");
 const HISTORY = path.join(STATE, "versions.json");
 const API = "https://api.github.com/repos/C04-wq/opencode-termux/releases?per_page=100&page=";
-const CHANNELS = ["stable", "beta"];
+const CHANNELS = ["stable", "beta", "alpha"];
+const ARCHIVE = process.arch === "arm64" ? "opencode-termux-aarch64.tar.gz" : process.arch === "x64" ? "opencode-termux-x86_64.tar.gz" : null;
 
 function ensureDir(file) { fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 }); }
 function readJson(file, fallback) {
@@ -81,7 +82,8 @@ function releaseVersion(release) {
   return validVersion(version) && isBankVersion(version) ? version : null;
 }
 function verifiedAsset(release) {
-  const asset = (release.assets || []).find((x) => x.name === "opencode-termux-aarch64.tar.gz");
+  if (!ARCHIVE) return false;
+  const asset = (release.assets || []).find((x) => x.name === ARCHIVE);
   if (!asset || typeof asset.digest !== "string" || !/^sha256:[a-f0-9]{64}$/i.test(asset.digest) || !asset.browser_download_url || !asset.browser_download_url.startsWith("https://github.com/C04-wq/opencode-termux/releases/download/")) return false;
   return true;
 }
@@ -149,7 +151,7 @@ async function versions() {
   console.log("Loading verified " + chosenChannel + " releases from GitHub...");
   const rows = catalog(chosenChannel);
   if (!rows.length) {
-    console.log("No installable " + chosenChannel + " versions found. Releases must include the ARM64 Termux archive, a valid SHA-256 digest, and the exact published npm package. No local-history versions are substituted.");
+    console.log("No installable " + chosenChannel + " versions found. Releases must include the matching-architecture Termux archive, a valid SHA-256 digest, and the exact published npm package. No local-history versions are substituted.");
     return;
   }
   const current = currentVersion();
@@ -181,14 +183,14 @@ function channel() {
   const answer = process.argv[3];
   if (!answer) { console.log("Current channel: " + c.channel + "\nUsage: opencode-termux channel stable|beta"); return; }
   const value = answer.toLowerCase();
-  if (!CHANNELS.includes(value)) throw new Error("Invalid channel. Choose stable or beta.");
+  if (!CHANNELS.includes(value)) throw new Error("Invalid channel. Choose stable, beta, or alpha.");
   saveConfig({ ...c, channel: value });
   console.log("Preferred release channel set to " + value + ". Installable versions are determined from verified GitHub Releases.");
 }
 async function main() {
   const cmd = process.argv[2] || "help";
   if (cmd === "help" || cmd === "--help" || cmd === "-h") {
-    console.log("opencode-termux — version manager\n\n  channel [stable|beta]  Show/set preferred release channel\n  versions                    Browse verified GitHub Releases by channel\n  record                      Record the active package version (local metadata only)\n  rollback [version]          Browse verified releases or install an exact version\n  config                      Show configuration\n  help                        Show this help");
+    console.log("opencode-termux — version manager\n\n  channel [stable|beta|alpha]  Show/set preferred release channel\n  versions                    Browse verified GitHub Releases by channel\n  record                      Record the active package version (local metadata only)\n  rollback [version]          Browse verified releases or install an exact version\n  config                      Show configuration\n  help                        Show this help");
     return;
   }
   if (cmd === "channel") return channel();
