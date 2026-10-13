@@ -4,7 +4,8 @@
   "description": "OpenCode AI assistant compiled for Android Termux (aarch64) with auto-update support",
   "main": "bin/opencode",
   "bin": {
-    "opencode": "bin/opencode"
+    "opencode": "bin/opencode",
+    "opencode-termux": "bin/opencode-termux"
   },
   "keywords": [
     "opencode",
