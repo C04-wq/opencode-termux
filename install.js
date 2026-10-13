@@ -6,7 +6,15 @@ const os = require("os");
 const path = require("path");
 
 const { version: VERSION } = require("./package.json");
-const { archiveSha256, version: checksumVersion } = require("./release-checksums.json");
+const checksumMetadata = require("./release-checksums.json");
+const { version: checksumVersion } = checksumMetadata;
+const ARCH = process.arch === "arm64" ? "aarch64" : process.arch === "x64" ? "x86_64" : null;
+const RUNTIME = ARCH ? {
+  aarch64: { loader: "ld-musl-aarch64.so.1", libc: "libc.musl-aarch64.so.1", archive: "opencode-termux-aarch64.tar.gz" },
+  x86_64: { loader: "ld-musl-x86_64.so.1", libc: "libc.musl-x86_64.so.1", archive: "opencode-termux-x86_64.tar.gz" },
+}[ARCH] : null;
+const archiveEntry = checksumMetadata.archives && RUNTIME ? checksumMetadata.archives[ARCH] : null;
+const archiveSha256 = archiveEntry ? archiveEntry.sha256 : (ARCH === "aarch64" ? checksumMetadata.archiveSha256 : null);
 const HOME = process.env.HOME;
 const CERTIFICATE_FILE = "/data/data/com.termux/files/usr/etc/tls/cert.pem";
 const RESOLVER_FILE = "/data/data/com.termux/files/usr/etc/resolv.conf";
@@ -96,7 +104,7 @@ if (!archiveSha256 || !/^[a-f0-9]{64}$/.test(archiveSha256)) {
 
 const OPENCODE_DIR = path.join(HOME, ".opencode");
 const VERSION_FILE = path.join(OPENCODE_DIR, ".opencode-termux-version");
-const URL = `https://github.com/C04-wq/opencode-termux/releases/download/v${VERSION}/opencode-termux-aarch64.tar.gz`;
+const URL = `https://github.com/C04-wq/opencode-termux/releases/download/v${VERSION}/${RUNTIME.archive}`;
 
 function normalizeLibstdcxx(directory) {
   const runtime = path.join(directory, "libstdc++.so.6.runtime");
@@ -165,7 +173,7 @@ try {
     if (!hasRequiredFiles(extracted)) throw new Error("release archive is incomplete");
 
     const binary = path.join(extracted, "opencode");
-    const interpreter = path.join(extracted, "ld-musl-aarch64.so.1");
+    const interpreter = path.join(extracted, RUNTIME.loader);
     run("patchelf", ["--set-interpreter", interpreter, binary], { timeout: 15000 });
     const extractedRuntimeEnv = {
       ...process.env,
@@ -196,7 +204,7 @@ try {
         }
       }
       const stagedBinary = path.join(activation, "opencode");
-      run("patchelf", ["--set-interpreter", path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), stagedBinary], { timeout: 15000 });
+      run("patchelf", ["--set-interpreter", path.join(OPENCODE_DIR, RUNTIME.loader), stagedBinary], { timeout: 15000 });
       fs.writeFileSync(path.join(activation, ".opencode-termux-version"), `${VERSION}\n`, { mode: 0o600 });
 
       if (fs.existsSync(OPENCODE_DIR)) {
@@ -216,7 +224,7 @@ try {
           SSL_CERT_FILE: CERTIFICATE_FILE,
         };
         delete activeRuntimeEnv.LD_PRELOAD;
-        execFileSync(path.join(OPENCODE_DIR, "ld-musl-aarch64.so.1"), [
+        execFileSync(path.join(OPENCODE_DIR, RUNTIME.loader), [
           "--library-path", OPENCODE_DIR, path.join(OPENCODE_DIR, "opencode"), "--version",
         ], {
           stdio: "pipe",
