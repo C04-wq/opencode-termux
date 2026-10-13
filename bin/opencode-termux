@@ -1,0 +1,113 @@
+#!/data/data/com.termux/files/usr/bin/node
+"use strict";
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+const { spawnSync } = require("child_process");
+
+const HOME = process.env.HOME || os.homedir();
+const ROOT = path.join(process.env.XDG_CONFIG_HOME || path.join(HOME, ".config"), "opencode-termux");
+const CONFIG = path.join(ROOT, "config.json");
+const STATE = path.join(process.env.XDG_STATE_HOME || path.join(HOME, ".local", "state"), "opencode-termux");
+const HISTORY = path.join(STATE, "versions.json");
+const MIN_VERSION = [1, 20, 0];
+
+function ensureDir(file) { fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 }); }
+function readJson(file, fallback) {
+  try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) {
+    if (e.code === "ENOENT") return fallback;
+    throw new Error("Cannot read " + file + ": " + e.message);
+  }
+}
+function writeJson(file, value) {
+  ensureDir(file);
+  const temp = file + ".tmp-" + process.pid;
+  fs.writeFileSync(temp, JSON.stringify(value, null, 2) + "\n", { mode: 0o600 });
+  fs.renameSync(temp, file);
+}
+function validVersion(v) { return typeof v === "string" && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(v); }
+function tuple(v) { return v.split(/[+-]/, 1)[0].split(".").map(Number); }
+function isBankVersion(v) { return validVersion(v) && tuple(v).some((n, i) => n > MIN_VERSION[i] || (n === MIN_VERSION[i] && i < 2 && false)) && (tuple(v)[0] > 1 || (tuple(v)[0] === 1 && (tuple(v)[1] > 20 || (tuple(v)[1] === 20 && tuple(v)[2] >= 0)))); }
+function currentVersion() {
+  const p = path.resolve(__dirname, "..", "package.json");
+  try { return require(p).version; } catch (_) { return "unknown"; }
+}
+function history() { return readJson(HISTORY, { startAt: "1.20.0", entries: [] }); }
+function addHistory(version, note) {
+  if (!isBankVersion(version)) return;
+  const data = history();
+  if (!data.entries.some((x) => x.version === version)) {
+    data.entries.push({ version, installedAt: new Date().toISOString(), note: note || "installed" });
+    data.entries.sort((a, b) => compare(a.version, b.version));
+    writeJson(HISTORY, data);
+  }
+}
+function compare(a, b) {
+  const aa = a.split(/[+-]/, 1)[0].split(".").map(Number);
+  const bb = b.split(/[+-]/, 1)[0].split(".").map(Number);
+  for (let i=0;i<3;i++) if (aa[i] !== bb[i]) return aa[i]-bb[i];
+  return a.localeCompare(b);
+}
+function config() { return readJson(CONFIG, { channel: "stable" }); }
+function saveConfig(c) { writeJson(CONFIG, c); }
+function runNpm(args) {
+  const result = spawnSync("npm", args, { stdio: "inherit", env: process.env });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error("npm command failed with exit code " + result.status);
+}
+function channel() {
+  const c = config();
+  console.log("Canal actual: " + c.channel);
+  console.log("Stable es el único canal que actualmente publica paquetes verificados por este proyecto.");
+  console.log("Beta/Alpha quedan guardados como preferencia, pero no se instalarán hasta que existan artefactos Termux verificados para esos canales.");
+  const answer = process.argv[3];
+  if (!answer) { console.log("Uso: opencode-termux channel stable|beta|alpha"); return; }
+  const value = answer.toLowerCase();
+  if (!["stable", "beta", "alpha"].includes(value)) throw new Error("Canal no válido. Usa stable, beta o alpha.");
+  if (value !== "stable") {
+    saveConfig({ ...c, channel: value });
+    console.warn("Preferencia guardada, pero no hay paquetes Beta/Alpha verificados disponibles. No se instalará software de esos canales.");
+    return;
+  }
+  saveConfig({ ...c, channel: value });
+  console.log("Canal Stable seleccionado.");
+}
+function main() {
+  const cmd = process.argv[2] || "help";
+  if (cmd === "help" || cmd === "--help" || cmd === "-h") {
+    console.log("opencode-termux — gestor de versiones\n\n  channel [stable|beta|alpha]  Ver/elegir canal\n  versions                    Ver banco desde OpenCode 1.20.0\n  record                      Registrar la versión instalada (solo desde 1.20.0)\n  rollback [versión]          Instalar una versión anterior registrada\n  config                      Mostrar configuración\n  help                        Mostrar ayuda");
+    return;
+  }
+  if (cmd === "channel") return channel();
+  if (cmd === "config") { console.log(JSON.stringify(config(), null, 2)); return; }
+  if (cmd === "record") {
+    const v = currentVersion();
+    if (!isBankVersion(v)) { console.log("Banco aún no iniciado: comienza con OpenCode 1.20.0 o posterior."); return; }
+    addHistory(v, "current package observed");
+    console.log("Versión registrada: " + v);
+    return;
+  }
+  if (cmd === "versions") {
+    const data = history();
+    console.log("Banco de versiones (desde OpenCode 1.20.0; las versiones 1.19.x no se importan):");
+    const rows = data.entries.filter((x) => isBankVersion(x.version));
+    if (!rows.length) { console.log("Todavía vacío. Se llenará con versiones 1.20.0+ instaladas y verificadas."); return; }
+    for (const row of rows) console.log((row.version === currentVersion() ? "* " : "  ") + row.version + "  " + row.installedAt + (row.note ? "  [" + row.note + "]" : ""));
+    return;
+  }
+  if (cmd === "rollback") {
+    const data = history();
+    const current = currentVersion();
+    const target = process.argv[3] || data.entries.filter((x) => x.version !== current && isBankVersion(x.version)).slice(-1)[0]?.version;
+    if (!target || !isBankVersion(target)) throw new Error("No hay versión de rollback válida registrada desde 1.20.0. Uso: opencode-termux rollback 1.20.0");
+    if (target === current) throw new Error("Esa versión ya está instalada.");
+    if (!data.entries.some((x) => x.version === target)) throw new Error("Solo puedes volver a una versión que figure en el banco. Consulta: opencode-termux versions");
+    console.log("Se instalará opencode-termux@" + target + ". Las configuraciones y credenciales de OpenCode no se borran.");
+    runNpm(["install", "-g", "opencode-termux@" + target, "--ignore-scripts", "--silent"]);
+    addHistory(target, "rollback target installed");
+    console.log("Paquete cambiado. Ejecuta opencode para que el instalador prepare y verifique el runtime.");
+    return;
+  }
+  throw new Error("Comando desconocido: " + cmd + ". Ejecuta opencode-termux help");
+}
+try { main(); } catch (e) { console.error("Error: " + e.message); process.exitCode = 1; }
