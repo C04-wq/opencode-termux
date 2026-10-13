@@ -18,14 +18,14 @@ const archiveSha256 = archiveEntry ? archiveEntry.sha256 : (ARCH === "aarch64" ?
 const HOME = process.env.HOME;
 const CERTIFICATE_FILE = "/data/data/com.termux/files/usr/etc/tls/cert.pem";
 const RESOLVER_FILE = "/data/data/com.termux/files/usr/etc/resolv.conf";
-const REQUIRED_FILES = [
+const REQUIRED_FILES = RUNTIME ? [
   "opencode",
-  "ld-musl-aarch64.so.1",
-  "libc.musl-aarch64.so.1",
+  RUNTIME.loader,
+  RUNTIME.libc,
   "libgcc_s.so.1",
   "libstdc++.so.6",
   "libstdc++.so.6.runtime",
-];
+] : [];
 
 function message(text) {
   process.stdout.write(`  ◇ ${text}\n`);
