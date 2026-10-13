@@ -226,6 +226,7 @@ opencode-termux help
 opencode-termux versions
 opencode-termux channel
 opencode-termux channel stable
+opencode-termux channel beta
 opencode-termux rollback
 opencode-termux rollback 1.20.0
 opencode-termux config
