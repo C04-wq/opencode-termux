@@ -85,8 +85,8 @@ function ensureDependencies() {
   success("Termux dependencies are ready");
 }
 
-if (process.arch !== "arm64") {
-  console.error("Error: opencode-termux supports aarch64 only.");
+if (!RUNTIME) {
+  console.error("Error: opencode-termux supports Android arm64 and x86_64 only.");
   process.exit(1);
 }
 if (!HOME) {
