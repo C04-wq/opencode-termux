@@ -81,7 +81,11 @@ jobs:
           if (!launcher.includes('\\033[32m●')) throw new Error('launcher must show a green selection dot');
           if (pkg.bin['opencode-termux'] !== 'bin/opencode-termux') throw new Error('version manager command must be packaged');
           if (!launcher.includes('bin/opencode-termux" record')) throw new Error('launcher must record a version after runtime setup');
-          if (!versionManager.includes('startAt: "1.20.0"') || !versionManager.includes('function isBankVersion')) throw new Error('version bank must start at OpenCode 1.20.0');
-          if (!versionManager.includes('npm", ["install", "-g", "opencode-termux@" + target, "--ignore-scripts", "--silent"]')) throw new Error('rollback must install an exact recorded package without lifecycle scripts');
+          if (!versionManager.includes('OpenCode 1.20.0') || !versionManager.includes('function isBankVersion')) throw new Error('version bank must start at OpenCode 1.20.0');
+          if (!versionManager.includes('api.github.com/repos/C04-wq/opencode-termux/releases')) throw new Error('version bank must query the project GitHub Releases API');
+          if (!versionManager.includes('opencode-termux-aarch64.tar.gz') || !versionManager.includes('sha256:')) throw new Error('version bank must require the Termux ARM64 asset and SHA-256 digest');
+          if (!versionManager.includes('Choose a release channel') || !versionManager.includes('Continue') || !versionManager.includes('Go back')) throw new Error('version manager must offer channel selection and explicit cross-channel confirmation choices');
+          if (!versionManager.includes('publishedVersion(version)')) throw new Error('version bank must require a matching published npm package');
+          if (!versionManager.includes('npm", ["install", "-g", "opencode-termux@" + target, "--ignore-scripts", "--silent"]')) throw new Error('rollback must install an exact verified package without lifecycle scripts');
           NODE
           npm pack --dry-run
