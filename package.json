@@ -1,7 +1,7 @@
 {
   "name": "opencode-termux",
   "version": "1.19.0-344",
-  "description": "OpenCode AI assistant compiled for Android Termux (aarch64) with auto-update support",
+  "description": "OpenCode AI assistant for Android Termux (ARM64 and x86_64) with verified updates and version management",
   "main": "bin/opencode",
   "bin": {
     "opencode": "bin/opencode",
@@ -19,6 +19,8 @@
     "terminal",
     "aarch64",
     "arm64",
+    "x86_64",
+    "x64",
     "musl"
   ],
   "author": "C04-wq",
