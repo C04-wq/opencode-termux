@@ -27,6 +27,7 @@ jobs:
           set -euo pipefail
           node --check install.js
           node --check scripts/check-toolchain-updates.mjs
+          node --check bin/opencode-termux
           bash -n bin/opencode
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
@@ -38,6 +39,7 @@ jobs:
           if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) throw new Error('invalid release SHA-256');
           const installer = fs.readFileSync('install.js', 'utf8');
           const launcher = fs.readFileSync('bin/opencode', 'utf8');
+          const versionManager = fs.readFileSync('bin/opencode-termux', 'utf8');
           const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
           const releaseWorkflow = fs.readFileSync('.github/workflows/auto-update.yml', 'utf8');
           const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
@@ -76,5 +78,9 @@ jobs:
           if (!launcher.includes('Install this update now? [y/N]')) throw new Error('launcher must ask before installing an update');
           if (!launcher.includes('Non-interactive session; keeping the installed version.')) throw new Error('launcher must not install updates in non-interactive sessions');
           if (!launcher.includes('case "$UPDATE_ANSWER" in')) throw new Error('launcher must gate package installation on explicit consent');
+          if (pkg.bin['opencode-termux'] !== 'bin/opencode-termux') throw new Error('version manager command must be packaged');
+          if (!launcher.includes('bin/opencode-termux" record')) throw new Error('launcher must record a version after runtime setup');
+          if (!versionManager.includes('startAt: "1.20.0"') || !versionManager.includes('function isBankVersion')) throw new Error('version bank must start at OpenCode 1.20.0');
+          if (!versionManager.includes('npm", ["install", "-g", "opencode-termux@" + target, "--ignore-scripts", "--silent"]')) throw new Error('rollback must install an exact recorded package without lifecycle scripts');
           NODE
           npm pack --dry-run
