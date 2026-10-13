@@ -92,7 +92,37 @@ function main() {
     console.log("Banco de versiones (desde OpenCode 1.20.0; las versiones 1.19.x no se importan):");
     const rows = data.entries.filter((x) => isBankVersion(x.version));
     if (!rows.length) { console.log("Todavía vacío. Se llenará con versiones 1.20.0+ instaladas y verificadas."); return; }
-    for (const row of rows) console.log((row.version === currentVersion() ? "* " : "  ") + row.version + "  " + row.installedAt + (row.note ? "  [" + row.note + "]" : ""));
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      for (const row of rows) console.log(row.version);
+      return;
+    }
+    let selected = Math.max(0, rows.findIndex((row) => row.version === currentVersion()));
+    const paint = () => {
+      process.stdout.write("\\x1b[?25l");
+      process.stdout.write("\\x1b[2J\\x1b[HVersiones disponibles — usa ↑/↓ y Enter\\n\\n");
+      rows.forEach((row, i) => {
+        const dot = i === selected ? "\\x1b[32m●\\x1b[0m" : " ";
+        process.stdout.write(dot + " " + row.version + (row.version === currentVersion() ? "  (instalada)" : "") + "\\n");
+      });
+    };
+    const stdin = process.stdin;
+    if (stdin.isRaw !== true) stdin.setRawMode(true);
+    stdin.resume();
+    paint();
+    stdin.on("data", (buf) => {
+      const key = buf.toString();
+      if (key === "\\u0003") { stdin.setRawMode(false); process.exit(130); }
+      if (key === "\\r" || key === "\\n") {
+        stdin.setRawMode(false); stdin.pause(); process.stdout.write("\\x1b[?25h\\n");
+        const row = rows[selected];
+        console.log("Seleccionada: " + row.version + " — " + row.installedAt);
+        return;
+      }
+      if (key === "\\u001b[A" || key === "k") selected = (selected - 1 + rows.length) % rows.length;
+      else if (key === "\\u001b[B" || key === "j") selected = (selected + 1) % rows.length;
+      else return;
+      paint();
+    });
     return;
   }
   if (cmd === "rollback") {
