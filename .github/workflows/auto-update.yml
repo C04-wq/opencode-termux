@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf
+          sudo apt-get install --yes gcc-aarch64-linux-gnu gcc-x86-64-linux-gnu patchelf
 
       - name: Resolve upstream and publication state
         id: state
@@ -54,8 +54,9 @@ jobs:
             exit 1
           fi
           UPSTREAM_ARCHIVE_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
-          if ! [[ "$UPSTREAM_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
-            echo "Error: the official ARM64 musl asset has no SHA-256 digest." >&2
+          UPSTREAM_X64_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-x64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
+          if ! [[ "$UPSTREAM_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ && "$UPSTREAM_X64_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "Error: official ARM64 and x86_64 musl assets must both have SHA-256 digests." >&2
             exit 1
           fi
 
@@ -151,6 +152,7 @@ jobs:
 
           echo "opencode_version=$OPENCODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "upstream_archive_sha256=$UPSTREAM_ARCHIVE_SHA256" >> "$GITHUB_OUTPUT"
+          echo "upstream_x64_sha256=$UPSTREAM_X64_SHA256" >> "$GITHUB_OUTPUT"
           echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
           echo "force_publish=$FORCE_PUBLISH" >> "$GITHUB_OUTPUT"
           echo "npm_exists=$NPM_EXISTS" >> "$GITHUB_OUTPUT"
@@ -172,16 +174,20 @@ jobs:
           PACKAGE_VERSION: ${{ steps.state.outputs.package_version }}
           OPENCODE_VERSION: ${{ steps.state.outputs.opencode_version }}
           UPSTREAM_SHA256: ${{ steps.state.outputs.upstream_archive_sha256 }}
+          UPSTREAM_X64_SHA256: ${{ steps.state.outputs.upstream_x64_sha256 }}
         run: |
           set -euo pipefail
           node --check install.js
           bash -n bin/opencode
           bash -n scripts/build-android-release.sh
           npm version "$PACKAGE_VERSION" --no-git-tag-version --allow-same-version
-          bash scripts/build-android-release.sh "$OPENCODE_VERSION" opencode-termux-aarch64.tar.gz "$UPSTREAM_SHA256"
-          ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
-          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "$PACKAGE_VERSION" "$ARCHIVE_SHA256"
+          bash scripts/build-android-release.sh "$OPENCODE_VERSION" opencode-termux-aarch64.tar.gz "$UPSTREAM_SHA256" aarch64
+          bash scripts/build-android-release.sh "$OPENCODE_VERSION" opencode-termux-x86_64.tar.gz "$UPSTREAM_X64_SHA256" x86_64
+          ARM64_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
+          X64_SHA256="$(sha256sum opencode-termux-x86_64.tar.gz | awk '{print $1}')"
+          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archives: {aarch64: {file: "opencode-termux-aarch64.tar.gz", sha256: process.argv[2]}, x86_64: {file: "opencode-termux-x86_64.tar.gz", sha256: process.argv[3]}}}, null, 2) + "\n")' "$PACKAGE_VERSION" "$ARM64_SHA256" "$X64_SHA256"
           tar -tzf opencode-termux-aarch64.tar.gz
+          tar -tzf opencode-termux-x86_64.tar.gz
           npm pack --dry-run
 
       - name: Recover archive from an already-created GitHub release
@@ -191,17 +197,19 @@ jobs:
           PACKAGE_VERSION: ${{ steps.state.outputs.package_version }}
         run: |
           set -euo pipefail
-          gh release download "v$PACKAGE_VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir .
+          gh release download "v$PACKAGE_VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --pattern opencode-termux-x86_64.tar.gz --dir .
           tar -tzf opencode-termux-aarch64.tar.gz
-          ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
+          ARM64_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
+          X64_SHA256="$(sha256sum opencode-termux-x86_64.tar.gz | awk '{print $1}')"
           EXISTING_VERSION="$(node -p "require('./release-checksums.json').version")"
-          EXISTING_SHA="$(node -p "require('./release-checksums.json').archiveSha256")"
-          if [ "$EXISTING_VERSION" = "$PACKAGE_VERSION" ] && [ "$EXISTING_SHA" != "$ARCHIVE_SHA256" ]; then
-            echo "Error: existing checksum metadata conflicts with the immutable release asset; refusing to publish." >&2
-            exit 1
+          if [ "$EXISTING_VERSION" = "$PACKAGE_VERSION" ]; then
+            EXISTING_ARM64="$(node -p "require('./release-checksums.json').archives?.aarch64?.sha256 || require('./release-checksums.json').archiveSha256 || ''")"
+            EXISTING_X64="$(node -p "require('./release-checksums.json').archives?.x86_64?.sha256 || ''")"
+            if [ -n "$EXISTING_ARM64" ] && [ "$EXISTING_ARM64" != "$ARM64_SHA256" ]; then echo "Error: immutable ARM64 asset checksum conflict." >&2; exit 1; fi
+            if [ -n "$EXISTING_X64" ] && [ "$EXISTING_X64" != "$X64_SHA256" ]; then echo "Error: immutable x86_64 asset checksum conflict." >&2; exit 1; fi
           fi
           npm version "$PACKAGE_VERSION" --no-git-tag-version --allow-same-version
-          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "$PACKAGE_VERSION" "$ARCHIVE_SHA256"
+          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archives: {aarch64: {file: "opencode-termux-aarch64.tar.gz", sha256: process.argv[2]}, x86_64: {file: "opencode-termux-x86_64.tar.gz", sha256: process.argv[3]}}}, null, 2) + "\n")' "$PACKAGE_VERSION" "$ARM64_SHA256" "$X64_SHA256"
           npm pack --dry-run
 
       # Commit metadata before external publication. A retry can then identify and
@@ -226,10 +234,10 @@ jobs:
           OPENCODE_VERSION: ${{ steps.state.outputs.opencode_version }}
         run: |
           set -euo pipefail
-          gh release create "v$PACKAGE_VERSION" opencode-termux-aarch64.tar.gz \
+          gh release create "v$PACKAGE_VERSION" opencode-termux-aarch64.tar.gz opencode-termux-x86_64.tar.gz \
             --repo "$GITHUB_REPOSITORY" \
             --title "v$PACKAGE_VERSION" \
-            --notes "OpenCode v$OPENCODE_VERSION packaged for Termux ARM64."
+            --notes "OpenCode v$OPENCODE_VERSION packaged for Termux ARM64 and x86_64."
 
       - name: Publish npm package only after its release asset exists
         if: steps.state.outputs.npm_exists == 'false'
@@ -239,10 +247,13 @@ jobs:
           set -euo pipefail
           gh release view "v${{ steps.state.outputs.package_version }}" --repo "$GITHUB_REPOSITORY" >/dev/null
           mkdir -p "$RUNNER_TEMP/release-verify"
-          gh release download "v${{ steps.state.outputs.package_version }}" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir "$RUNNER_TEMP/release-verify"
-          EXPECTED="$(node -p "require('./release-checksums.json').archiveSha256")"
-          ACTUAL="$(sha256sum "$RUNNER_TEMP/release-verify/opencode-termux-aarch64.tar.gz" | awk '{print $1}')"
-          test "$EXPECTED" = "$ACTUAL"
+          gh release download "v${{ steps.state.outputs.package_version }}" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --pattern opencode-termux-x86_64.tar.gz --dir "$RUNNER_TEMP/release-verify"
+          EXPECTED_ARM64="$(node -p "require('./release-checksums.json').archives.aarch64.sha256")"
+          EXPECTED_X64="$(node -p "require('./release-checksums.json').archives.x86_64.sha256")"
+          ACTUAL_ARM64="$(sha256sum "$RUNNER_TEMP/release-verify/opencode-termux-aarch64.tar.gz" | awk '{print $1}')"
+          ACTUAL_X64="$(sha256sum "$RUNNER_TEMP/release-verify/opencode-termux-x86_64.tar.gz" | awk '{print $1}')"
+          test "$EXPECTED_ARM64" = "$ACTUAL_ARM64"
+          test "$EXPECTED_X64" = "$ACTUAL_X64"
           NPM_CONFIG_USERCONFIG="$(mktemp)"
           export NPM_CONFIG_USERCONFIG
           trap 'rm -f "$NPM_CONFIG_USERCONFIG"' EXIT
