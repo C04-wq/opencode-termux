@@ -75,9 +75,10 @@ jobs:
           if (!launcher.includes('unset LD_PRELOAD')) throw new Error('launcher must clear inherited LD_PRELOAD before starting the musl runtime');
           if (!launcher.includes('--library-path "$OPENCODE_DIR"')) throw new Error('launcher must use the packaged musl library path');
           if (!launcher.includes('ld-musl-aarch64.so.1')) throw new Error('launcher must invoke the packaged musl loader');
-          if (!launcher.includes('Install this update now? [y/N]')) throw new Error('launcher must ask before installing an update');
+          if (!launcher.includes('¿Desea actualizar?')) throw new Error('launcher must ask before installing an update');
           if (!launcher.includes('Non-interactive session; keeping the installed version.')) throw new Error('launcher must not install updates in non-interactive sessions');
-          if (!launcher.includes('case "$UPDATE_ANSWER" in')) throw new Error('launcher must gate package installation on explicit consent');
+          if (!launcher.includes('UPDATE_CHOICE=$((1 - UPDATE_CHOICE))')) throw new Error('launcher must support arrow-key selection for update consent');
+          if (!launcher.includes('\\033[32m●')) throw new Error('launcher must show a green selection dot');
           if (pkg.bin['opencode-termux'] !== 'bin/opencode-termux') throw new Error('version manager command must be packaged');
           if (!launcher.includes('bin/opencode-termux" record')) throw new Error('launcher must record a version after runtime setup');
           if (!versionManager.includes('startAt: "1.20.0"') || !versionManager.includes('function isBankVersion')) throw new Error('version bank must start at OpenCode 1.20.0');
