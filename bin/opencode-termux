@@ -192,7 +192,7 @@ function channel() {
 async function main() {
   const cmd = process.argv[2] || "help";
   if (cmd === "help" || cmd === "--help" || cmd === "-h") {
-    console.log("opencode-termux — version manager\n\n  channel [stable|beta|alpha]  Show/set preferred release channel\n  versions                    Browse verified GitHub Releases by channel\n  record                      Record the active package version (local metadata only)\n  rollback [version]          Browse verified releases or install an exact version\n  config                      Show configuration\n  help                        Show this help");
+    console.log("opencode-termux — version manager\n\n  channel [stable|beta]  Show/set preferred release channel\n  versions                    Browse verified GitHub Releases by channel\n  record                      Record the active package version (local metadata only)\n  rollback [version]          Browse verified releases or install an exact version\n  config                      Show configuration\n  help                        Show this help");
     return;
   }
   if (cmd === "channel") return channel();
