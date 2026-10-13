@@ -86,6 +86,10 @@ jobs:
           if (!versionManager.includes('opencode-termux-aarch64.tar.gz') || !versionManager.includes('opencode-termux-x86_64.tar.gz') || !versionManager.includes('sha256:')) throw new Error('version bank must require the architecture-specific Termux asset and SHA-256 digest');
           if (!versionManager.includes('Choose a release channel') || !versionManager.includes('Continue') || !versionManager.includes('Go back')) throw new Error('version manager must offer channel selection and explicit cross-channel confirmation choices');
           if (!versionManager.includes('const CHANNELS = ["stable", "beta"]')) throw new Error('version manager must offer Stable and Beta channels');
+          if (!versionManager.includes('if (/alpha(?:[.-]?\\d+)?/.test(tag) || /\\balpha\\b/.test(text)) return null;')) throw new Error('version bank must exclude Alpha releases');
+          if (!versionManager.includes('releaseChannel(r) !== null')) throw new Error('rollback must reject releases outside Stable and Beta');
+          if (/channel\\s+stable\\|beta\\|alpha/i.test(versionManager)) throw new Error('version manager must not expose an Alpha channel');
+          if (!installer.includes('ARCH === "aarch64" ? checksumMetadata.archiveSha256 : null')) throw new Error('legacy checksum fallback must remain ARM64-only; x86_64 must fail closed without its own checksum');
           if (!versionManager.includes('publishedVersion(version)')) throw new Error('version bank must require a matching published npm package');
           if (!versionManager.includes('npm", ["install", "-g", "opencode-termux@" + target, "--ignore-scripts", "--silent"]')) throw new Error('rollback must install an exact verified package without lifecycle scripts');
           NODE
