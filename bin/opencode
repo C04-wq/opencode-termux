@@ -56,10 +56,10 @@ else
 fi
 
 if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then
-  printf '  Nueva actualización disponible: %s (instalada: %s)\n' "$LATEST" "$CURRENT"
+  printf '  New update available: %s (installed: %s)\n' "$LATEST" "$CURRENT"
   UPDATE_ANSWER="no"
   if [ -t 0 ] && [ -t 1 ]; then
-    printf '\n  ¿Desea actualizar?\n\n'
+    printf '\n  Would you like to update?\n\n'
     UPDATE_CHOICE=1
     while :; do
       if [ "$UPDATE_CHOICE" -eq 0 ]; then
@@ -76,22 +76,22 @@ if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRE
           ;;
         "") break ;;
         " ") UPDATE_CHOICE=$((1 - UPDATE_CHOICE));;
-        s|S|y|Y) UPDATE_CHOICE=0; break ;;
+        y|Y) UPDATE_CHOICE=0; break ;;
         n|N) UPDATE_CHOICE=1; break ;;
       esac
     done
     printf '\n'
-    [ "$UPDATE_CHOICE" -eq 0 ] && UPDATE_ANSWER="si" || UPDATE_ANSWER="no"
+    [ "$UPDATE_CHOICE" -eq 0 ] && UPDATE_ANSWER="yes" || UPDATE_ANSWER="no"
   else
-    printf '  Sesión no interactiva; se conserva la versión instalada.\n'
+    printf '  Non-interactive session; keeping the installed version.\n'
   fi
   if [ "$UPDATE_ANSWER" = "si" ]; then
     if npm install -g "opencode-termux@${LATEST}" --ignore-scripts --silent; then
       exec "$(command -v opencode)" "$@"
     fi
-    echo "Aviso: la actualización falló; se usará la versión instalada." >&2
+    echo "Warning: update failed; keeping the installed version." >&2
   else
-    echo "Se conserva la versión instalada $CURRENT."
+    echo "Keeping the installed version $CURRENT."
   fi
 fi
 
