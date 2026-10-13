@@ -43,7 +43,19 @@ if [ "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" ]; then
   if ! [[ "$LAST_CHECK" =~ ^[0-9]+$ ]] || [ $((NOW - LAST_CHECK)) -ge 86400 ] || [ "$NOW" -lt "$LAST_CHECK" ]; then
     mkdir -p "$CACHE_DIR" 2>/dev/null || true
     LATEST="$(timeout 10 npm view opencode-termux version 2>/dev/null || true)"
-    if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then
+    if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+      printf '%s\n' "$NOW" > "$CHECK_FILE" 2>/dev/null || true
+    else
+      LATEST=""
+    fi
+  else
+    LATEST=""
+  fi
+else
+  LATEST=""
+fi
+
+if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRENT" != "$LATEST" ]; then
   UPDATE_ANSWER="no"
   if [ -t 0 ] && [ -t 1 ]; then
     # Dedicated alternate screen keeps the prompt separate from shell output.
@@ -96,6 +108,7 @@ if [ "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" ]; then
     printf 'Keeping the installed version %s.\n' "$CURRENT"
   fi
 fi
+
 unset LD_PRELOAD
 export LD_LIBRARY_PATH="$OPENCODE_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
