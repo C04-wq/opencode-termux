@@ -217,6 +217,26 @@ opencode
 
 **Warning:** the last command permanently deletes the entire `~/.opencode/` directory. Use it only for runtime repair when you understand what is stored there. It does not remove the npm package or `~/.config/opencode/`.
 
+## Version bank, channels, and rollback
+
+The `opencode-termux` command manages this wrapper's version history and channel preference:
+
+```bash
+opencode-termux help
+opencode-termux versions
+opencode-termux channel
+opencode-termux channel stable
+opencode-termux rollback
+opencode-termux rollback 1.20.0
+opencode-termux config
+```
+
+The version bank intentionally starts at **upstream OpenCode 1.20.0**. It does not import the current 1.19.x line or fabricate older history. The launcher records a version only after the package's runtime has passed the installer's verification and is active. Records are kept in `~/.local/state/opencode-termux/versions.json` (or `$XDG_STATE_HOME/opencode-termux/versions.json`); channel preference is stored separately in `~/.config/opencode-termux/config.json` (or `$XDG_CONFIG_HOME`). Neither file is placed in OpenCode's own settings or credentials directories.
+
+Rollback is limited to versions already recorded in the bank, and installs that exact npm package with lifecycle scripts disabled. Afterward, run `opencode` to make the installer download and verify the matching Termux runtime. The installer's staged activation/recovery protects the previous runtime if validation fails. OpenCode settings and credentials are not deliberately removed or rewritten.
+
+**Channel status:** this project's release workflow currently publishes Stable packages only. Beta and Alpha can be saved as preferences, but are not treated as available channels and will not trigger installation of unverified builds. End-to-end Beta/Alpha support requires the release pipeline to build and publish matching verified Termux archives first. The bank only contains versions this package actually installs; it does not query arbitrary upstream tags as if they were usable Termux releases.
+
 ## Automatic package updates
 
 Automatic package checking is enabled by default. The launcher queries npm with:
