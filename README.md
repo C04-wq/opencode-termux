@@ -15,7 +15,7 @@
 
 <p align="center"><b>OpenCode on Android through Termux — automatic setup, verified runtime files, and no root required.</b></p>
 
-**opencode-termux** is a compatibility and distribution layer for running the official OpenCode Linux ARM64/musl build in Termux. It installs a command named `opencode`, checks the Termux prerequisites, downloads and verifies a matching runtime archive, adapts the executable to Termux's filesystem and DNS layout, and can update its own npm package.
+**opencode-termux** is a compatibility and distribution layer for running official OpenCode Linux musl builds on ARM64 and x86_64 Android devices through Termux. It installs a command named `opencode`, checks the Termux prerequisites, downloads and verifies a matching runtime archive, adapts the executable to Termux's filesystem and DNS layout, and can update its own npm package.
 
 This repository does **not** implement a separate AI coding agent or provide AI models/API access. It packages and launches OpenCode and handles platform-specific runtime compatibility.
 
@@ -48,7 +48,8 @@ This repository does **not** implement a separate AI coding agent or provide AI 
 
 ## Requirements and scope
 
-- An Android device running **Termux on ARM64/aarch64**.
+- An Android device running **Termux on ARM64/aarch64 or x86_64**.
+- A Termux Node.js runtime whose architecture matches the Android device (Node reports `arm64` or `x64`).
 - Node.js and npm available inside Termux.
 - Internet access for initial runtime download, dependency installation when required, and npm version checks.
 - Enough free storage for the compressed archive, temporary extraction, and runtime files.
@@ -66,9 +67,15 @@ Check the Node.js architecture with:
 node -p 'process.arch'
 ```
 
-The expected output is `arm64`. The installer exits with an error on other Node architectures. The package is designed for Termux's standard prefix, `/data/data/com.termux/files/usr`; it is not a general-purpose Linux installer.
+The expected output is `arm64` on ARM64 devices or `x64` on x86_64 devices. Other Node architectures are not supported. The package is designed for Termux's standard prefix, `/data/data/com.termux/files/usr`; it is not a general-purpose Linux installer.
 
-**Root, Proot, Docker, and Alpine installed on the phone are not required.** Alpine is used by the hosted build process to obtain signed ARM64 support libraries. The phone receives the resulting runtime archive.
+**Root, Proot, Docker, and Alpine installed on the phone are not required.** Alpine is used by the hosted build process to obtain signed support libraries for both target architectures. The device receives only the matching runtime archive.
+
+### Supported architectures and version bank
+
+The release workflow is designed to publish both `opencode-termux-aarch64.tar.gz` and `opencode-termux-x86_64.tar.gz` together under the same immutable GitHub Release and npm package version. The installer selects the archive, musl loader, and libc filename using Node.js `process.arch`; it never uses an ARM64 checksum for an x86_64 archive. The legacy checksum format remains readable for existing ARM64 package versions, while new combined releases carry separate SHA-256 entries for each architecture.
+
+The interactive version manager offers Stable, Beta, and Alpha channels when matching, published releases exist. It only lists releases with a valid GitHub asset digest and corresponding npm package. Channel availability depends on actual published releases; it does not synthesize missing versions. Rollback installs an exact published package version and requires confirmation when crossing channels.
 
 ## Installation and first launch
 
@@ -129,8 +136,8 @@ The dependency-only mode (`--ensure-dependencies`) exits after checking prerequi
 
 On a first launch, or when the runtime is missing or out of sync with the installed npm package, `install.js`:
 
-1. Checks that the process is ARM64 and that `HOME` is set.
-2. Confirms that `release-checksums.json` describes the same package version as `package.json`, with a valid SHA-256 value.
+1. Checks that the process architecture is supported and that `HOME` is set.
+2. Confirms that `release-checksums.json` describes the same package version as `package.json`, with a valid architecture-specific SHA-256 value.
 3. Downloads the release archive from this project's GitHub Releases over HTTPS, with retries.
 4. Calculates SHA-256 and compares it with the digest included in the npm package.
 5. Extracts into a temporary directory and verifies the required runtime files.
