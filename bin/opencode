@@ -10,6 +10,11 @@ while [ -h "$SOURCE" ]; do
 done
 DIR="$(cd "$(dirname "$SOURCE")/.." && pwd)"
 OPENCODE_DIR="$HOME/.opencode"
+case "$(node -p 'process.arch')" in
+  arm64) RUNTIME_LOADER="ld-musl-aarch64.so.1"; RUNTIME_LIBC="libc.musl-aarch64.so.1" ;;
+  x64) RUNTIME_LOADER="ld-musl-x86_64.so.1"; RUNTIME_LIBC="libc.musl-x86_64.so.1" ;;
+  *) echo "Error: opencode-termux supports Android arm64 and x86_64 only." >&2; exit 1 ;;
+esac
 CURRENT="$(node -e 'console.log(require(process.argv[1]).version)' "$DIR/package.json" 2>/dev/null)"
 INSTALLED_VERSION="$(cat "$OPENCODE_DIR/.opencode-termux-version" 2>/dev/null || true)"
 
@@ -21,7 +26,7 @@ install_opencode() {
 # install.js stays silent when everything is already available.
 node "$DIR/install.js" --ensure-dependencies || exit $?
 
-if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/ld-musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libc.musl-aarch64.so.1" ] || [ ! -f "$OPENCODE_DIR/libgcc_s.so.1" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6.runtime" ] || [ "$CURRENT" != "$INSTALLED_VERSION" ]; then
+if [ ! -f "$OPENCODE_DIR/opencode" ] || [ ! -f "$OPENCODE_DIR/$RUNTIME_LOADER" ] || [ ! -f "$OPENCODE_DIR/$RUNTIME_LIBC" ] || [ ! -f "$OPENCODE_DIR/libgcc_s.so.1" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6" ] || [ ! -f "$OPENCODE_DIR/libstdc++.so.6.runtime" ] || [ "$CURRENT" != "$INSTALLED_VERSION" ]; then
   install_opencode || exit $?
 fi
 
@@ -87,12 +92,12 @@ if [[ "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] && [ "$CURRE
     echo "Aviso: la actualización falló; se usará la versión instalada." >&2
   else
     echo "Se conserva la versión instalada $CURRENT."
-  fifi
+  fi
 
 unset LD_PRELOAD
 export LD_LIBRARY_PATH="$OPENCODE_DIR"
 export SSL_CERT_FILE=/data/data/com.termux/files/usr/etc/tls/cert.pem
 
-exec "$OPENCODE_DIR/ld-musl-aarch64.so.1" \
+exec "$OPENCODE_DIR/$RUNTIME_LOADER" \
   --library-path "$OPENCODE_DIR" \
   "$OPENCODE_DIR/opencode" "$@"
