@@ -73,6 +73,7 @@ function fetchReleases() {
 function releaseChannel(release) {
   const tag = String(release.tag_name || "").toLowerCase();
   const text = String(release.name || "").toLowerCase();
+  if (/\b(alpha|a)[.-]?\d*\b/.test(tag) || /\balpha\b/.test(text)) return "alpha";
   if (/\b(beta|b)[.-]?\d*\b/.test(tag) || /\bbeta\b/.test(text)) return "beta";
   if (release.prerelease) return "beta";
   return "stable";
@@ -182,7 +183,7 @@ async function versions() {
 function channel() {
   const c = config();
   const answer = process.argv[3];
-  if (!answer) { console.log("Current channel: " + c.channel + "\nUsage: opencode-termux channel stable|beta"); return; }
+  if (!answer) { console.log("Current channel: " + c.channel + "\nUsage: opencode-termux channel stable|beta|alpha"); return; }
   const value = answer.toLowerCase();
   if (!CHANNELS.includes(value)) throw new Error("Invalid channel. Choose stable, beta, or alpha.");
   saveConfig({ ...c, channel: value });
