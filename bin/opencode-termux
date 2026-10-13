@@ -27,7 +27,7 @@ function writeJson(file, value) {
 }
 function validVersion(v) { return typeof v === "string" && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(v); }
 function tuple(v) { return v.split(/[+-]/, 1)[0].split(".").map(Number); }
-function isBankVersion(v) { return validVersion(v) && tuple(v).some((n, i) => n > MIN_VERSION[i] || (n === MIN_VERSION[i] && i < 2 && false)) && (tuple(v)[0] > 1 || (tuple(v)[0] === 1 && (tuple(v)[1] > 20 || (tuple(v)[1] === 20 && tuple(v)[2] >= 0)))); }
+function isBankVersion(v) { if (!validVersion(v)) return false; const t = tuple(v); return t[0] > 1 || (t[0] === 1 && (t[1] > 20 || (t[1] === 20 && t[2] >= 0))); }
 function currentVersion() {
   const p = path.resolve(__dirname, "..", "package.json");
   try { return require(p).version; } catch (_) { return "unknown"; }
