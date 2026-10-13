@@ -10,7 +10,8 @@ const ROOT = path.join(process.env.XDG_CONFIG_HOME || path.join(HOME, ".config")
 const CONFIG = path.join(ROOT, "config.json");
 const STATE = path.join(process.env.XDG_STATE_HOME || path.join(HOME, ".local", "state"), "opencode-termux");
 const HISTORY = path.join(STATE, "versions.json");
-const MIN_VERSION = [1, 20, 0];
+const API = "https://api.github.com/repos/C04-wq/opencode-termux/releases?per_page=100&page=";
+const CHANNELS = ["stable", "beta", "alpha"];
 
 function ensureDir(file) { fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 }); }
 function readJson(file, fallback) {
@@ -29,8 +30,7 @@ function validVersion(v) { return typeof v === "string" && /^\d+\.\d+\.\d+(?:-[0
 function tuple(v) { return v.split(/[+-]/, 1)[0].split(".").map(Number); }
 function isBankVersion(v) { if (!validVersion(v)) return false; const t = tuple(v); return t[0] > 1 || (t[0] === 1 && (t[1] > 20 || (t[1] === 20 && t[2] >= 0))); }
 function currentVersion() {
-  const p = path.resolve(__dirname, "..", "package.json");
-  try { return require(p).version; } catch (_) { return "unknown"; }
+  try { return require(path.resolve(__dirname, "..", "package.json")).version; } catch (_) { return "unknown"; }
 }
 function history() { return readJson(HISTORY, { startAt: "1.20.0", entries: [] }); }
 function addHistory(version, note) {
@@ -45,99 +45,189 @@ function addHistory(version, note) {
 function compare(a, b) {
   const aa = a.split(/[+-]/, 1)[0].split(".").map(Number);
   const bb = b.split(/[+-]/, 1)[0].split(".").map(Number);
-  for (let i=0;i<3;i++) if (aa[i] !== bb[i]) return aa[i]-bb[i];
+  for (let i = 0; i < 3; i++) if (aa[i] !== bb[i]) return aa[i] - bb[i];
   return a.localeCompare(b);
 }
-function config() { return readJson(CONFIG, { channel: "stable" }); }
+function config() { const c = readJson(CONFIG, { channel: "stable" }); return CHANNELS.includes(c.channel) ? c : { ...c, channel: "stable" }; }
 function saveConfig(c) { writeJson(CONFIG, c); }
 function runNpm(args) {
   const result = spawnSync("npm", args, { stdio: "inherit", env: process.env });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error("npm command failed with exit code " + result.status);
 }
-function channel() {
+function fetchReleases() {
+  const all = [];
+  for (let page = 1; page <= 10; page++) {
+    const result = spawnSync("curl", ["-fsSL", "--connect-timeout", "8", "--max-time", "20", "-H", "Accept: application/vnd.github+json", "-H", "X-GitHub-Api-Version: 2022-11-28", API + page], { encoding: "utf8" });
+    if (result.error || result.status !== 0) throw new Error("Unable to query GitHub Releases. No versions will be offered; check your connection and try again.");
+    let batch;
+    try { batch = JSON.parse(result.stdout); } catch (_) { throw new Error("GitHub returned invalid release data. No versions will be offered."); }
+    if (!Array.isArray(batch)) throw new Error("GitHub returned an unexpected release catalogue. No versions will be offered.");
+    all.push(...batch);
+    if (batch.length < 100) return all;
+  }
+  throw new Error("Release catalogue exceeds the safe pagination limit. Refusing to show an incomplete version bank.");
+}
+function releaseChannel(release) {
+  const tag = String(release.tag_name || "").toLowerCase();
+  const text = String(release.name || "").toLowerCase();
+  if (/\b(alpha|a)[.-]?\d*\b/.test(tag) || /\balpha\b/.test(text)) return "alpha";
+  if (/\b(beta|b)[.-]?\d*\b/.test(tag) || /\bbeta\b/.test(text)) return "beta";
+  if (release.prerelease) return "beta";
+  return "stable";
+}
+function releaseVersion(release) {
+  const tag = String(release.tag_name || "");
+  const version = tag.startsWith("v") ? tag.slice(1) : tag;
+  return validVersion(version) && isBankVersion(version) ? version : null;
+}
+function verifiedAsset(release) {
+  const asset = (release.assets || []).find((x) => x.name === "opencode-termux-aarch64.tar.gz");
+  if (!asset || typeof asset.digest !== "string" || !/^sha256:[a-f0-9]{64}$/i.test(asset.digest) || !asset.browser_download_url || !asset.browser_download_url.startsWith("https://github.com/C04-wq/opencode-termux/releases/download/")) return false;
+  return true;
+}
+function publishedVersion(version) {
+  const result = spawnSync("npm", ["view", "opencode-termux@" + version, "version", "--json"], { encoding: "utf8", timeout: 15000 });
+  if (result.error || result.status !== 0) return false;
+  try {
+    const v = JSON.parse(result.stdout.trim());
+    return v === version || (Array.isArray(v) && v.includes(version));
+  } catch (_) { return result.stdout.trim().replace(/^"|"$/g, "") === version; }
+}
+function catalog(channel) {
+  const releases = fetchReleases();
+  const seen = new Set();
+  return releases.filter((r) => {
+    if (r.draft || releaseChannel(r) !== channel) return false;
+    const version = releaseVersion(r);
+    if (!version || seen.has(version) || !verifiedAsset(r)) return false;
+    if (!publishedVersion(version)) return false;
+    seen.add(version);
+    r.packageVersion = version;
+    return true;
+  }).sort((a, b) => compare(a.packageVersion, b.packageVersion));
+}
+function select(items, heading, label) {
+  if (!items.length) return null;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error("Interactive selection is required. Run this command in a Termux terminal.");
+  }
+  let selected = 0;
+  const stdin = process.stdin;
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      if (stdin.isRaw) stdin.setRawMode(false);
+      stdin.pause();
+      stdin.removeListener("data", onData);
+      process.stdout.write("\x1b[?25h\n");
+    };
+    const paint = () => {
+      process.stdout.write("\x1b[?25l\x1b[2J\x1b[H" + heading + "\n\n");
+      items.forEach((item, i) => process.stdout.write((i === selected ? "\x1b[32m●\x1b[0m" : " ") + " " + label(item) + "\n"));
+      process.stdout.write("\nUse ↑/↓ and Enter. Press q to go back.\n");
+    };
+    const onData = (buf) => {
+      const key = buf.toString();
+      if (key === "\u0003" || key.toLowerCase() === "q" || key === "\u001b") { cleanup(); resolve(null); return; }
+      if (key === "\u001b[A" || key === "k") selected = (selected - 1 + items.length) % items.length;
+      else if (key === "\u001b[B" || key === "j") selected = (selected + 1) % items.length;
+      else if (key === "\r" || key === "\n") { const item = items[selected]; cleanup(); resolve(item); return; }
+      else return;
+      paint();
+    };
+    stdin.setRawMode(true); stdin.resume(); stdin.on("data", onData); paint();
+  });
+}
+async function chooseChannel() {
   const c = config();
-  console.log("Canal actual: " + c.channel);
-  console.log("Stable es el único canal que actualmente publica paquetes verificados por este proyecto.");
-  console.log("Beta/Alpha quedan guardados como preferencia, pero no se instalarán hasta que existan artefactos Termux verificados para esos canales.");
-  const answer = process.argv[3];
-  if (!answer) { console.log("Uso: opencode-termux channel stable|beta|alpha"); return; }
-  const value = answer.toLowerCase();
-  if (!["stable", "beta", "alpha"].includes(value)) throw new Error("Canal no válido. Usa stable, beta o alpha.");
-  if (value !== "stable") {
-    saveConfig({ ...c, channel: value });
-    console.warn("Preferencia guardada, pero no hay paquetes Beta/Alpha verificados disponibles. No se instalará software de esos canales.");
+  const chosen = await select(CHANNELS, "Choose a release channel (current: " + c.channel + ")", (x) => x[0].toUpperCase() + x.slice(1) + (x === c.channel ? " (current)" : ""));
+  if (!chosen) return null;
+  saveConfig({ ...c, channel: chosen });
+  return chosen;
+}
+async function versions() {
+  const chosenChannel = await chooseChannel();
+  if (!chosenChannel) { console.log("Cancelled. No changes made."); return; }
+  console.log("Loading verified " + chosenChannel + " releases from GitHub...");
+  const rows = catalog(chosenChannel);
+  if (!rows.length) {
+    console.log("No installable " + chosenChannel + " versions found. Releases must include the ARM64 Termux archive, a valid SHA-256 digest, and the exact published npm package. No local-history versions are substituted.");
     return;
   }
-  saveConfig({ ...c, channel: value });
-  console.log("Canal Stable seleccionado.");
+  const current = currentVersion();
+  const selected = await select(rows, "Verified " + chosenChannel + " versions (OpenCode 1.20.0+)", (r) => r.packageVersion + (r.packageVersion === current ? " (installed)" : "") + (r.published_at ? " — " + r.published_at.slice(0, 10) : ""));
+  if (!selected) { console.log("Cancelled. No installation started."); return; }
+  if (selected.packageVersion === current) { console.log("That version is already installed."); return; }
+  if (chosenChannel !== config().channel) throw new Error("Channel selection changed unexpectedly. Run the command again.");
+  const c = config();
+  const installedChannel = c.installedChannel || c.channel;
+  if (chosenChannel !== installedChannel) {
+    const consequences = [
+      "WARNING: You are switching release channels.",
+      "Current channel: " + installedChannel,
+      "Selected channel: " + chosenChannel,
+      "Possible consequences: the selected build may be less stable, may contain regressions, and may change behavior or compatibility. Returning to the previous channel may require reinstalling its exact version.",
+      "Your OpenCode settings and credentials are not intentionally deleted."
+    ];
+    const decision = await select([{ value: "continue" }, { value: "back" }], consequences.join("\n") + "\n\nContinue with " + selected.packageVersion + "?", (x) => x.value === "continue" ? "Continue" : "Go back");
+    if (!decision || decision.value !== "continue") { console.log("Returned without installing anything."); return; }
+  }
+  const confirm = await select([{ value: "continue" }, { value: "back" }], "Install exact published package opencode-termux@" + selected.packageVersion + "?", (x) => x.value === "continue" ? "Continue" : "Go back");
+  if (!confirm || confirm.value !== "continue") { console.log("Returned without installing anything."); return; }
+  runNpm(["install", "-g", "opencode-termux@" + selected.packageVersion, "--ignore-scripts", "--silent"]);
+  saveConfig({ ...config(), channel: chosenChannel, installedChannel: chosenChannel });
+  addHistory(selected.packageVersion, "selected from verified GitHub Releases channel " + chosenChannel);
+  console.log("Package installed. Run opencode to prepare and verify the matching runtime archive.");
 }
-function main() {
+function channel() {
+  const c = config();
+  const answer = process.argv[3];
+  if (!answer) { console.log("Current channel: " + c.channel + "\nUsage: opencode-termux channel stable|beta|alpha"); return; }
+  const value = answer.toLowerCase();
+  if (!CHANNELS.includes(value)) throw new Error("Invalid channel. Choose stable, beta, or alpha.");
+  saveConfig({ ...c, channel: value });
+  console.log("Preferred release channel set to " + value + ". Installable versions are determined from verified GitHub Releases.");
+}
+async function main() {
   const cmd = process.argv[2] || "help";
   if (cmd === "help" || cmd === "--help" || cmd === "-h") {
-    console.log("opencode-termux — gestor de versiones\n\n  channel [stable|beta|alpha]  Ver/elegir canal\n  versions                    Ver banco desde OpenCode 1.20.0\n  record                      Registrar la versión instalada (solo desde 1.20.0)\n  rollback [versión]          Instalar una versión anterior registrada\n  config                      Mostrar configuración\n  help                        Mostrar ayuda");
+    console.log("opencode-termux — version manager\n\n  channel [stable|beta|alpha]  Show/set preferred release channel\n  versions                    Browse verified GitHub Releases by channel\n  record                      Record the active package version (local metadata only)\n  rollback [version]          Browse verified releases or install an exact version\n  config                      Show configuration\n  help                        Show this help");
     return;
   }
   if (cmd === "channel") return channel();
   if (cmd === "config") { console.log(JSON.stringify(config(), null, 2)); return; }
   if (cmd === "record") {
     const v = currentVersion();
-    if (!isBankVersion(v)) { console.log("Banco aún no iniciado: comienza con OpenCode 1.20.0 o posterior."); return; }
-    addHistory(v, "current package observed");
-    console.log("Versión registrada: " + v);
+    if (!isBankVersion(v)) { console.log("Version bank starts at OpenCode 1.20.0; earlier versions are excluded."); return; }
+    addHistory(v, "active package observed after runtime verification");
     return;
   }
-  if (cmd === "versions") {
-    const data = history();
-    console.log("Banco de versiones (desde OpenCode 1.20.0; las versiones 1.19.x no se importan):");
-    const rows = data.entries.filter((x) => isBankVersion(x.version));
-    if (!rows.length) { console.log("Todavía vacío. Se llenará con versiones 1.20.0+ instaladas y verificadas."); return; }
-    if (!process.stdin.isTTY || !process.stdout.isTTY) {
-      for (const row of rows) console.log(row.version);
-      return;
-    }
-    let selected = Math.max(0, rows.findIndex((row) => row.version === currentVersion()));
-    const paint = () => {
-      process.stdout.write("\\x1b[?25l");
-      process.stdout.write("\\x1b[2J\\x1b[HVersiones disponibles — usa ↑/↓ y Enter\\n\\n");
-      rows.forEach((row, i) => {
-        const dot = i === selected ? "\\x1b[32m●\\x1b[0m" : " ";
-        process.stdout.write(dot + " " + row.version + (row.version === currentVersion() ? "  (instalada)" : "") + "\\n");
-      });
-    };
-    const stdin = process.stdin;
-    if (stdin.isRaw !== true) stdin.setRawMode(true);
-    stdin.resume();
-    paint();
-    stdin.on("data", (buf) => {
-      const key = buf.toString();
-      if (key === "\\u0003") { stdin.setRawMode(false); process.exit(130); }
-      if (key === "\\r" || key === "\\n") {
-        stdin.setRawMode(false); stdin.pause(); process.stdout.write("\\x1b[?25h\\n");
-        const row = rows[selected];
-        console.log("Seleccionada: " + row.version + " — " + row.installedAt);
-        return;
-      }
-      if (key === "\\u001b[A" || key === "k") selected = (selected - 1 + rows.length) % rows.length;
-      else if (key === "\\u001b[B" || key === "j") selected = (selected + 1) % rows.length;
-      else return;
-      paint();
-    });
-    return;
-  }
+  if (cmd === "versions") return versions();
   if (cmd === "rollback") {
-    const data = history();
-    const current = currentVersion();
-    const target = process.argv[3] || data.entries.filter((x) => x.version !== current && isBankVersion(x.version)).slice(-1)[0]?.version;
-    if (!target || !isBankVersion(target)) throw new Error("No hay versión de rollback válida registrada desde 1.20.0. Uso: opencode-termux rollback 1.20.0");
-    if (target === current) throw new Error("Esa versión ya está instalada.");
-    if (!data.entries.some((x) => x.version === target)) throw new Error("Solo puedes volver a una versión que figure en el banco. Consulta: opencode-termux versions");
-    console.log("Se instalará opencode-termux@" + target + ". Las configuraciones y credenciales de OpenCode no se borran.");
+    const target = process.argv[3];
+    if (!target) return versions();
+    if (!isBankVersion(target)) throw new Error("Invalid version or version is older than OpenCode 1.20.0.");
+    const releases = fetchReleases();
+    const release = releases.find((r) => releaseVersion(r) === target && !r.draft && verifiedAsset(r));
+    if (!release || !publishedVersion(target)) throw new Error("Version is not an installable, verified GitHub Release with a matching npm package.");
+    const currentChannel = config().installedChannel || config().channel;
+    const targetChannel = releaseChannel(release);
+    if (currentChannel !== targetChannel) {
+      const decision = await select([{ value: "continue" }, { value: "back" }], [
+        "WARNING: Cross-channel rollback/update",
+        "Current channel: " + currentChannel,
+        "Target channel: " + targetChannel,
+        "Possible consequences: regressions, reduced stability, or behavior changes. Returning to the previous channel may require reinstalling its exact version.",
+        "OpenCode settings and credentials are not intentionally deleted."
+      ].join("\n"), (x) => x.value === "continue" ? "Continue" : "Go back");
+      if (!decision || decision.value !== "continue") { console.log("Returned without installing anything."); return; }
+    }
     runNpm(["install", "-g", "opencode-termux@" + target, "--ignore-scripts", "--silent"]);
-    addHistory(target, "rollback target installed");
-    console.log("Paquete cambiado. Ejecuta opencode para que el instalador prepare y verifique el runtime.");
+    saveConfig({ ...config(), installedChannel: targetChannel, channel: targetChannel });
+    addHistory(target, "installed exact verified GitHub Release");
+    console.log("Package changed. Run opencode to download and verify the matching runtime.");
     return;
   }
-  throw new Error("Comando desconocido: " + cmd + ". Ejecuta opencode-termux help");
+  throw new Error("Unknown command: " + cmd + ". Run opencode-termux help");
 }
-try { main(); } catch (e) { console.error("Error: " + e.message); process.exitCode = 1; }
+main().catch((e) => { console.error("Error: " + e.message); process.exitCode = 1; });
