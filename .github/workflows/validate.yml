@@ -73,5 +73,8 @@ jobs:
           if (!launcher.includes('unset LD_PRELOAD')) throw new Error('launcher must clear inherited LD_PRELOAD before starting the musl runtime');
           if (!launcher.includes('--library-path "$OPENCODE_DIR"')) throw new Error('launcher must use the packaged musl library path');
           if (!launcher.includes('ld-musl-aarch64.so.1')) throw new Error('launcher must invoke the packaged musl loader');
+          if (!launcher.includes('Install this update now? [y/N]')) throw new Error('launcher must ask before installing an update');
+          if (!launcher.includes('Non-interactive session; keeping the installed version.')) throw new Error('launcher must not install updates in non-interactive sessions');
+          if (!launcher.includes('case "$UPDATE_ANSWER" in')) throw new Error('launcher must gate package installation on explicit consent');
           NODE
           npm pack --dry-run
