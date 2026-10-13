@@ -75,7 +75,7 @@ The expected output is `arm64` on ARM64 devices or `x64` on x86_64 devices. Othe
 
 The release workflow is designed to publish both `opencode-termux-aarch64.tar.gz` and `opencode-termux-x86_64.tar.gz` together under the same immutable GitHub Release and npm package version. The installer selects the archive, musl loader, and libc filename using Node.js `process.arch`; it never uses an ARM64 checksum for an x86_64 archive. The legacy checksum format remains readable for existing ARM64 package versions, while new combined releases carry separate SHA-256 entries for each architecture.
 
-The interactive version manager offers Stable, Beta, and Alpha channels when matching, published releases exist. It only lists releases with a valid GitHub asset digest and corresponding npm package. Channel availability depends on actual published releases; it does not synthesize missing versions. Rollback installs an exact published package version and requires confirmation when crossing channels.
+The interactive version manager offers Stable and Beta channels when matching, published releases exist. It only lists releases with a valid GitHub asset digest and corresponding npm package. Channel availability depends on actual published releases; it does not synthesize missing versions. Rollback installs an exact published package version and requires confirmation when crossing channels.
 
 ## Installation and first launch
 
@@ -243,7 +243,7 @@ The version bank intentionally starts at **upstream OpenCode 1.20.0**. It does n
 
 Rollback is limited to versions already recorded in the bank, and installs that exact npm package with lifecycle scripts disabled. Afterward, run `opencode` to make the installer download and verify the matching Termux runtime. The installer's staged activation/recovery protects the previous runtime if validation fails. OpenCode settings and credentials are not deliberately removed or rewritten.
 
-**Channel status:** this project's release workflow currently publishes Stable packages only. Beta and Alpha can be saved as preferences, but are not treated as available channels and will not trigger installation of unverified builds. End-to-end Beta/Alpha support requires the release pipeline to build and publish matching verified Termux archives first. The bank only contains versions this package actually installs; it does not query arbitrary upstream tags as if they were usable Termux releases.
+**Channel status:** this project's release workflow currently publishes Stable packages only. Beta can be selected as a preference, but is not treated as available unless matching verified Beta releases are published. The version manager never substitutes unverified builds or invents missing versions. The bank only contains versions this package actually installs; it does not query arbitrary upstream tags as if they were usable Termux releases.
 
 ## Automatic package updates
 
@@ -329,7 +329,7 @@ To determine whether a release actually published, inspect the relevant [GitHub 
 Use these checks before changing or deleting files:
 
 ```bash
-# Confirm Node is installed and running as ARM64
+# Confirm Node architecture (arm64 or x64)
 node --version
 node -p 'process.arch'
 
@@ -361,7 +361,7 @@ If `opencode --version` still fails, capture the exact error from that command a
 
 ### Unsupported architecture or Node errors
 
-The installer supports ARM64 only. Check `node -p 'process.arch'`; it must print `arm64`. This project does not support x86_64, 32-bit ARM, or other Node architecture values.
+The installer supports ARM64 (`arm64`) and x86_64 (`x64`) in compatible Termux environments. Check `node -p 'process.arch'`; it must print one of those values. 32-bit ARM and other architectures are unsupported.
 
 ### Dependency setup errors
 
@@ -470,7 +470,7 @@ The uninstall commands above do not delete your Termux home directory or uninsta
 
 ## Limitations and security notes
 
-- This package targets Termux on ARM64/aarch64, not all Android architectures or Linux distributions.
+- This package targets compatible Termux environments on ARM64/aarch64 and x86_64; it does not support all Android architectures or Linux distributions.
 - Initial setup and runtime repair need network access. An already-prepared runtime can be reused without downloading it again, but dependency installation and npm update checks may need connectivity.
 - The wrapper does not provide AI models, API keys, paid service access, or authentication bypasses. Configure providers using OpenCode's normal mechanisms.
 - SHA-256 verification detects a runtime archive that differs from the digest embedded in the installed npm package; it is not a general security audit.
