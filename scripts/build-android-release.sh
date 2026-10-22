@@ -128,7 +128,10 @@ install -m 0644 "$LIBGCC" "$WORKDIR/stage/libgcc_s.so.1"
 install -m 0755 "$LIBSTDCXX" "$WORKDIR/stage/libstdc++.so.6.runtime"
 ln -s libstdc++.so.6.runtime "$WORKDIR/stage/libstdc++.so.6"
 
-for library in libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6; do
+# libgcc_s.so.1 is bundled as a runtime support library, but upstream may
+# link it indirectly or stop declaring it as a direct DT_NEEDED entry. Only
+# require the ABI libraries that this package relies on directly.
+for library in libc.musl-aarch64.so.1 libstdc++.so.6; do
   patchelf --print-needed "$WORKDIR/stage/opencode" | grep -Fxq "$library" || {
     echo "Error: official binary does not declare required library $library." >&2
     exit 1
