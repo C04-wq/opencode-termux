@@ -36,6 +36,14 @@ jobs:
           mkdir "$RUNNER_TEMP/opencode-termux-unpacked"
           tar -xzf "$archive" -C "$RUNNER_TEMP/opencode-termux-unpacked"
           readelf -h "$RUNNER_TEMP/opencode-termux-unpacked/opencode" | grep -Fq 'AArch64'
+      - name: Smoke-test OpenCode under AArch64 user emulation
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-user
+          runtime_dir="$RUNNER_TEMP/opencode-termux-unpacked"
+          qemu-aarch64 "$runtime_dir/ld-musl-aarch64.so.1" --library-path "$runtime_dir" "$runtime_dir/opencode" --version
+          qemu-aarch64 "$runtime_dir/ld-musl-aarch64.so.1" --library-path "$runtime_dir" "$runtime_dir/opencode" --help > /dev/null
       - name: Smoke-test TUR package installation layout
         run: |
           set -euo pipefail
