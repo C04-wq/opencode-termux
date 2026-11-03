@@ -1,6 +1,7 @@
 TERMUX_PKG_HOMEPAGE=https://github.com/C04-wq/opencode-termux
 TERMUX_PKG_DESCRIPTION="OpenCode AI coding agent launcher for Termux (aarch64)"
 TERMUX_PKG_LICENSE="MIT"
+TERMUX_PKG_LICENSE_FILE="LICENSE"
 TERMUX_PKG_MAINTAINER="C04-wq"
 TERMUX_PKG_VERSION=1.19.5
 TERMUX_PKG_SRCURL=https://github.com/C04-wq/opencode-termux/releases/download/v${TERMUX_PKG_VERSION}/opencode-termux-aarch64.tar.gz
@@ -12,6 +13,12 @@ TERMUX_PKG_AUTO_UPDATE=false
 TERMUX_PKG_EXCLUDED_ARCHES="arm, i686, x86_64"
 
 # The upstream release is already compiled; there is no Makefile to run.
+# The runtime archive omits the license text, so copy the repository license into
+# the extracted source tree for Termux's standard license-installation step.
+termux_step_post_get_source() {
+    install -Dm644 "$TERMUX_PKG_BUILDER_DIR/LICENSE" "$TERMUX_PKG_SRCDIR/LICENSE"
+}
+
 termux_step_make() {
     :
 }
