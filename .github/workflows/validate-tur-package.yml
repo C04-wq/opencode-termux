@@ -1,0 +1,60 @@
+name: Validate TUR package build
+on:
+  push:
+    branches:
+      - "codex/**"
+    paths:
+      - "tur/opencode-termux/**"
+      - ".github/workflows/validate-tur-package.yml"
+  pull_request:
+    paths:
+      - "tur/opencode-termux/**"
+      - ".github/workflows/validate-tur-package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-aarch64-deb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - name: Prepare the official TUR build environment
+        run: |
+          set -euo pipefail
+          tur_dir="$RUNNER_TEMP/tur"
+          git clone --depth 1 https://github.com/termux-user-repository/tur.git "$tur_dir"
+          install -d "$tur_dir/tur"
+          cp -a "$GITHUB_WORKSPACE/tur/opencode-termux" "$tur_dir/tur/"
+          cd "$tur_dir"
+          ./setup-environment.sh
+      - name: Build package with Termux package builder
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/tur"
+          if [[ -x ./scripts/free-space.sh ]]; then
+            ./scripts/free-space.sh
+          fi
+          TERMUX_INSTALL_DEPS=true ./scripts/run-docker.sh ./build-package.sh -a aarch64 opencode-termux
+      - name: Inspect generated Debian package
+        run: |
+          set -euo pipefail
+          tur_dir="$RUNNER_TEMP/tur"
+          mapfile -t packages < <(find "$tur_dir" -type f -name 'opencode-termux_*.deb' -print)
+          [[ "${#packages[@]}" -eq 1 ]] || {
+            printf 'Expected exactly one opencode-termux .deb, found %s\n' "${#packages[@]}" >&2
+            find "$tur_dir" -type f -name '*.deb' -print >&2
+            exit 1
+          }
+          deb="${packages[0]}"
+          dpkg-deb --info "$deb"
+          [[ "$(dpkg-deb --field "$deb" Package)" == "opencode-termux" ]]
+          [[ "$(dpkg-deb --field "$deb" Version)" == "1.19.5" ]]
+          [[ "$(dpkg-deb --field "$deb" Architecture)" == "aarch64" ]]
+          dpkg-deb --contents "$deb" | tee "$RUNNER_TEMP/opencode-termux-deb-files.txt"
+          grep -Fq '/bin/opencode' "$RUNNER_TEMP/opencode-termux-deb-files.txt"
+          grep -Fq '/lib/opencode-termux/opencode' "$RUNNER_TEMP/opencode-termux-deb-files.txt"
+          grep -Fq '/share/opencode-termux/LICENSE' "$RUNNER_TEMP/opencode-termux-deb-files.txt"
+          printf 'Validated package: %s\n' "$deb"

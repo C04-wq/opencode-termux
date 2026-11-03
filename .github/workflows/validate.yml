@@ -22,6 +22,50 @@ jobs:
           set -euo pipefail
           node --version
           npm --version
+      - name: Verify pinned TUR release archive
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
+          url="https://github.com/C04-wq/opencode-termux/releases/download/v1.19.5/opencode-termux-aarch64.tar.gz"
+          curl --fail --location --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$url" -o "$archive"
+          printf '%s  %s\n' '6b670b9b1693e54ea831dfdde00ad2d062783594b79e438d29d59f28407056d0' "$archive" | sha256sum --check
+          tar -tzf "$archive" > "$RUNNER_TEMP/opencode-termux-archive-files.txt"
+          for file in opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime; do
+            grep -Fxq "$file" "$RUNNER_TEMP/opencode-termux-archive-files.txt" || { echo "Missing archive member: $file" >&2; exit 1; }
+          done
+          mkdir "$RUNNER_TEMP/opencode-termux-unpacked"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/opencode-termux-unpacked"
+          readelf -h "$RUNNER_TEMP/opencode-termux-unpacked/opencode" | grep -Fq 'AArch64'
+      - name: Smoke-test OpenCode under AArch64 user emulation
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-user
+          runtime_dir="$RUNNER_TEMP/opencode-termux-unpacked"
+          qemu-aarch64 "$runtime_dir/ld-musl-aarch64.so.1" --library-path "$runtime_dir" "$runtime_dir/opencode" --version
+          qemu-aarch64 "$runtime_dir/ld-musl-aarch64.so.1" --library-path "$runtime_dir" "$runtime_dir/opencode" --help > /dev/null
+      - name: Smoke-test TUR package installation layout
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/opencode-termux-source"
+          prefix="$RUNNER_TEMP/opencode-termux-prefix"
+          mkdir -p "$source_dir" "$prefix"
+          tar -xzf "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz" -C "$source_dir"
+          export TERMUX_PKG_SRCDIR="$source_dir"
+          export TERMUX_PKG_BUILDER_DIR="$GITHUB_WORKSPACE/tur/opencode-termux"
+          export TERMUX_ARCH=aarch64
+          export TERMUX_PREFIX="$prefix"
+          source tur/opencode-termux/build.sh
+          termux_step_post_get_source
+          test -s "$source_dir/LICENSE"
+          termux_step_make
+          termux_step_make_install
+          test -x "$prefix/bin/opencode"
+          test -x "$prefix/lib/opencode-termux/ld-musl-aarch64.so.1"
+          test -x "$prefix/lib/opencode-termux/opencode"
+          test -L "$prefix/lib/opencode-termux/libstdc++.so.6"
+          test "$(readlink "$prefix/lib/opencode-termux/libstdc++.so.6")" = "libstdc++.so.6.runtime"
+          bash -n "$prefix/bin/opencode"
       - name: Validate scripts and metadata
         run: |
           set -euo pipefail
@@ -33,6 +77,7 @@ jobs:
           bash -n bin/opencode
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
+          bash -n tur/opencode-termux/build.sh
           node <<'NODE'
           const fs = require('fs');
           const pkg = require('./package.json');
@@ -45,6 +90,8 @@ jobs:
           const releaseWorkflow = fs.readFileSync('.github/workflows/auto-update.yml', 'utf8');
           const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
           const alpineBootstrap = fs.readFileSync('scripts/setup-alpine-chroot.sh', 'utf8');
+          const turRecipe = fs.readFileSync('tur/opencode-termux/build.sh', 'utf8');
+          const turReadme = fs.readFileSync('tur/opencode-termux/README.md', 'utf8');
           const toolchainChecker = fs.readFileSync('scripts/check-toolchain-updates.mjs', 'utf8');
           const publishPaths = releaseWorkflow.split('paths:')[1]?.split('workflow_dispatch:')[0] ?? '';
           if (/README[.]md/.test(publishPaths)) throw new Error('documentation-only changes must not trigger package publication');
@@ -62,6 +109,13 @@ jobs:
           if (!releaseWorkflow.includes('restore the exact archive')) throw new Error('workflow must fail safely when an already-published npm version has no release asset');
           if (!toolchainChecker.includes('findStableBranches') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
+          if (!turRecipe.includes('TERMUX_PKG_NO_ELF_CLEANER=true') || !turRecipe.includes('TERMUX_PKG_NO_STRIP=true')) throw new Error('TUR recipe must preserve prebuilt musl ELF files without Termux ELF cleanup or stripping');
+          if (!turRecipe.includes('TERMUX_PKG_LICENSE_FILE="LICENSE"') || !turRecipe.includes('termux_step_post_get_source()')) throw new Error('TUR recipe must package the project license even though the prebuilt archive omits it');
+          if (!turRecipe.includes('TERMUX_PKG_VERSION=1.19.5') || !turRecipe.includes('TERMUX_PKG_SHA256=6b670b9b1693e54ea831dfdde00ad2d062783594b79e438d29d59f28407056d0')) throw new Error('TUR recipe must pin the reviewed release version and archive checksum');
+          if (!turRecipe.includes('termux_step_make() {') || !turRecipe.includes('    :\n}')) throw new Error('TUR recipe must skip the compile step for the prebuilt release archive');
+          if (!turRecipe.includes('[[ "${TERMUX_ARCH}" == "aarch64" ]]') || !turRecipe.includes('exec "${RUNTIME_DIR}/ld-musl-aarch64.so.1"')) throw new Error('TUR recipe must restrict the package to aarch64 and launch via the bundled musl loader');
+          if (!turRecipe.includes('TERMUX_PKG_EXCLUDED_ARCHES="arm, i686, x86_64"')) throw new Error('TUR recipe must exclude architectures unsupported by the upstream runtime');
+          if (!turReadme.includes('not yet a merged TUR package') || !turReadme.includes('termux-packages/issues/25387')) throw new Error('TUR packaging notes must document prototype status and the existing official package request');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
           if (/\bdocker\b/i.test(builder)) throw new Error('release builder must not depend on Docker');
           for (const workflow of [releaseWorkflow, toolchainWorkflow, fs.readFileSync('.github/workflows/validate.yml', 'utf8')]) {
