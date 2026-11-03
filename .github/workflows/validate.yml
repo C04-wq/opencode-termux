@@ -22,6 +22,20 @@ jobs:
           set -euo pipefail
           node --version
           npm --version
+      - name: Verify pinned TUR release archive
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
+          url="https://github.com/C04-wq/opencode-termux/releases/download/v1.19.5/opencode-termux-aarch64.tar.gz"
+          curl --fail --location --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$url" -o "$archive"
+          printf '%s  %s\n' '6b670b9b1693e54ea831dfdde00ad2d062783594b79e438d29d59f28407056d0' "$archive" | sha256sum --check
+          tar -tzf "$archive" > "$RUNNER_TEMP/opencode-termux-archive-files.txt"
+          for file in opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime; do
+            grep -Fxq "$file" "$RUNNER_TEMP/opencode-termux-archive-files.txt" || { echo "Missing archive member: $file" >&2; exit 1; }
+          done
+          mkdir "$RUNNER_TEMP/opencode-termux-unpacked"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/opencode-termux-unpacked"
+          readelf -h "$RUNNER_TEMP/opencode-termux-unpacked/opencode" | grep -Fq 'AArch64'
       - name: Validate scripts and metadata
         run: |
           set -euo pipefail
