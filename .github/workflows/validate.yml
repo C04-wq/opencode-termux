@@ -46,7 +46,7 @@ jobs:
           export TERMUX_PKG_SRCDIR="$source_dir"
           export TERMUX_ARCH=aarch64
           export TERMUX_PREFIX="$prefix"
-          source packaging/tur/opencode-termux/build.sh
+          source tur/opencode-termux/build.sh
           termux_step_make
           termux_step_make_install
           test -x "$prefix/bin/opencode"
@@ -66,7 +66,7 @@ jobs:
           bash -n bin/opencode
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
-          bash -n packaging/tur/opencode-termux/build.sh
+          bash -n tur/opencode-termux/build.sh
           node <<'NODE'
           const fs = require('fs');
           const pkg = require('./package.json');
@@ -79,8 +79,8 @@ jobs:
           const releaseWorkflow = fs.readFileSync('.github/workflows/auto-update.yml', 'utf8');
           const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
           const alpineBootstrap = fs.readFileSync('scripts/setup-alpine-chroot.sh', 'utf8');
-          const turRecipe = fs.readFileSync('packaging/tur/opencode-termux/build.sh', 'utf8');
-          const turReadme = fs.readFileSync('packaging/tur/opencode-termux/README.md', 'utf8');
+          const turRecipe = fs.readFileSync('tur/opencode-termux/build.sh', 'utf8');
+          const turReadme = fs.readFileSync('tur/opencode-termux/README.md', 'utf8');
           const toolchainChecker = fs.readFileSync('scripts/check-toolchain-updates.mjs', 'utf8');
           const publishPaths = releaseWorkflow.split('paths:')[1]?.split('workflow_dispatch:')[0] ?? '';
           if (/README[.]md/.test(publishPaths)) throw new Error('documentation-only changes must not trigger package publication');
