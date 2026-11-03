@@ -8,6 +8,7 @@ TERMUX_PKG_SHA256=6b670b9b1693e54ea831dfdde00ad2d062783594b79e438d29d59f28407056
 TERMUX_PKG_DEPENDS="ca-certificates, resolv-conf"
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_PLATFORM_INDEPENDENT=false
+TERMUX_PKG_EXCLUDED_ARCHES="arm, i686, x86_64"
 
 # The upstream release is already compiled; there is no Makefile to run.
 termux_step_make() {
