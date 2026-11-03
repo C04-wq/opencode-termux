@@ -9,6 +9,11 @@ TERMUX_PKG_DEPENDS="ca-certificates, resolv-conf"
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_PLATFORM_INDEPENDENT=false
 
+# The upstream release is already compiled; there is no Makefile to run.
+termux_step_make() {
+    :
+}
+
 termux_step_make_install() {
     [[ "${TERMUX_ARCH}" == "aarch64" ]] || termux_error_exit "OpenCode Termux package currently supports aarch64 only."
 
