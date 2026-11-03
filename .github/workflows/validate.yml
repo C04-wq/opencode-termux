@@ -101,6 +101,7 @@ jobs:
           if (!releaseWorkflow.includes('restore the exact archive')) throw new Error('workflow must fail safely when an already-published npm version has no release asset');
           if (!toolchainChecker.includes('findStableBranches') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
+          if (!turRecipe.includes('TERMUX_PKG_NO_ELF_CLEANER=true') || !turRecipe.includes('TERMUX_PKG_NO_STRIP=true')) throw new Error('TUR recipe must preserve prebuilt musl ELF files without Termux ELF cleanup or stripping');
           if (!turRecipe.includes('TERMUX_PKG_LICENSE_FILE="LICENSE"') || !turRecipe.includes('termux_step_post_get_source()')) throw new Error('TUR recipe must package the project license even though the prebuilt archive omits it');
           if (!turRecipe.includes('TERMUX_PKG_VERSION=1.19.5') || !turRecipe.includes('TERMUX_PKG_SHA256=6b670b9b1693e54ea831dfdde00ad2d062783594b79e438d29d59f28407056d0')) throw new Error('TUR recipe must pin the reviewed release version and archive checksum');
           if (!turRecipe.includes('termux_step_make() {') || !turRecipe.includes('    :\n}')) throw new Error('TUR recipe must skip the compile step for the prebuilt release archive');
