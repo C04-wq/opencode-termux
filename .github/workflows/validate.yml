@@ -36,6 +36,25 @@ jobs:
           mkdir "$RUNNER_TEMP/opencode-termux-unpacked"
           tar -xzf "$archive" -C "$RUNNER_TEMP/opencode-termux-unpacked"
           readelf -h "$RUNNER_TEMP/opencode-termux-unpacked/opencode" | grep -Fq 'AArch64'
+      - name: Smoke-test TUR package installation layout
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/opencode-termux-source"
+          prefix="$RUNNER_TEMP/opencode-termux-prefix"
+          mkdir -p "$source_dir" "$prefix"
+          tar -xzf "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz" -C "$source_dir"
+          export TERMUX_PKG_SRCDIR="$source_dir"
+          export TERMUX_ARCH=aarch64
+          export TERMUX_PREFIX="$prefix"
+          source packaging/tur/opencode-termux/build.sh
+          termux_step_make
+          termux_step_make_install
+          test -x "$prefix/bin/opencode"
+          test -x "$prefix/lib/opencode-termux/ld-musl-aarch64.so.1"
+          test -x "$prefix/lib/opencode-termux/opencode"
+          test -L "$prefix/lib/opencode-termux/libstdc++.so.6"
+          test "$(readlink "$prefix/lib/opencode-termux/libstdc++.so.6")" = "libstdc++.so.6.runtime"
+          bash -n "$prefix/bin/opencode"
       - name: Validate scripts and metadata
         run: |
           set -euo pipefail
