@@ -80,6 +80,7 @@ jobs:
           if (!toolchainChecker.includes('findStableBranches') || !toolchainChecker.includes('No Alpine stable release-branch links')) throw new Error('Alpine updater must parse official release links and fail closed if none are found');
           if (!builder.includes('--arch aarch64')) throw new Error('Alpine APK architecture must be pinned to aarch64');
           if (!turRecipe.includes('TERMUX_PKG_VERSION=1.19.5') || !turRecipe.includes('TERMUX_PKG_SHA256=6b670b9b1693e54ea831dfdde00ad2d062783594b79e438d29d59f28407056d0')) throw new Error('TUR recipe must pin the reviewed release version and archive checksum');
+          if (!turRecipe.includes('termux_step_make() {') || !turRecipe.includes('    :\n}')) throw new Error('TUR recipe must skip the compile step for the prebuilt release archive');
           if (!turRecipe.includes('[[ "${TERMUX_ARCH}" == "aarch64" ]]') || !turRecipe.includes('exec "${RUNTIME_DIR}/ld-musl-aarch64.so.1"')) throw new Error('TUR recipe must restrict the package to aarch64 and launch via the bundled musl loader');
           if (!turReadme.includes('not yet a merged TUR package') || !turReadme.includes('termux-packages/issues/25387')) throw new Error('TUR packaging notes must document prototype status and the existing official package request');
           if (!builder.includes('libstdc++.so.6.runtime')) throw new Error('builder runtime library filename missing');
