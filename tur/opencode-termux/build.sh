@@ -10,6 +10,9 @@ TERMUX_PKG_DEPENDS="ca-certificates, resolv-conf"
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_PLATFORM_INDEPENDENT=false
 TERMUX_PKG_AUTO_UPDATE=false
+# Preserve the prebuilt musl ELF files byte-for-byte; they are not Android/Bionic binaries.
+TERMUX_PKG_NO_ELF_CLEANER=true
+TERMUX_PKG_NO_STRIP=true
 TERMUX_PKG_EXCLUDED_ARCHES="arm, i686, x86_64"
 
 # The upstream release is already compiled; there is no Makefile to run.
