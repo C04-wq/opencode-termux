@@ -7,7 +7,7 @@ builder or tested on a clean Termux device.
 
 ## Current scope
 
-- ARM64/aarch64 only.
+- ARM64/aarch64 only; the recipe excludes `arm`, `i686`, and `x86_64` so TUR's architecture matrix does not try to package unsupported binaries.
 - Uses the existing `v1.19.5` release archive from this project, pinned by SHA-256.
 - Installs the runtime under `$PREFIX/lib/opencode-termux` and provides
   `$PREFIX/bin/opencode`.
@@ -41,7 +41,9 @@ Before a TUR pull request is opened:
 1. Confirm the release archive still exists and its digest matches the pinned
    `TERMUX_PKG_SHA256`.
 2. Build the package in TUR's supported builder and inspect the resulting
-   package contents and installed size.
+   package contents and installed size. Add `opencode-termux` to TUR's
+   `big-pkgs.list` if maintainers agree the archive warrants the low-disk-space
+   preparation step in its CI workflow.
 3. Test first launch, network/DNS access, TLS certificates, and normal OpenCode
    operation on a physical ARM64 Termux device.
 4. Check the package metadata and recipe against the current TUR contribution
