@@ -1,6 +1,6 @@
 # TUR packaging prototype for OpenCode
 
-This directory contains a first-pass package recipe intended for review in the
+This directory follows TUR's required `tur/opencode-termux/` package layout and contains a first-pass recipe intended for review in the
 [Termux User Repository (TUR)](https://github.com/termux-user-repository/tur).
 It is **not yet a merged TUR package** and has not been built in the TUR package
 builder or tested on a clean Termux device.
@@ -13,6 +13,7 @@ builder or tested on a clean Termux device.
   `$PREFIX/bin/opencode`.
 - Lets `pkg`/APT own package upgrades; the launcher does not invoke npm or
   download a runtime during launch.
+- Includes the project's MIT license in the installed package even though the prebuilt runtime archive omits the license text.
 - Does not remove or rewrite the user's OpenCode configuration in `$HOME`.
 
 The pinned archive is approximately 80 MB compressed. Confirm the installed
