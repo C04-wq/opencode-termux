@@ -53,14 +53,41 @@ if ! mv "$NEW" "$RUNTIME"; then
   echo "Error: could not activate runtime." >&2; exit 1
 fi
 
-cat > "$PREFIX/bin/opencode" <<LAUNCHER
+cat > "$PREFIX/bin/opencode" <<'LAUNCHER'
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 unset LD_PRELOAD
 export OPENCODE_DISABLE_AUTOUPDATE=1
-export SSL_CERT_FILE="$CERT"
-RUNTIME="$RUNTIME"
-exec "\$RUNTIME/ld-musl-aarch64.so.1" --library-path "\$RUNTIME" "\$RUNTIME/opencode" "\$@"
+export SSL_CERT_FILE="/data/data/com.termux/files/usr/etc/tls/cert.pem"
+PREFIX="/data/data/com.termux/files/usr"
+RUNTIME="$PREFIX/lib/opencode-termux"
+REPO_DIR="$REPO_DIR"
+UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
+
+# Check GitHub quietly. A network/API failure must never prevent OpenCode from starting.
+if [[ -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
+  INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
+  REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
+  LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+    NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
+    if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
+      printf '\nHay una nueva versión de OpenCode disponible: %s (instalada: %s).\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
+      read -r -p "¿Quieres instalarla ahora? [s/N] " ANSWER </dev/tty || ANSWER=""
+      case "$ANSWER" in
+        s|S|si|SI|sí|Sí|Si)
+          if "$PREFIX/bin/opencode-termux-update"; then
+            exec "$0" "$@"
+          else
+            printf 'No se pudo completar la actualización. Se iniciará la versión instalada.\n' >&2
+          fi
+          ;;
+      esac
+    fi
+  fi
+fi
+
+exec "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" "$@"
 LAUNCHER
 chmod 755 "$PREFIX/bin/opencode"
 
