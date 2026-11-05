@@ -27,6 +27,13 @@ STAGE="$(mktemp -d)"
 BACKUP=""
 NEW=""
 ACTIVATED=0
+LAUNCHER="$PREFIX/bin/opencode"
+UPDATER="$PREFIX/bin/opencode-termux-update"
+LAUNCHER_BACKUP="$PREFIX/bin/.opencode-backup-$"
+UPDATER_BACKUP="$PREFIX/bin/.opencode-updater-backup-$"
+LAUNCHER_WAS_PRESENT=0
+UPDATER_WAS_PRESENT=0
+LAUNCHERS_TOUCHED=0
 cleanup() {
   local status=$?
   trap - EXIT
@@ -40,6 +47,24 @@ cleanup() {
       fi
     elif [[ "$ACTIVATED" == 1 ]]; then
       rm -rf "$RUNTIME"
+    fi
+    if [[ "$LAUNCHERS_TOUCHED" == 1 ]]; then
+      if [[ -e "$LAUNCHER_BACKUP" || -L "$LAUNCHER_BACKUP" ]]; then
+        rm -f "$LAUNCHER"
+        if ! mv "$LAUNCHER_BACKUP" "$LAUNCHER"; then
+          echo "Error: failed to restore the previous launcher from $LAUNCHER_BACKUP." >&2
+        fi
+      elif [[ "$LAUNCHER_WAS_PRESENT" == 0 ]]; then
+        rm -f "$LAUNCHER"
+      fi
+      if [[ -e "$UPDATER_BACKUP" || -L "$UPDATER_BACKUP" ]]; then
+        rm -f "$UPDATER"
+        if ! mv "$UPDATER_BACKUP" "$UPDATER"; then
+          echo "Error: failed to restore the previous updater from $UPDATER_BACKUP." >&2
+        fi
+      elif [[ "$UPDATER_WAS_PRESENT" == 0 ]]; then
+        rm -f "$UPDATER"
+      fi
     fi
   fi
   exit "$status"
@@ -74,7 +99,7 @@ if ! mv "$NEW" "$RUNTIME"; then
 fi
 ACTIVATED=1
 
-cat > "$PREFIX/bin/opencode" <<'LAUNCHER'
+cat > "$STAGE/opencode-launcher" <<'LAUNCHER'
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 unset LD_PRELOAD
@@ -145,19 +170,34 @@ fi
 
 exec "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" "$@"
 LAUNCHER
-chmod 755 "$PREFIX/bin/opencode"
+chmod 755 "$STAGE/opencode-launcher"
 
-cat > "$PREFIX/bin/opencode-termux-update" <<UPDATER
+cat > "$STAGE/opencode-termux-update" <<UPDATER
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 REPO_DIR="$REPO_DIR"
 git -C "\$REPO_DIR" pull --ff-only
 exec bash "\$REPO_DIR/install.sh"
 UPDATER
-chmod 755 "$PREFIX/bin/opencode-termux-update"
+chmod 755 "$STAGE/opencode-termux-update"
+
+# Activate launchers transactionally: keep the previous files until the
+# installed runtime passes its final test.
+LAUNCHERS_TOUCHED=1
+if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
+  LAUNCHER_WAS_PRESENT=1
+  mv "$LAUNCHER" "$LAUNCHER_BACKUP"
+fi
+if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
+  UPDATER_WAS_PRESENT=1
+  mv "$UPDATER" "$UPDATER_BACKUP"
+fi
+mv "$STAGE/opencode-launcher" "$LAUNCHER"
+mv "$STAGE/opencode-termux-update" "$UPDATER"
 
 ( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" --version ) || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
+rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP"
 echo "✓ OpenCode $VERSION installed"
 echo "Run: opencode"
 echo "Update: opencode-termux-update"
