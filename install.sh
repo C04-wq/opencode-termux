@@ -119,6 +119,19 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
     NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
     if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
       printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
+      CURSOR_HIDDEN=0
+      restore_cursor() {
+        if [[ "$CURSOR_HIDDEN" == 1 ]]; then
+          printf '\\033[?25h'
+          CURSOR_HIDDEN=0
+        fi
+      }
+      trap 'restore_cursor' EXIT
+      trap 'restore_cursor; exit 130' INT
+      trap 'restore_cursor; exit 143' TERM
+      trap 'restore_cursor; exit 129' HUP
+      printf '\\033[?25l'
+      CURSOR_HIDDEN=1
       SELECTED=1
       printf 'Use ↑/↓ to choose and Enter to confirm.\n'
       printf '\n'
@@ -156,6 +169,8 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
           break
         fi
       done
+      restore_cursor
+      trap - EXIT INT TERM HUP
       printf '\n'
       if [[ "$SELECTED" == 1 ]]; then
         if "$PREFIX/bin/opencode-termux-update"; then
