@@ -122,7 +122,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       CURSOR_HIDDEN=0
       restore_cursor() {
         if [[ "$CURSOR_HIDDEN" == 1 ]]; then
-          printf '\\033[?25h'
+          printf '\033[?25h'
           CURSOR_HIDDEN=0
         fi
       }
@@ -130,7 +130,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       trap 'restore_cursor; exit 130' INT
       trap 'restore_cursor; exit 143' TERM
       trap 'restore_cursor; exit 129' HUP
-      printf '\\033[?25l'
+      printf '\033[?25l'
       CURSOR_HIDDEN=1
       SELECTED=1
       printf 'Use ↑/↓ to choose and Enter to confirm.\n'
