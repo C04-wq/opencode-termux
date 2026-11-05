@@ -31,6 +31,8 @@ jobs:
           node --check scripts/test-toolchain-updates.mjs
           node scripts/test-toolchain-updates.mjs
           bash -n bin/opencode
+          bash -n install.sh
+          bash -n uninstall.sh
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
           node <<'NODE'
