@@ -28,11 +28,11 @@ jobs:
       - name: Resolve official OpenCode release
         id: version
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: \${{ github.token }}
         run: |
           set -euo pipefail
           VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
-          if ! [[ "$VERSION" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]; then
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid official OpenCode version: $VERSION" >&2
             exit 1
           fi
@@ -41,19 +41,26 @@ jobs:
             echo "Official ARM64 musl asset has no valid SHA-256 digest." >&2
             exit 1
           fi
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "upstream_sha256=$UPSTREAM_SHA256" >> "$GITHUB_OUTPUT"
       - name: Prepare Alpine package verifier
+        if: steps.version.outputs.exists == 'false'
         run: |
           set -euo pipefail
-          BRANCH="$(sed -n 's/^ALPINE_VERSION="\\([0-9.]*\\)"$/\\1/p' scripts/build-android-release.sh)"
+          BRANCH="$(sed -n 's/^ALPINE_VERSION="\([0-9.]*\)"$/\1/p' scripts/build-android-release.sh)"
           test -n "$BRANCH"
           bash scripts/setup-alpine-chroot.sh "$BRANCH" "$RUNNER_TEMP/alpine-root"
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
       - name: Build Android-compatible archive
+        if: steps.version.outputs.exists == 'false'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
-          UPSTREAM_SHA256: ${{ steps.version.outputs.upstream_sha256 }}
+          VERSION: \${{ steps.version.outputs.version }}
+          UPSTREAM_SHA256: \${{ steps.version.outputs.upstream_sha256 }}
         run: |
           set -euo pipefail
           sudo apt-get update
@@ -61,9 +68,24 @@ jobs:
           bash -n scripts/build-android-release.sh
           bash scripts/build-android-release.sh "$VERSION" opencode-termux-aarch64.tar.gz "$UPSTREAM_SHA256"
           tar -tzf opencode-termux-aarch64.tar.gz
+      - name: Recover archive from existing GitHub release
+        if: steps.version.outputs.exists == 'true'
+        env:
+          GH_TOKEN: \${{ github.token }}
+          VERSION: \${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release-check"
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir "$RUNNER_TEMP/release-check"
+          cp "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz" opencode-termux-aarch64.tar.gz
+          tar -tzf opencode-termux-aarch64.tar.gz
+      - name: Update release checksum metadata
+        env:
+          VERSION: \${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
           ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
-          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\\n")' "$VERSION" "$ARCHIVE_SHA256"
-          echo "ARCHIVE_SHA256=$ARCHIVE_SHA256" >> "$GITHUB_ENV"
+          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "$VERSION" "$ARCHIVE_SHA256"
       - name: Commit release metadata
         run: |
           set -euo pipefail
@@ -74,22 +96,14 @@ jobs:
             git commit -m "chore: update OpenCode release metadata"
             git push origin "HEAD:main"
           fi
-      - name: Create or verify GitHub release
+      - name: Create GitHub release
+        if: steps.version.outputs.exists == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: \${{ github.token }}
+          VERSION: \${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          TAG="v$VERSION"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            mkdir -p "$RUNNER_TEMP/release-check"
-            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir "$RUNNER_TEMP/release-check"
-            EXPECTED="$(node -p "require('./release-checksums.json').archiveSha256")"
-            ACTUAL="$(sha256sum "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz" | awk '{print $1}')"
-            test "$EXPECTED" = "$ACTUAL"
-          else
-            gh release create "$TAG" opencode-termux-aarch64.tar.gz \\
-              --repo "$GITHUB_REPOSITORY" \\
-              --title "$TAG" \\
-              --notes "OpenCode $TAG packaged for Termux ARM64."
-          fi
+          gh release create "v$VERSION" opencode-termux-aarch64.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "v$VERSION" \
+            --notes "OpenCode v$VERSION packaged for Termux ARM64."
