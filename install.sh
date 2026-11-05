@@ -74,17 +74,28 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
   if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
     NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
     if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
-      printf '\nHay una nueva versión de OpenCode disponible: %s (instalada: %s).\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
-      read -r -p "¿Quieres instalarla ahora? [s/N] " ANSWER </dev/tty || ANSWER=""
-      case "$ANSWER" in
-        s|S|si|SI|sí|Sí|Si)
-          if "$PREFIX/bin/opencode-termux-update"; then
-            exec "$0" "$@"
-          else
-            printf 'No se pudo completar la actualización. Se iniciará la versión instalada.\n' >&2
-          fi
-          ;;
-      esac
+      printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
+      printf '1) Install update now\n'
+      printf '2) Wait for the next version\n'
+      while true; do
+        read -r -p "Choose an option [1/2]: " ANSWER </dev/tty || ANSWER="2"
+        case "$ANSWER" in
+          1)
+            if "$PREFIX/bin/opencode-termux-update"; then
+              exec "$0" "$@"
+            else
+              printf 'Update failed. Starting the currently installed version.\n' >&2
+            fi
+            break
+            ;;
+          2)
+            break
+            ;;
+          *)
+            printf 'Invalid option. Please enter 1 or 2.\n'
+            ;;
+        esac
+      done
     fi
   fi
 fi
