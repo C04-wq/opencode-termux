@@ -25,7 +25,23 @@ for cmd in git curl tar sha256sum; do command -v "$cmd" >/dev/null 2>&1 || { ech
 
 STAGE="$(mktemp -d)"
 BACKUP=""
-cleanup() { rm -rf "$STAGE"; if [[ -n "$BACKUP" && -d "$BACKUP" && ! -e "$RUNTIME" ]]; then mv "$BACKUP" "$RUNTIME" || true; fi; }
+ACTIVATED=0
+cleanup() {
+  local status=$?
+  trap - EXIT
+  rm -rf "$STAGE"
+  if (( status != 0 )); then
+    if [[ -n "$BACKUP" && -d "$BACKUP" ]]; then
+      rm -rf "$RUNTIME"
+      if ! mv "$BACKUP" "$RUNTIME"; then
+        echo "Error: failed to restore the previous runtime from $BACKUP." >&2
+      fi
+    elif [[ "$ACTIVATED" == 1 ]]; then
+      rm -rf "$RUNTIME"
+    fi
+  fi
+  exit "$status"
+}
 trap cleanup EXIT
 URL="https://github.com/C04-wq/opencode-termux/releases/download/v$VERSION/opencode-termux-aarch64.tar.gz"
 echo "◇ Downloading OpenCode $VERSION…"
@@ -54,6 +70,7 @@ if ! mv "$NEW" "$RUNTIME"; then
   [[ -n "$BACKUP" && -d "$BACKUP" ]] && mv "$BACKUP" "$RUNTIME"
   echo "Error: could not activate runtime." >&2; exit 1
 fi
+ACTIVATED=1
 
 cat > "$PREFIX/bin/opencode" <<'LAUNCHER'
 #!/data/data/com.termux/files/usr/bin/bash
@@ -93,8 +110,14 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       draw_update_menu
       while true; do
         KEY=""
-        read -rsn1 KEY </dev/tty || KEY=""
-        if [[ "$KEY" == $'\x1b' ]]; then
+        if ! read -rsn1 KEY </dev/tty; then
+          SELECTED=2
+          break
+        fi
+        if [[ "$KEY" == $'\\x04' ]]; then
+          SELECTED=2
+          break
+        elif [[ "$KEY" == $'\\x1b' ]]; then
           SEQUENCE=""
           read -rsn2 -t 0.1 SEQUENCE </dev/tty || true
           case "$SEQUENCE" in
