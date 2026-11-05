@@ -99,7 +99,12 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/release-check"
           gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir "$RUNNER_TEMP/release-check"
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz.sha256 --dir "$RUNNER_TEMP/release-check" || true
           cp "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz" opencode-termux-aarch64.tar.gz
+          if [[ -f "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz.sha256" ]]; then
+            cp "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz.sha256" opencode-termux-aarch64.tar.gz.sha256
+            sha256sum --check opencode-termux-aarch64.tar.gz.sha256
+          fi
           tar -tzf opencode-termux-aarch64.tar.gz
 
       - name: Create GitHub release
@@ -109,10 +114,11 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          gh release create "v$VERSION" opencode-termux-aarch64.tar.gz \
+          sha256sum opencode-termux-aarch64.tar.gz > opencode-termux-aarch64.tar.gz.sha256
+          gh release create "v$VERSION" opencode-termux-aarch64.tar.gz opencode-termux-aarch64.tar.gz.sha256 \
             --repo "$GITHUB_REPOSITORY" \
             --title "v$VERSION" \
-            --notes "OpenCode v$VERSION packaged for Termux ARM64."
+            --notes "OpenCode v$VERSION packaged for Termux ARM64. The accompanying SHA-256 file verifies the archive."
 
       - name: Verify recovered archive against existing metadata
         if: steps.version.outputs.exists == 'true'
@@ -121,13 +127,18 @@ jobs:
         run: |
           set -euo pipefail
           CURRENT_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).version')"
-          if [[ "$CURRENT_VERSION" == "$VERSION" ]]; then
+          if [[ -f opencode-termux-aarch64.tar.gz.sha256 ]]; then
+            sha256sum --check opencode-termux-aarch64.tar.gz.sha256
+          elif [[ "$CURRENT_VERSION" == "$VERSION" ]]; then
             EXPECTED_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).archiveSha256')"
             ACTUAL_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
             if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
               echo "Existing GitHub release asset does not match the checksum already published for v$VERSION." >&2
               exit 1
             fi
+          else
+            echo "Existing release has no SHA-256 sidecar and cannot be safely recovered from stale metadata." >&2
+            exit 1
           fi
 
       - name: Update release checksum metadata
