@@ -48,7 +48,7 @@ The uninstaller removes only the managed runtime and launchers. It preserves ~/.
 ## Security and compatibility
 
 - ARM64/aarch64 only.
-- Bash installer; no npm, Node.js, or patchelf.
+- Bash installer; no npm, Node.js, or patchelf is required on the Android device.
 - SHA-256 is checked before extraction or execution.
 - The runtime is tested before and after activation.
 - The launcher clears inherited LD_PRELOAD to avoid the Termux preload/musl conflict.
@@ -57,6 +57,8 @@ The uninstaller removes only the managed runtime and launchers. It preserves ~/.
 - API access is not included; configure a supported provider inside OpenCode.
 
 ## Development
+
+The GitHub Actions workflows validate the Bash installer and build ARM64 release archives. Node.js is used only by hosted CI scripts; it is not needed on the Android device.
 
     bash -n install.sh uninstall.sh
 
