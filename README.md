@@ -22,11 +22,15 @@ Then launch:
 
 The installer downloads the ARM64 runtime archive for the version in release-checksums.json, verifies its SHA-256, checks the runtime files, tests --version, and installs under $PREFIX/lib/opencode-termux. The launcher is installed at $PREFIX/bin/opencode.
 
-## Update
+## Updates
+
+Every interactive launch of `opencode` quietly checks the `main` branch metadata on GitHub. If a newer version is available, it asks whether to install it. Answer `s` to update or `n` (or press Enter) to keep the installed version and continue. If there is no newer version, OpenCode starts normally without an update message. If GitHub cannot be reached, the current version starts normally.
+
+You can also update manually at any time:
 
     opencode-termux-update
 
-This runs git pull --ff-only in the cloned repository and reruns the installer. Local changes that prevent a fast-forward are not overwritten. Keep the clone in its original location because the update command refers to it.
+The updater runs `git pull --ff-only` in the cloned repository and reruns the installer. Local changes that prevent a fast-forward are not overwritten. Keep the clone in its original location because the launcher and updater refer to it.
 
 ## Verify
 
