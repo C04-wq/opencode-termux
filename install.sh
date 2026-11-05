@@ -13,7 +13,10 @@ HASH="$(sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "Error: invalid version." >&2; exit 1; }
 [[ "$HASH" =~ ^[a-f0-9]{64}$ ]] || { echo "Error: invalid checksum." >&2; exit 1; }
 for cmd in git curl tar sha256sum; do
-  if ! command -v "$cmd" >/dev/null 2>&1; then pkg install -y "$cmd"; fi
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    case "$cmd" in sha256sum) package="coreutils" ;; *) package="$cmd" ;; esac
+    pkg install -y "$package"
+  fi
 done
 [[ -f "$CERT" ]] || pkg install -y ca-certificates
 [[ -f "$RESOLVER" ]] || pkg install -y resolv-conf
