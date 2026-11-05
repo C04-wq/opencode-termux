@@ -47,6 +47,8 @@ rm -rf "$NEW"; mkdir "$NEW"
 for file in $FILES; do cp -a "$STAGE/files/$file" "$NEW/$file"; done
 printf '%s\n' "$VERSION" > "$NEW/.opencode-termux-version"
 chmod 600 "$NEW/.opencode-termux-version"
+printf '%s\n' "$REPO_DIR" > "$NEW/.opencode-termux-repo-dir"
+chmod 600 "$NEW/.opencode-termux-repo-dir"
 if [[ -e "$RUNTIME" ]]; then BACKUP="$PREFIX/lib/.opencode-termux-backup-$$"; mv "$RUNTIME" "$BACKUP"; fi
 if ! mv "$NEW" "$RUNTIME"; then
   [[ -n "$BACKUP" && -d "$BACKUP" ]] && mv "$BACKUP" "$RUNTIME"
@@ -61,11 +63,11 @@ export OPENCODE_DISABLE_AUTOUPDATE=1
 export SSL_CERT_FILE="/data/data/com.termux/files/usr/etc/tls/cert.pem"
 PREFIX="/data/data/com.termux/files/usr"
 RUNTIME="$PREFIX/lib/opencode-termux"
-REPO_DIR="$REPO_DIR"
+REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
 UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
 # Check GitHub quietly. A network/API failure must never prevent OpenCode from starting.
-if [[ -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
+if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
   INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
   REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
   LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
