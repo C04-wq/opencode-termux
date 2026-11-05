@@ -75,27 +75,69 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
     NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
     if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
       printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
-      printf '1) Install update now\n'
-      printf '2) Wait for the next version\n'
+      SELECTED=1
+      printf 'Use ↑/↓ to choose and Enter to confirm.\n'
+      printf '\\n'
+      draw_update_menu() {
+        printf '\\033[2A'
+        if [[ "$SELECTED" == 1 ]]; then
+          printf '\\033[2K\\033[32m●\\033[0m Install update now\\n'
+          printf '\\033[2K  Wait for the next version\\n'
+        else
+          printf '\\033[2K  Install update now\\n'
+          printf '\\033[2K\\033[32m●\\033[0m Wait for the next version\\n'
+        fi
+      }
+      printf '  Install update now\\n'
+      printf '  Wait for the next version\\n'
+      draw_update_menu
       while true; do
-        read -r -p "Choose an option [1/2]: " ANSWER </dev/tty || ANSWER="2"
-        case "$ANSWER" in
-          1)
-            if "$PREFIX/bin/opencode-termux-update"; then
-              exec "$0" "$@"
-            else
-              printf 'Update failed. Starting the currently installed version.\n' >&2
-            fi
-            break
-            ;;
-          2)
-            break
-            ;;
-          *)
-            printf 'Invalid option. Please enter 1 or 2.\n'
-            ;;
-        esac
+        KEY=""
+        read -rsn1 KEY </dev/tty || KEY=""
+        if [[ "$KEY" == 
+    fi
+  fi
+fi
+
+exec "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" "$@"
+LAUNCHER
+chmod 755 "$PREFIX/bin/opencode"
+
+cat > "$PREFIX/bin/opencode-termux-update" <<UPDATER
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+REPO_DIR="$REPO_DIR"
+git -C "\$REPO_DIR" pull --ff-only
+exec bash "\$REPO_DIR/install.sh"
+UPDATER
+chmod 755 "$PREFIX/bin/opencode-termux-update"
+
+( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" --version ) || { echo "Error: installed runtime failed final test." >&2; exit 1; }
+if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
+echo "✓ OpenCode $VERSION installed"
+echo "Run: opencode"
+echo "Update: opencode-termux-update"
+echo "Uninstall: bash \"$REPO_DIR/uninstall.sh\""
+\\x1b' ]]; then
+          SEQUENCE=""
+          read -rsn2 -t 0.1 SEQUENCE </dev/tty || true
+          case "$SEQUENCE" in
+            '[A') SELECTED=1 ;;
+            '[B') SELECTED=2 ;;
+          esac
+          draw_update_menu
+        elif [[ -z "$KEY" ]]; then
+          break
+        fi
       done
+      printf '\\n'
+      if [[ "$SELECTED" == 1 ]]; then
+        if "$PREFIX/bin/opencode-termux-update"; then
+          exec "$0" "$@"
+        else
+          printf 'Update failed. Starting the currently installed version.\\n' >&2
+        fi
+      fi
     fi
   fi
 fi
