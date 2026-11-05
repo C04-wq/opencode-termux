@@ -114,10 +114,10 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
           SELECTED=2
           break
         fi
-        if [[ "$KEY" ==  ]]; then
+        if [[ "$KEY" == $'\x04' ]]; then
           SELECTED=2
           break
-        elif [[ "$KEY" ==  ]]; then
+        elif [[ "$KEY" == $'\x1b' ]]; then
           SEQUENCE=""
           read -rsn2 -t 0.1 SEQUENCE </dev/tty || true
           case "$SEQUENCE" in
