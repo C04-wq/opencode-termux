@@ -77,24 +77,43 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
       SELECTED=1
       printf 'Use ↑/↓ to choose and Enter to confirm.\n'
-      printf '\\n'
+      printf '\n'
       draw_update_menu() {
-        printf '\\033[2A'
+        printf '\033[2A'
         if [[ "$SELECTED" == 1 ]]; then
-          printf '\\033[2K\\033[32m●\\033[0m Install update now\\n'
-          printf '\\033[2K  Wait for the next version\\n'
+          printf '\033[2K\033[32m●\033[0m Install update now\n'
+          printf '\033[2K  Wait for the next version\n'
         else
-          printf '\\033[2K  Install update now\\n'
-          printf '\\033[2K\\033[32m●\\033[0m Wait for the next version\\n'
+          printf '\033[2K  Install update now\n'
+          printf '\033[2K\033[32m●\033[0m Wait for the next version\n'
         fi
       }
-      printf '  Install update now\\n'
-      printf '  Wait for the next version\\n'
+      printf '  Install update now\n'
+      printf '  Wait for the next version\n'
       draw_update_menu
       while true; do
         KEY=""
         read -rsn1 KEY </dev/tty || KEY=""
-        if [[ "$KEY" == 
+        if [[ "$KEY" == $'\x1b' ]]; then
+          SEQUENCE=""
+          read -rsn2 -t 0.1 SEQUENCE </dev/tty || true
+          case "$SEQUENCE" in
+            '[A') SELECTED=1 ;;
+            '[B') SELECTED=2 ;;
+          esac
+          draw_update_menu
+        elif [[ -z "$KEY" ]]; then
+          break
+        fi
+      done
+      printf '\n'
+      if [[ "$SELECTED" == 1 ]]; then
+        if "$PREFIX/bin/opencode-termux-update"; then
+          exec "$0" "$@"
+        else
+          printf 'Update failed. Starting the currently installed version.\n' >&2
+        fi
+      fi
     fi
   fi
 fi
