@@ -25,11 +25,13 @@ for cmd in git curl tar sha256sum; do command -v "$cmd" >/dev/null 2>&1 || { ech
 
 STAGE="$(mktemp -d)"
 BACKUP=""
+NEW=""
 ACTIVATED=0
 cleanup() {
   local status=$?
   trap - EXIT
   rm -rf "$STAGE"
+  if [[ -n "$NEW" ]]; then rm -rf "$NEW"; fi
   if (( status != 0 )); then
     if [[ -n "$BACKUP" && -d "$BACKUP" ]]; then
       rm -rf "$RUNTIME"
