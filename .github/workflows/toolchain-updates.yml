@@ -35,11 +35,6 @@ jobs:
     steps:
       # actions/checkout v5 pinned to a full SHA; v5 uses Node.js 24.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-      - name: Check runner Node.js and npm
-        run: |
-          set -euo pipefail
-          node --version
-          npm --version
       - name: Check official Alpine stable branch
         id: check
         run: |

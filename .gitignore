@@ -1,4 +1,2 @@
 lib/
-node_modules/
 opencode-termux-aarch64.tar.gz
-*.tgz
