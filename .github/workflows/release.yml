@@ -7,7 +7,6 @@ on:
     paths:
       - "scripts/build-android-release.sh"
       - "scripts/setup-alpine-chroot.sh"
-      - "release-checksums.json"
       - ".github/workflows/release.yml"
   workflow_dispatch:
 
@@ -25,29 +24,50 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
       - name: Resolve official OpenCode release
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
+          RELEASE_JSON="$RUNNER_TEMP/upstream-release.json"
+          gh api repos/anomalyco/opencode/releases/latest > "$RELEASE_JSON"
+
+          VERSION="$(jq -r '.tag_name // empty' "$RELEASE_JSON" | sed 's/^v//')"
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid official OpenCode version: $VERSION" >&2
             exit 1
           fi
-          UPSTREAM_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
+
+          UPSTREAM_SHA256="$(jq -r '.assets[]? | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest // empty' "$RELEASE_JSON" | sed 's/^sha256://')"
           if ! [[ "$UPSTREAM_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
             echo "Official ARM64 musl asset has no valid SHA-256 digest." >&2
             exit 1
           fi
-          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+
+          RELEASE_RESPONSE="$RUNNER_TEMP/existing-release.json"
+          HTTP_CODE="$(curl --silent --show-error \
+            --output "$RELEASE_RESPONSE" \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/v$VERSION")"
+
+          case "$HTTP_CODE" in
+            200) echo "exists=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "exists=false" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "GitHub API returned HTTP $HTTP_CODE while checking release v$VERSION." >&2
+              cat "$RELEASE_RESPONSE" >&2
+              exit 1
+              ;;
+          esac
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "upstream_sha256=$UPSTREAM_SHA256" >> "$GITHUB_OUTPUT"
+
       - name: Prepare Alpine package verifier
         if: steps.version.outputs.exists == 'false'
         run: |
@@ -56,6 +76,7 @@ jobs:
           test -n "$BRANCH"
           bash scripts/setup-alpine-chroot.sh "$BRANCH" "$RUNNER_TEMP/alpine-root"
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
+
       - name: Build Android-compatible archive
         if: steps.version.outputs.exists == 'false'
         env:
@@ -68,6 +89,7 @@ jobs:
           bash -n scripts/build-android-release.sh
           bash scripts/build-android-release.sh "$VERSION" opencode-termux-aarch64.tar.gz "$UPSTREAM_SHA256"
           tar -tzf opencode-termux-aarch64.tar.gz
+
       - name: Recover archive from existing GitHub release
         if: steps.version.outputs.exists == 'true'
         env:
@@ -79,23 +101,7 @@ jobs:
           gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir "$RUNNER_TEMP/release-check"
           cp "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz" opencode-termux-aarch64.tar.gz
           tar -tzf opencode-termux-aarch64.tar.gz
-      - name: Update release checksum metadata
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
-          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "$VERSION" "$ARCHIVE_SHA256"
-      - name: Commit release metadata
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add release-checksums.json
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: update OpenCode release metadata"
-            git push origin "HEAD:main"
-          fi
+
       - name: Create GitHub release
         if: steps.version.outputs.exists == 'false'
         env:
@@ -107,3 +113,22 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "v$VERSION" \
             --notes "OpenCode v$VERSION packaged for Termux ARM64."
+
+      - name: Update release checksum metadata
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
+          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "$VERSION" "$ARCHIVE_SHA256"
+
+      - name: Commit release metadata
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release-checksums.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update OpenCode release metadata"
+            git push origin "HEAD:main"
+          fi
