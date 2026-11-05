@@ -28,7 +28,7 @@ jobs:
       - name: Resolve official OpenCode release
         id: version
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
@@ -59,8 +59,8 @@ jobs:
       - name: Build Android-compatible archive
         if: steps.version.outputs.exists == 'false'
         env:
-          VERSION: \${{ steps.version.outputs.version }}
-          UPSTREAM_SHA256: \${{ steps.version.outputs.upstream_sha256 }}
+          VERSION: ${{ steps.version.outputs.version }}
+          UPSTREAM_SHA256: ${{ steps.version.outputs.upstream_sha256 }}
         run: |
           set -euo pipefail
           sudo apt-get update
@@ -71,8 +71,8 @@ jobs:
       - name: Recover archive from existing GitHub release
         if: steps.version.outputs.exists == 'true'
         env:
-          GH_TOKEN: \${{ github.token }}
-          VERSION: \${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/release-check"
@@ -81,7 +81,7 @@ jobs:
           tar -tzf opencode-termux-aarch64.tar.gz
       - name: Update release checksum metadata
         env:
-          VERSION: \${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
@@ -99,8 +99,8 @@ jobs:
       - name: Create GitHub release
         if: steps.version.outputs.exists == 'false'
         env:
-          GH_TOKEN: \${{ github.token }}
-          VERSION: \${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           gh release create "v$VERSION" opencode-termux-aarch64.tar.gz \
