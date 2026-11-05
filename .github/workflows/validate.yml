@@ -30,7 +30,7 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const sums = JSON.parse(fs.readFileSync('release-checksums.json', 'utf8'));
-          if (!/^\\d+\\.\\d+\\.\\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
+          if (!/^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
             throw new Error('invalid OpenCode release version');
           }
           if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) {
@@ -50,7 +50,7 @@ jobs:
           if (!builder.includes('libstdc++.so.6.runtime')) {
             throw new Error('builder runtime library filename mismatch');
           }
-          if (/\\bdocker\\b/i.test(builder)) {
+          if (/\bdocker\b/i.test(builder)) {
             throw new Error('release builder must not depend on Docker');
           }
           NODE
