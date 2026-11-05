@@ -24,7 +24,7 @@ The installer downloads the ARM64 runtime archive for the version in release-che
 
 ## Updates
 
-Every interactive launch of `opencode` quietly checks the `main` branch metadata on GitHub. If a newer version is available, it asks whether to install it. Answer `s` to update or `n` (or press Enter) to keep the installed version and continue. If there is no newer version, OpenCode starts normally without an update message. If GitHub cannot be reached, the current version starts normally.
+Every interactive launch of `opencode` quietly checks the `main` branch metadata on GitHub. If a newer version is available, it displays two English options: `1) Install update now` or `2) Wait for the next version`. Choosing option 1 updates and then launches OpenCode; choosing option 2 launches the currently installed version. If there is no newer version, OpenCode starts normally without an update message. If GitHub cannot be reached, the current version starts normally.
 
 You can also update manually at any time:
 
