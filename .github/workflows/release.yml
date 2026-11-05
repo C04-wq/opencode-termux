@@ -114,6 +114,22 @@ jobs:
             --title "v$VERSION" \
             --notes "OpenCode v$VERSION packaged for Termux ARM64."
 
+      - name: Verify recovered archive against existing metadata
+        if: steps.version.outputs.exists == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          CURRENT_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).version')"
+          if [[ "$CURRENT_VERSION" == "$VERSION" ]]; then
+            EXPECTED_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).archiveSha256')"
+            ACTUAL_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
+            if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
+              echo "Existing GitHub release asset does not match the checksum already published for v$VERSION." >&2
+              exit 1
+            fi
+          fi
+
       - name: Update release checksum metadata
         env:
           VERSION: ${{ steps.version.outputs.version }}
