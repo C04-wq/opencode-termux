@@ -121,7 +121,7 @@ jobs:
           RUNTIME="$RUNNER_TEMP/runtime"
           mkdir -p "$RUNTIME"
           tar -xzf "$OUTPUT" -C "$RUNTIME"
-          VERSION_OUTPUT="$(env -u LD_PRELOAD qemu-aarch64 "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" --version)"
+          VERSION_OUTPUT="$(timeout 60s env -u LD_PRELOAD qemu-aarch64 "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" --version)"
           test "$VERSION_OUTPUT" = "$VERSION" || {
             echo "Unexpected emulated runtime version: $VERSION_OUTPUT" >&2
             exit 1
