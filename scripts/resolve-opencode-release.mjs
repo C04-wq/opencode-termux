@@ -1,55 +1,88 @@
 #!/usr/bin/env node
-// Resolve the highest stable OpenCode release across every major version.
-// GitHub's /releases/latest intentionally omits the v2 line, so enumerate
-// published releases and select the highest stable semver with the ARM64 musl
-// asset required by the Termux runtime builder.
-const API = "https://api.github.com/repos/anomalyco/opencode/releases?per_page=100";
+// Resolve the newest stable OpenCode release across every major version.
+// Select the newest stable tag first, then validate its required asset. Never
+// silently fall back to an older version when the newest release is unusable.
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+const API = "https://api.github.com/repos/anomalyco/opencode/releases";
 const ASSET = "opencode-linux-arm64-musl.tar.gz";
+const SEMVER_TAG = /^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/;
 
 export function compareVersions(a, b) {
-  const left = a.replace(/^v/, "").split(".").map(Number);
-  const right = b.replace(/^v/, "").split(".").map(Number);
-  for (let i = 0; i < 3; i++) {
-    const difference = (left[i] ?? 0) - (right[i] ?? 0);
-    if (difference !== 0) return difference;
+  const left = /^(?:v)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/.exec(a);
+  const right = /^(?:v)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$/.exec(b);
+  if (!left || !right) throw new Error("compareVersions requires valid stable semantic versions");
+  for (let i = 1; i <= 3; i++) {
+    const difference = BigInt(left[i]) - BigInt(right[i]);
+    if (difference < 0n) return -1;
+    if (difference > 0n) return 1;
   }
   return 0;
 }
 
 export function selectRelease(releases) {
-  const candidates = releases
-    .filter((release) => !release.draft && !release.prerelease)
+  if (!Array.isArray(releases)) throw new Error("GitHub releases response must be an array");
+
+  const stable = releases
+    .filter((release) => release && !release.draft && !release.prerelease)
     .map((release) => {
-      const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(release.tag_name ?? "");
+      const match = SEMVER_TAG.exec(release.tag_name ?? "");
       if (!match) return null;
-      const asset = release.assets?.find((item) => item.name === ASSET);
-      if (!asset) return null;
-      const digest = asset.digest?.replace(/^sha256:/, "") ?? "";
-      return {
-        version: `${match[1]}.${match[2]}.${match[3]}`,
-        tag: release.tag_name,
-        sha256: digest,
-        published_at: release.published_at ?? "",
-      };
+      return { release, version: match.slice(1).join(".") };
     })
     .filter(Boolean)
     .sort((a, b) => compareVersions(a.version, b.version));
-  if (!candidates.length) {
-    throw new Error(`No stable OpenCode release with ${ASSET} and a SHA-256 digest was found`);
+
+  if (!stable.length) {
+    throw new Error("No stable OpenCode release with a v-prefixed semantic version was found");
   }
-  const selected = candidates.at(-1);
-  if (!/^[a-f0-9]{64}$/.test(selected.sha256)) {
-    throw new Error(`Newest stable release ${selected.tag} has no valid SHA-256 digest for ${ASSET}`);
+
+  const newest = stable.at(-1);
+  const { release, version } = newest;
+  if (!Array.isArray(release.assets)) {
+    throw new Error(`Newest stable release ${release.tag_name} has an invalid assets list`);
   }
-  return selected;
+
+  const asset = release.assets.find((item) => item?.name === ASSET);
+  if (!asset) {
+    throw new Error(`Newest stable release ${release.tag_name} does not publish required asset ${ASSET}; refusing to fall back to an older release`);
+  }
+
+  const digest = /^sha256:([a-f0-9]{64})$/.exec(asset.digest ?? "");
+  if (!digest) {
+    throw new Error(`Newest stable release ${release.tag_name} has no valid SHA-256 digest for ${ASSET}`);
+  }
+
+  return {
+    version,
+    tag: release.tag_name,
+    sha256: digest[1],
+    published_at: release.published_at ?? "",
+  };
 }
 
-async function main() {
-  const token = process.env.GH_TOKEN;
+export async function fetchAllReleases({
+  token,
+  fetchImpl = fetch,
+  perPage = 100,
+  maxPages = 20,
+} = {}) {
   if (!token) throw new Error("GH_TOKEN is required");
+  if (!Number.isInteger(perPage) || perPage < 1 || perPage > 100) {
+    throw new Error("perPage must be an integer between 1 and 100");
+  }
+  if (!Number.isInteger(maxPages) || maxPages < 1) {
+    throw new Error("maxPages must be a positive integer");
+  }
+
   const releases = [];
-  for (let page = 1; page <= 20; page++) {
-    const response = await fetch(`${API}&page=${page}`, {
+  for (let page = 1; page <= maxPages; page++) {
+    const url = new URL(API);
+    url.searchParams.set("per_page", String(perPage));
+    url.searchParams.set("page", String(page));
+
+    const response = await fetchImpl(url, {
       headers: {
         accept: "application/vnd.github+json",
         authorization: `Bearer ${token}`,
@@ -57,20 +90,36 @@ async function main() {
       },
       signal: AbortSignal.timeout(30000),
     });
+
     if (!response.ok) {
-      throw new Error(`GitHub releases API returned HTTP ${response.status}: ${await response.text()}`);
+      let detail = "";
+      try { detail = await response.text(); } catch {}
+      throw new Error(`GitHub releases API returned HTTP ${response.status}${detail ? `: ${detail}` : ""}`);
     }
-    const batch = await response.json();
-    if (!Array.isArray(batch)) throw new Error("GitHub releases API returned an invalid response");
+
+    let batch;
+    try {
+      batch = await response.json();
+    } catch {
+      throw new Error(`GitHub releases API returned invalid JSON on page ${page}`);
+    }
+    if (!Array.isArray(batch)) {
+      throw new Error(`GitHub releases API returned a non-array response on page ${page}`);
+    }
+
     releases.push(...batch);
-    if (batch.length < 100) break;
-    if (page === 20) throw new Error("OpenCode release pagination limit exceeded");
+    if (batch.length < perPage) return releases;
   }
-  const selected = selectRelease(releases);
-  console.log(JSON.stringify(selected));
+
+  throw new Error(`OpenCode release pagination limit exceeded (${maxPages} pages)`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+async function main() {
+  const releases = await fetchAllReleases({ token: process.env.GH_TOKEN });
+  console.log(JSON.stringify(selectRelease(releases)));
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;
