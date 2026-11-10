@@ -39,19 +39,20 @@ export function selectRelease(releases) {
   }
 
   const newest = stable.at(-1);
-  const { release, version } = newest;
+  const release = newest.release;
+  const version = newest.version;
   if (!Array.isArray(release.assets)) {
-    throw new Error(\`Newest stable release \${release.tag_name} has an invalid assets list\`);
+    throw new Error("Newest stable release " + release.tag_name + " has an invalid assets list");
   }
 
   const asset = release.assets.find((item) => item?.name === ASSET);
   if (!asset) {
-    throw new Error(\`Newest stable release \${release.tag_name} does not publish required asset \${ASSET}; refusing to fall back to an older release\`);
+    throw new Error("Newest stable release " + release.tag_name + " does not publish required asset " + ASSET + "; refusing to fall back to an older release");
   }
 
   const digest = /^sha256:([a-f0-9]{64})$/.exec(asset.digest ?? "");
   if (!digest) {
-    throw new Error(\`Newest stable release \${release.tag_name} has no valid SHA-256 digest for \${ASSET}\`);
+    throw new Error("Newest stable release " + release.tag_name + " has no valid SHA-256 digest for " + ASSET);
   }
 
   return {
@@ -85,7 +86,7 @@ export async function fetchAllReleases({
     const response = await fetchImpl(url, {
       headers: {
         accept: "application/vnd.github+json",
-        authorization: \`Bearer \${token}\`,
+        authorization: "Bearer " + token,
         "x-github-api-version": "2022-11-28",
       },
       signal: AbortSignal.timeout(30000),
@@ -94,24 +95,24 @@ export async function fetchAllReleases({
     if (!response.ok) {
       let detail = "";
       try { detail = await response.text(); } catch {}
-      throw new Error(\`GitHub releases API returned HTTP \${response.status}\${detail ? \`: \${detail}\` : ""}\`);
+      throw new Error("GitHub releases API returned HTTP " + response.status + (detail ? ": " + detail : ""));
     }
 
     let batch;
     try {
       batch = await response.json();
     } catch {
-      throw new Error(\`GitHub releases API returned invalid JSON on page \${page}\`);
+      throw new Error("GitHub releases API returned invalid JSON on page " + page);
     }
     if (!Array.isArray(batch)) {
-      throw new Error(\`GitHub releases API returned a non-array response on page \${page}\`);
+      throw new Error("GitHub releases API returned a non-array response on page " + page);
     }
 
     releases.push(...batch);
     if (batch.length < perPage) return releases;
   }
 
-  throw new Error(\`OpenCode release pagination limit exceeded (\${maxPages} pages)\`);
+  throw new Error("OpenCode release pagination limit exceeded (" + maxPages + " pages)");
 }
 
 async function main() {
