@@ -82,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf
+          sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf qemu-user
 
       - name: Prepare verified Alpine chroot
         run: |
@@ -117,5 +117,15 @@ jobs:
 
           tar -xOf "$OUTPUT" opencode > "$RUNNER_TEMP/opencode"
           readelf -h "$RUNNER_TEMP/opencode" | grep -Eq 'Machine:.*AArch64'
+
+          RUNTIME="$RUNNER_TEMP/runtime"
+          mkdir -p "$RUNTIME"
+          tar -xzf "$OUTPUT" -C "$RUNTIME"
+          VERSION_OUTPUT="$(env -u LD_PRELOAD qemu-aarch64 "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" --version)"
+          test "$VERSION_OUTPUT" = "OpenCode $VERSION" || {
+            echo "Unexpected emulated runtime version: $VERSION_OUTPUT" >&2
+            exit 1
+          }
+          echo "$VERSION_OUTPUT"
           sha256sum "$OUTPUT"
-          echo "ARM64 archive structure and ELF architecture verified."
+          echo "ARM64 archive structure, ELF architecture, and emulated runtime startup verified."
