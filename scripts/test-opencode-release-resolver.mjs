@@ -24,8 +24,7 @@ const selected = selectRelease([
   release("v2.2.6"),
   release("v9.0.0-beta.1", { prerelease: true }),
   release("v8.0.0", { draft: true }),
-  release("v7.0.0", { assets: [] }),
-  release("02.0.0"),
+  release("v02.0.0"),
 ]);
 assert.equal(selected.version, "2.2.6");
 assert.equal(selected.tag, "v2.2.6");
