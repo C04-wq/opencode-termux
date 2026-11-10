@@ -1,6 +1,36 @@
 # opencode-termux
 
+<p align="center">
+  <img src="./opencode-logo.svg" alt="OpenCode logo" width="72" height="90">
+</p>
+
+<p align="center">
+  <strong>Run OpenCode natively on Android through Termux.</strong><br>
+  Install and maintain it directly from this Git repository with Bash.
+</p>
+
+
 Run OpenCode natively on Android through Termux. Install and maintain it directly from this Git repository with Bash. **Node.js and npm are not required on your Android device.**
+
+## Screenshots
+
+The following screenshots are stored in this repository and displayed directly below.
+
+<p align="center">
+  <img src="./screenshots/screenshot-1.png" alt="OpenCode running in Termux — screenshot 1" width="720">
+</p>
+
+<p align="center">
+  <img src="./screenshots/screenshot-2.png" alt="OpenCode running in Termux — screenshot 2" width="720">
+</p>
+
+<p align="center">
+  <img src="./screenshots/screenshot-3.png" alt="OpenCode running in Termux — screenshot 3" width="720">
+</p>
+
+<p align="center">
+  <img src="./screenshots/screenshot-4.png" alt="OpenCode running in Termux — screenshot 4" width="720">
+</p>
 
 ## Status
 
