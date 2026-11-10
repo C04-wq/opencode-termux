@@ -19,6 +19,7 @@ ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main"
 MUSL_VERSION="1.2.6"
 MUSL_SHA256="d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"
 TERMUX_RESOLV_CONF="/data/data/com.termux/files/usr/etc/resolv.conf"
+TERMUX_INTERPRETER="/data/data/com.termux/files/usr/lib/opencode-termux/ld-musl-aarch64.so.1"
 WORKDIR="$(mktemp -d "$PWD/.opencode-termux-build.XXXXXX")"
 ALPINE_BIND_MOUNT=""
 cleanup() {
@@ -137,6 +138,18 @@ for library in libc.musl-aarch64.so.1 libstdc++.so.6; do
     exit 1
   }
 done
+
+# OpenCode 2.x re-executes /proc/self/exe to start its background server.
+# Invoking the musl loader as a wrapper makes /proc/self/exe refer to the
+# loader itself, so the child tries to load "serve" as a file. Set PT_INTERP
+# on the ELF and execute the binary directly instead. Do not add an RPATH:
+# bundled C++ libraries are provided through LD_LIBRARY_PATH at runtime.
+patchelf --set-interpreter "$TERMUX_INTERPRETER" "$WORKDIR/stage/opencode"
+ACTUAL_INTERPRETER="$(patchelf --print-interpreter "$WORKDIR/stage/opencode")"
+if [ "$ACTUAL_INTERPRETER" != "$TERMUX_INTERPRETER" ]; then
+  echo "Error: failed to set the Termux musl ELF interpreter." >&2
+  exit 1
+fi
 
 tar -C "$WORKDIR/stage" -czf "$OUTPUT" \
   opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime
