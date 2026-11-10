@@ -33,7 +33,7 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const sums = JSON.parse(fs.readFileSync('release-checksums.json', 'utf8'));
-          if (!/^\\d+\\.\\d+\\.\\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
+          if (!/^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
             throw new Error('invalid OpenCode release version');
           }
           if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) {
@@ -53,7 +53,7 @@ jobs:
           if (!builder.includes('libstdc++.so.6.runtime')) {
             throw new Error('builder runtime library filename mismatch');
           }
-          if (/\\bdocker\\b/i.test(builder)) {
+          if (/\bdocker\b/i.test(builder)) {
             throw new Error('release builder must not depend on Docker');
           }
           NODE
@@ -102,7 +102,7 @@ jobs:
           bash scripts/build-android-release.sh "$VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
 
           ACTUAL_FILES="$(tar -tzf "$OUTPUT" | sort)"
-          EXPECTED_FILES="$(printf '%s\\n' \
+          EXPECTED_FILES="$(printf '%s\n' \
             ld-musl-aarch64.so.1 \
             libc.musl-aarch64.so.1 \
             libgcc_s.so.1 \
@@ -111,7 +111,7 @@ jobs:
             opencode | sort)"
           if [[ "$ACTUAL_FILES" != "$EXPECTED_FILES" ]]; then
             echo "Unexpected archive contents:" >&2
-            printf '%s\\n' "$ACTUAL_FILES" >&2
+            printf '%s\n' "$ACTUAL_FILES" >&2
             exit 1
           fi
 
