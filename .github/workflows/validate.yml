@@ -22,7 +22,10 @@ jobs:
           node --check scripts/check-toolchain-updates.mjs
           node --check scripts/alpine-release-branches.mjs
           node --check scripts/test-toolchain-updates.mjs
+          node --check scripts/resolve-opencode-release.mjs
+          node --check scripts/test-opencode-release-resolver.mjs
           node scripts/test-toolchain-updates.mjs
+          node scripts/test-opencode-release-resolver.mjs
           bash -n install.sh
           bash -n uninstall.sh
           bash -n scripts/build-android-release.sh
