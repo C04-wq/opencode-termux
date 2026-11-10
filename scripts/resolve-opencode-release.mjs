@@ -24,10 +24,7 @@ export function selectRelease(releases) {
       if (!match) return null;
       const asset = release.assets?.find((item) => item.name === ASSET);
       if (!asset) return null;
-      const digest = asset.digest?.replace(/^sha256:/, "");
-      if (!/^[a-f0-9]{64}$/.test(digest ?? "")) {
-        throw new Error(`Release ${release.tag_name} has no valid SHA-256 digest for ${ASSET}`);
-      }
+      const digest = asset.digest?.replace(/^sha256:/, "") ?? "";
       return {
         version: `${match[1]}.${match[2]}.${match[3]}`,
         tag: release.tag_name,
@@ -40,7 +37,11 @@ export function selectRelease(releases) {
   if (!candidates.length) {
     throw new Error(`No stable OpenCode release with ${ASSET} and a SHA-256 digest was found`);
   }
-  return candidates.at(-1);
+  const selected = candidates.at(-1);
+  if (!/^[a-f0-9]{64}$/.test(selected.sha256)) {
+    throw new Error(`Newest stable release ${selected.tag} has no valid SHA-256 digest for ${ASSET}`);
+  }
+  return selected;
 }
 
 async function main() {
