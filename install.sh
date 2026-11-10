@@ -107,6 +107,7 @@ export OPENCODE_DISABLE_AUTOUPDATE=1
 export SSL_CERT_FILE="/data/data/com.termux/files/usr/etc/tls/cert.pem"
 PREFIX="/data/data/com.termux/files/usr"
 RUNTIME="$PREFIX/lib/opencode-termux"
+export LD_LIBRARY_PATH="$RUNTIME${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
 UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
@@ -183,7 +184,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
   fi
 fi
 
-exec "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" "$@"
+exec "$RUNTIME/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
 
@@ -210,7 +211,7 @@ fi
 mv "$STAGE/opencode-launcher" "$LAUNCHER"
 mv "$STAGE/opencode-termux-update" "$UPDATER"
 
-( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/ld-musl-aarch64.so.1" --library-path "$RUNTIME" "$RUNTIME/opencode" --version ) || { echo "Error: installed runtime failed final test." >&2; exit 1; }
+( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version ) || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
 rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP"
 echo "✓ OpenCode $VERSION installed"
