@@ -16,21 +16,24 @@ Run OpenCode natively on Android through Termux. Install and maintain it directl
 
 The following screenshots are stored in this repository and displayed directly below.
 
-<p align="center">
-  <img src="./screenshots/screenshot-1.png" alt="OpenCode running in Termux — screenshot 1" width="720">
-</p>
-
-<p align="center">
-  <img src="./screenshots/screenshot-2.png" alt="OpenCode running in Termux — screenshot 2" width="720">
-</p>
-
-<p align="center">
-  <img src="./screenshots/screenshot-3.png" alt="OpenCode running in Termux — screenshot 3" width="720">
-</p>
-
-<p align="center">
-  <img src="./screenshots/screenshot-4.png" alt="OpenCode running in Termux — screenshot 4" width="720">
-</p>
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./screenshots/screenshot-1.png" alt="OpenCode running in Termux — screenshot 1" width="100%">
+    </td>
+    <td width="50%" align="center">
+      <img src="./screenshots/screenshot-2.png" alt="OpenCode running in Termux — screenshot 2" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./screenshots/screenshot-3.png" alt="OpenCode running in Termux — screenshot 3" width="100%">
+    </td>
+    <td width="50%" align="center">
+      <img src="./screenshots/screenshot-4.png" alt="OpenCode running in Termux — screenshot 4" width="100%">
+    </td>
+  </tr>
+</table>
 
 ## Status
 
