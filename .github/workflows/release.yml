@@ -59,7 +59,6 @@ jobs:
           echo "upstream_sha256=$UPSTREAM_SHA256" >> "$GITHUB_OUTPUT"
 
       - name: Prepare Alpine package verifier
-        if: steps.version.outputs.exists == 'false'
         run: |
           set -euo pipefail
           BRANCH="$(awk -F'"' '/^ALPINE_VERSION=/{print $2; exit}' scripts/build-android-release.sh)"
@@ -68,7 +67,6 @@ jobs:
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
 
       - name: Build Android-compatible archive
-        if: steps.version.outputs.exists == 'false'
         env:
           VERSION: ${{ steps.version.outputs.version }}
           UPSTREAM_SHA256: ${{ steps.version.outputs.upstream_sha256 }}
@@ -78,23 +76,6 @@ jobs:
           sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf
           bash -n scripts/build-android-release.sh
           bash scripts/build-android-release.sh "$VERSION" opencode-termux-aarch64.tar.gz "$UPSTREAM_SHA256"
-          tar -tzf opencode-termux-aarch64.tar.gz
-
-      - name: Recover archive from existing GitHub release
-        if: steps.version.outputs.exists == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/release-check"
-          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz --dir "$RUNNER_TEMP/release-check"
-          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern opencode-termux-aarch64.tar.gz.sha256 --dir "$RUNNER_TEMP/release-check" || true
-          cp "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz" opencode-termux-aarch64.tar.gz
-          if [[ -f "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz.sha256" ]]; then
-            cp "$RUNNER_TEMP/release-check/opencode-termux-aarch64.tar.gz.sha256" opencode-termux-aarch64.tar.gz.sha256
-            sha256sum --check opencode-termux-aarch64.tar.gz.sha256
-          fi
           tar -tzf opencode-termux-aarch64.tar.gz
 
       - name: Create GitHub release
@@ -110,26 +91,17 @@ jobs:
             --title "v$VERSION" \
             --notes "OpenCode v$VERSION packaged for Termux ARM64. The accompanying SHA-256 file verifies the archive."
 
-      - name: Verify recovered archive against existing metadata
+      - name: Replace assets in existing GitHub release
         if: steps.version.outputs.exists == 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          CURRENT_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).version')"
-          if [[ -f opencode-termux-aarch64.tar.gz.sha256 ]]; then
-            sha256sum --check opencode-termux-aarch64.tar.gz.sha256
-          elif [[ "$CURRENT_VERSION" == "$VERSION" ]]; then
-            EXPECTED_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).archiveSha256')"
-            ACTUAL_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
-            if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
-              echo "Existing GitHub release asset does not match the checksum already published for v$VERSION." >&2
-              exit 1
-            fi
-          else
-            echo "Existing release has no SHA-256 sidecar and cannot be safely recovered from stale metadata." >&2
-            exit 1
-          fi
+          sha256sum opencode-termux-aarch64.tar.gz > opencode-termux-aarch64.tar.gz.sha256
+          gh release upload "v$VERSION" opencode-termux-aarch64.tar.gz opencode-termux-aarch64.tar.gz.sha256 \\
+            --repo "$GITHUB_REPOSITORY" \\
+            --clobber
 
       - name: Update release checksum metadata
         env:
