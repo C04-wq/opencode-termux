@@ -134,7 +134,11 @@ jobs:
           SYSROOT="$RUNNER_TEMP/termux-sysroot"
           mkdir -p "$SYSROOT$TERMUX_RUNTIME_PATH"
           cp "$RUNTIME/ld-musl-aarch64.so.1" "$SYSROOT$TERMUX_RUNTIME_PATH/"
-          VERSION_OUTPUT="$(timeout 60s env -u LD_PRELOAD qemu-aarch64 -L "$SYSROOT" -E LD_LIBRARY_PATH="$TERMUX_RUNTIME_PATH" "$RUNTIME/opencode" --version)"
+          # QEMU's -L prefixes the ELF interpreter path, but it does not
+          # chroot absolute paths from LD_LIBRARY_PATH. Point the guest loader
+          # at the extracted host-visible runtime directory so bundled libraries
+          # are resolvable during emulation.
+          VERSION_OUTPUT="$(timeout 60s env -u LD_PRELOAD qemu-aarch64 -L "$SYSROOT" -E LD_LIBRARY_PATH="$RUNTIME" "$RUNTIME/opencode" --version)"
           test "$VERSION_OUTPUT" = "opencode v$VERSION" || {
             echo "Unexpected emulated runtime version: $VERSION_OUTPUT" >&2
             exit 1
@@ -144,7 +148,7 @@ jobs:
           # A running serve process proves the ELF interpreter and its runtime
           # libraries work for a long-lived OpenCode process, not just --version.
           set +e
-          timeout 12s env -u LD_PRELOAD qemu-aarch64 -L "$SYSROOT" -E LD_LIBRARY_PATH="$TERMUX_RUNTIME_PATH" "$RUNTIME/opencode" serve --hostname 127.0.0.1 --port 4099 > "$RUNNER_TEMP/opencode-serve.log" 2>&1
+          timeout 12s env -u LD_PRELOAD qemu-aarch64 -L "$SYSROOT" -E LD_LIBRARY_PATH="$RUNTIME" "$RUNTIME/opencode" serve --hostname 127.0.0.1 --port 4099 > "$RUNNER_TEMP/opencode-serve.log" 2>&1
           SERVE_STATUS=$?
           set -e
           if [[ "$SERVE_STATUS" -ne 124 ]]; then
