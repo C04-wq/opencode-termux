@@ -52,7 +52,8 @@ The uninstaller removes only the managed runtime and launchers. It preserves ~/.
 - SHA-256 is checked before extraction or execution.
 - The runtime is tested before and after activation.
 - The launcher clears inherited LD_PRELOAD to avoid the Termux preload/musl conflict.
-- The launcher uses the bundled musl loader and Termux CA certificate bundle.
+- The OpenCode ELF uses the bundled musl loader as its `PT_INTERP`; the launcher executes the binary directly so `/proc/self/exe` remains correct when OpenCode 2.x starts its background server.
+- The launcher uses the Termux CA certificate bundle and supplies bundled C++ libraries through `LD_LIBRARY_PATH`.
 - OpenCode's self-updater is disabled to protect the Termux-adjusted runtime.
 - API access is not included; configure a supported provider inside OpenCode.
 
