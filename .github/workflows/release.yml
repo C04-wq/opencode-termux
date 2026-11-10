@@ -99,8 +99,8 @@ jobs:
         run: |
           set -euo pipefail
           sha256sum opencode-termux-aarch64.tar.gz > opencode-termux-aarch64.tar.gz.sha256
-          gh release upload "v$VERSION" opencode-termux-aarch64.tar.gz opencode-termux-aarch64.tar.gz.sha256 \\
-            --repo "$GITHUB_REPOSITORY" \\
+          gh release upload "v$VERSION" opencode-termux-aarch64.tar.gz opencode-termux-aarch64.tar.gz.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
             --clobber
 
       - name: Update release checksum metadata
