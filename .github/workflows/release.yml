@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "scripts/resolve-opencode-release.mjs"
       - "scripts/build-android-release.sh"
       - "scripts/setup-alpine-chroot.sh"
       - ".github/workflows/release.yml"
@@ -61,7 +62,7 @@ jobs:
         if: steps.version.outputs.exists == 'false'
         run: |
           set -euo pipefail
-          BRANCH="$(sed -n 's/^ALPINE_VERSION="\([0-9.]*\)"$/\1/p' scripts/build-android-release.sh)"
+          BRANCH="$(sed -n 's/^ALPINE_VERSION="\\([0-9.]*\\)"$/\\1/p' scripts/build-android-release.sh)"
           test -n "$BRANCH"
           bash scripts/setup-alpine-chroot.sh "$BRANCH" "$RUNNER_TEMP/alpine-root"
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
@@ -136,7 +137,7 @@ jobs:
         run: |
           set -euo pipefail
           ARCHIVE_SHA256="$(sha256sum opencode-termux-aarch64.tar.gz | awk '{print $1}')"
-          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\n")' "$VERSION" "$ARCHIVE_SHA256"
+          node -e 'const fs=require("fs"); fs.writeFileSync("release-checksums.json", JSON.stringify({version: process.argv[1], archiveSha256: process.argv[2]}, null, 2) + "\\n")' "$VERSION" "$ARCHIVE_SHA256"
 
       - name: Commit release metadata
         run: |
