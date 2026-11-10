@@ -58,7 +58,7 @@ The uninstaller removes only the managed runtime and launchers. It preserves ~/.
 
 ## Development
 
-The GitHub Actions workflows validate the Bash installer and build ARM64 release archives. Every six hours, the release workflow enumerates official stable OpenCode releases across all major versions (not just GitHub's `latest` alias), selects the highest semantic version that publishes the official ARM64 musl archive and SHA-256 digest, builds the Termux runtime, and publishes a matching Termux release plus checksum metadata. This includes automatic major-version transitions such as 1.x to 2.x. Drafts, prereleases, releases without the required ARM64 musl asset, and releases without a verifiable upstream digest are not selected. Node.js is used only by hosted CI scripts; it is not needed on the Android device.
+The GitHub Actions workflows validate the Bash installer and build ARM64 release archives. Every six hours, the release workflow enumerates official stable OpenCode releases across all major versions (not just GitHub's `latest` alias), selects the highest stable semantic version across all major versions, requires that exact release to publish the official ARM64 musl archive and SHA-256 digest, and fails rather than silently falling back if either is missing. It then builds the Termux runtime, and publishes a matching Termux release plus checksum metadata. This includes automatic major-version transitions such as 1.x to 2.x. Drafts and prereleases are excluded. If the newest stable release lacks the required ARM64 musl asset or a verifiable upstream digest, the workflow stops and reports the problem. Node.js is used only by hosted CI scripts; it is not needed on the Android device.
 
     bash -n install.sh uninstall.sh
 
