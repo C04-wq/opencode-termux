@@ -33,7 +33,7 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const sums = JSON.parse(fs.readFileSync('release-checksums.json', 'utf8'));
-          if (!/^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
+          if (!/^\\d+\\.\\d+\\.\\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
             throw new Error('invalid OpenCode release version');
           }
           if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) {
@@ -53,7 +53,69 @@ jobs:
           if (!builder.includes('libstdc++.so.6.runtime')) {
             throw new Error('builder runtime library filename mismatch');
           }
-          if (/\bdocker\b/i.test(builder)) {
+          if (/\\bdocker\\b/i.test(builder)) {
             throw new Error('release builder must not depend on Docker');
           }
           NODE
+
+  release-build:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/codex/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - name: Resolve newest stable upstream release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/resolve-opencode-release.mjs > "$RUNNER_TEMP/upstream-release.json"
+          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
+          SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "Testing upstream OpenCode v$VERSION"
+
+      - name: Install cross-build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf
+
+      - name: Prepare verified Alpine chroot
+        run: |
+          set -euo pipefail
+          ALPINE_VERSION="$(awk -F'"' '/^ALPINE_VERSION=/{print $2; exit}' scripts/build-android-release.sh)"
+          test -n "$ALPINE_VERSION"
+          bash scripts/setup-alpine-chroot.sh "$ALPINE_VERSION" "$RUNNER_TEMP/alpine-root"
+          echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
+
+      - name: Build and inspect ARM64 Termux archive
+        env:
+          VERSION: ${{ steps.upstream.outputs.version }}
+          UPSTREAM_SHA256: ${{ steps.upstream.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          OUTPUT="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
+          bash scripts/build-android-release.sh "$VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
+
+          ACTUAL_FILES="$(tar -tzf "$OUTPUT" | sort)"
+          EXPECTED_FILES="$(printf '%s\\n' \
+            ld-musl-aarch64.so.1 \
+            libc.musl-aarch64.so.1 \
+            libgcc_s.so.1 \
+            libstdc++.so.6 \
+            libstdc++.so.6.runtime \
+            opencode | sort)"
+          if [[ "$ACTUAL_FILES" != "$EXPECTED_FILES" ]]; then
+            echo "Unexpected archive contents:" >&2
+            printf '%s\\n' "$ACTUAL_FILES" >&2
+            exit 1
+          fi
+
+          tar -xOf "$OUTPUT" opencode > "$RUNNER_TEMP/opencode"
+          readelf -h "$RUNNER_TEMP/opencode" | grep -Eq 'Machine:.*AArch64'
+          sha256sum "$OUTPUT"
+          echo "ARM64 archive structure and ELF architecture verified."
