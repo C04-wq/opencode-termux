@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "scripts/resolve-opencode-release.mjs"
       - "scripts/build-android-release.sh"
       - "scripts/setup-alpine-chroot.sh"
       - ".github/workflows/release.yml"
@@ -25,26 +26,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
-      - name: Resolve official OpenCode release
+      - name: Resolve newest stable OpenCode release across all major versions
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RELEASE_JSON="$RUNNER_TEMP/upstream-release.json"
-          gh api repos/anomalyco/opencode/releases/latest > "$RELEASE_JSON"
-
-          VERSION="$(jq -r '.tag_name // empty' "$RELEASE_JSON" | sed 's/^v//')"
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid official OpenCode version: $VERSION" >&2
-            exit 1
-          fi
-
-          UPSTREAM_SHA256="$(jq -r '.assets[]? | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest // empty' "$RELEASE_JSON" | sed 's/^sha256://')"
-          if ! [[ "$UPSTREAM_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
-            echo "Official ARM64 musl asset has no valid SHA-256 digest." >&2
-            exit 1
-          fi
+          node scripts/resolve-opencode-release.mjs > "$RUNNER_TEMP/upstream-release.json"
+          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
+          UPSTREAM_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
 
           RELEASE_RESPONSE="$RUNNER_TEMP/existing-release.json"
           HTTP_CODE="$(curl --silent --show-error \
@@ -72,7 +62,7 @@ jobs:
         if: steps.version.outputs.exists == 'false'
         run: |
           set -euo pipefail
-          BRANCH="$(sed -n 's/^ALPINE_VERSION="\([0-9.]*\)"$/\1/p' scripts/build-android-release.sh)"
+          BRANCH="$(awk -F'"' '/^ALPINE_VERSION=/{print $2; exit}' scripts/build-android-release.sh)"
           test -n "$BRANCH"
           bash scripts/setup-alpine-chroot.sh "$BRANCH" "$RUNNER_TEMP/alpine-root"
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
