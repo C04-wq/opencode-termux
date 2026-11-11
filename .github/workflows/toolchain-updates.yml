@@ -62,8 +62,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf
+          # Ubuntu package mirrors can temporarily fail DNS resolution on hosted
+          # runners. Retry the complete APT operation with bounded backoff.
+          retry_apt() {
+            local attempt=1
+            local max_attempts=4
+            local delay=15
+
+            while true; do
+              if "$@"; then
+                return 0
+              fi
+
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "APT command failed after $attempt attempts: $*" >&2
+                return 1
+              fi
+
+              echo "APT command failed (attempt $attempt/$max_attempts); retrying in ${delay}s..." >&2
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+
+          retry_apt sudo apt-get -o Acquire::Retries=3 update
+          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf
           OPENCODE_VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
           UPSTREAM_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
           if ! [[ "$UPSTREAM_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
