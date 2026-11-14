@@ -301,18 +301,68 @@ exec bash "\$REPO_DIR/install.sh"
 UPDATER
 chmod 755 "$STAGE/opencode-termux-update"
 
-# If the legacy npm package owns the OpenCode command, remove that package
-# through npm before installing our launcher. This keeps npm's global package
-# database consistent and avoids EEXIST on the next npm installation.
-# Only the known opencode-termux package is eligible; unrelated npm packages
-# and user data are never removed.
+# Migrate only installations whose ownership can be established. Never
+# overwrite an unknown command in PREFIX/bin: it may belong to another tool.
+NPM_GLOBAL_ROOT=""
+NPM_OPENCODE_PACKAGE=""
 if command -v npm >/dev/null 2>&1; then
   NPM_GLOBAL_ROOT="$(npm root -g 2>/dev/null || true)"
   NPM_OPENCODE_PACKAGE="$NPM_GLOBAL_ROOT/opencode-termux"
-  if [[ -n "$NPM_GLOBAL_ROOT" && -f "$NPM_OPENCODE_PACKAGE/package.json" ]] &&
-    node -e 'const p=require(process.argv[1]); process.exit(p.name === "opencode-termux" ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
-    echo "Found legacy npm installation (opencode-termux); replacing it..."
-    run_quiet npm uninstall -g --ignore-scripts opencode-termux
+fi
+
+LEGACY_NPM_OWNS_COMMAND=0
+if [[ -n "$NPM_GLOBAL_ROOT" && -f "$NPM_OPENCODE_PACKAGE/package.json" ]] &&
+  node -e 'const p=require(process.argv[1]); process.exit(p.name === "opencode-termux" && (typeof p.bin === "string" || (p.bin && Object.prototype.hasOwnProperty.call(p.bin, "opencode"))) ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
+  if [[ -L "$LAUNCHER" ]]; then
+    LAUNCHER_TARGET="$(readlink -f "$LAUNCHER" 2>/dev/null || true)"
+    case "$LAUNCHER_TARGET" in
+      "$NPM_OPENCODE_PACKAGE"/*) LEGACY_NPM_OWNS_COMMAND=1 ;;
+    esac
+  fi
+fi
+
+if [[ "$LEGACY_NPM_OWNS_COMMAND" == 1 ]]; then
+  echo "Found legacy npm installation (opencode-termux); replacing it..."
+  run_quiet npm uninstall -g --ignore-scripts opencode-termux
+fi
+
+# Termux packages are identified through dpkg ownership, not by filename.
+# Remove only known OpenCode package names; leave unknown package owners alone.
+if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]] && command -v dpkg-query >/dev/null 2>&1; then
+  PACKAGE_OWNER="$(dpkg-query -S "$LAUNCHER" 2>/dev/null | head -n1 | sed 's/:.*//')"
+  case "$PACKAGE_OWNER" in
+    opencode|opencode1|opencode-termux|opencode-wrapper|opencode1-wrapper)
+      echo "Found Termux package installation ($PACKAGE_OWNER); replacing it..."
+      run_quiet pkg uninstall -y "$PACKAGE_OWNER"
+      ;;
+  esac
+fi
+
+# An existing launcher is replaceable only when it is a previous launcher
+# from this project. A runtime marker or the distinctive managed launcher
+# configuration establishes ownership. Unknown/manual launchers are preserved.
+if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
+  MANAGED_LAUNCHER=0
+  if [[ -f "$LAUNCHER" ]] &&
+    grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE=1' "$LAUNCHER" &&
+    grep -Fq '/lib/opencode-termux' "$LAUNCHER"; then
+    MANAGED_LAUNCHER=1
+  fi
+  if [[ "$MANAGED_LAUNCHER" != 1 ]]; then
+    echo "Error: an unrecognized OpenCode command already exists at $LAUNCHER." >&2
+    echo "It has been left untouched. Identify/uninstall its source, then rerun this installer." >&2
+    exit 1
+  fi
+fi
+
+# Protect the updater path too: never back up or replace an unrelated file.
+if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
+  if [[ ! -f "$UPDATER" ]] ||
+    ! grep -Fq 'git -C' "$UPDATER" ||
+    ! grep -Fq 'install.sh' "$UPDATER"; then
+    echo "Error: an unrecognized command already exists at $UPDATER." >&2
+    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
+    exit 1
   fi
 fi
 
