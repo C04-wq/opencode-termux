@@ -5,13 +5,27 @@ PREFIX="/data/data/com.termux/files/usr"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-.}")" && pwd -P)"
 REPO_DIR="$SCRIPT_DIR"
 
+# Keep successful setup commands quiet while preserving their full error output.
+run_quiet() {
+  local log status
+  log="$(mktemp)"
+  if "$@" >"$log" 2>&1; then
+    rm -f "$log"
+  else
+    status=$?
+    cat "$log" >&2
+    rm -f "$log"
+    return "$status"
+  fi
+}
+
 # Support both a normal checkout and: curl -fsSL .../install.sh | bash
 # A piped script has no repository metadata beside it, so bootstrap a
 # persistent checkout that the existing Git-based updater can maintain.
 if [[ ! -f "$REPO_DIR/release-checksums.json" ]] || ! git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "◇ Preparing the OpenCode for Termux installer…"
+  echo "Preparing OpenCode for Termux..."
   if ! command -v git >/dev/null 2>&1; then
-    pkg install -y git
+    run_quiet pkg install -y git
   fi
   command -v git >/dev/null 2>&1 || { echo "Error: Git could not be installed." >&2; exit 1; }
 
@@ -21,9 +35,9 @@ if [[ ! -f "$REPO_DIR/release-checksums.json" ]] || ! git -C "$REPO_DIR" rev-par
     echo "Error: $REPO_DIR exists but is not a Git checkout. Move it and retry." >&2
     exit 1
   elif [[ -d "$REPO_DIR/.git" ]]; then
-    git -C "$REPO_DIR" pull --ff-only
+    run_quiet git -C "$REPO_DIR" pull --ff-only
   else
-    git clone -- https://github.com/C04-wq/opencode-termux.git "$REPO_DIR"
+    run_quiet git clone -- https://github.com/C04-wq/opencode-termux.git "$REPO_DIR"
   fi
   exec bash "$REPO_DIR/install.sh" "$@"
 fi
@@ -41,11 +55,11 @@ HASH="$(sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1
 for cmd in git curl tar sha256sum; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     case "$cmd" in sha256sum) package="coreutils" ;; *) package="$cmd" ;; esac
-    pkg install -y "$package"
+    run_quiet pkg install -y "$package"
   fi
 done
-[[ -f "$CERT" ]] || pkg install -y ca-certificates
-[[ -f "$RESOLVER" ]] || pkg install -y resolv-conf
+[[ -f "$CERT" ]] || run_quiet pkg install -y ca-certificates
+[[ -f "$RESOLVER" ]] || run_quiet pkg install -y resolv-conf
 for cmd in git curl tar sha256sum; do command -v "$cmd" >/dev/null 2>&1 || { echo "Missing command: $cmd" >&2; exit 1; }; done
 [[ -f "$CERT" && -f "$RESOLVER" ]] || { echo "Termux TLS/resolver files are missing." >&2; exit 1; }
 
@@ -97,18 +111,19 @@ cleanup() {
 }
 trap cleanup EXIT
 URL="https://github.com/C04-wq/opencode-termux/releases/download/v$VERSION/opencode-termux-aarch64.tar.gz"
-echo "◇ Downloading OpenCode $VERSION…"
+echo "Downloading OpenCode $VERSION..."
 curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
 ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz" | awk '{print $1}')"
 [[ "$ACTUAL" == "$HASH" ]] || { echo "Error: SHA-256 mismatch; refusing to install." >&2; exit 1; }
-echo "✓ SHA-256 verified"
+echo "Verifying package integrity... OK"
 mkdir "$STAGE/files"
 tar -xzf "$STAGE/runtime.tar.gz" -C "$STAGE/files"
 FILES="opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime"
 for file in $FILES; do [[ -s "$STAGE/files/$file" ]] || { echo "Error: archive missing $file" >&2; exit 1; }; done
 chmod u+x "$STAGE/files/opencode" "$STAGE/files/ld-musl-aarch64.so.1"
-echo "◇ Testing runtime…"
-( unset LD_PRELOAD; export LD_LIBRARY_PATH="$STAGE/files"; "$STAGE/files/ld-musl-aarch64.so.1" --library-path "$STAGE/files" "$STAGE/files/opencode" --version ) || { echo "Error: runtime test failed." >&2; exit 1; }
+echo "Checking runtime..."
+VERSION_OUTPUT="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$STAGE/files"; "$STAGE/files/ld-musl-aarch64.so.1" --library-path "$STAGE/files" "$STAGE/files/opencode" --version )" || { echo "Error: runtime test failed." >&2; exit 1; }
+[[ "$VERSION_OUTPUT" == "opencode v$VERSION" ]] || { echo "Error: unexpected runtime version: $VERSION_OUTPUT" >&2; exit 1; }
 
 mkdir -p "$PREFIX/lib" "$PREFIX/bin"
 NEW="$PREFIX/lib/.opencode-termux-new-$$"
@@ -218,7 +233,15 @@ cat > "$STAGE/opencode-termux-update" <<UPDATER
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 REPO_DIR="$REPO_DIR"
-git -C "\$REPO_DIR" pull --ff-only
+LOG="$(mktemp)"
+if git -C "\$REPO_DIR" pull --ff-only >"\$LOG" 2>&1; then
+  rm -f "\$LOG"
+else
+  STATUS=\$?
+  cat "\$LOG" >&2
+  rm -f "\$LOG"
+  exit "\$STATUS"
+fi
 exec bash "\$REPO_DIR/install.sh"
 UPDATER
 chmod 755 "$STAGE/opencode-termux-update"
@@ -237,10 +260,11 @@ fi
 mv "$STAGE/opencode-launcher" "$LAUNCHER"
 mv "$STAGE/opencode-termux-update" "$UPDATER"
 
-( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version ) || { echo "Error: installed runtime failed final test." >&2; exit 1; }
+FINAL_VERSION="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
+[[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
 rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP"
-echo "✓ OpenCode $VERSION installed"
-echo "Run: opencode"
+echo "OpenCode $VERSION installed successfully."
+echo "Start: opencode"
 echo "Update: opencode-termux-update"
 echo "Uninstall: bash \"$REPO_DIR/uninstall.sh\""
