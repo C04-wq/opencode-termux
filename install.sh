@@ -2,7 +2,12 @@
 set -Eeuo pipefail
 
 PREFIX="/data/data/com.termux/files/usr"
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-.}")" && pwd -P)"
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
+if [[ -n "$SCRIPT_SOURCE" ]]; then
+  SCRIPT_DIR="$(cd -- "$(dirname -- "$SCRIPT_SOURCE")" && pwd -P)"
+else
+  SCRIPT_DIR=""
+fi
 REPO_DIR="$SCRIPT_DIR"
 
 # Keep successful setup commands quiet while preserving their full error output.
