@@ -90,6 +90,8 @@ The installer prepares a persistent checkout at `$PREFIX/opt/opencode-termux`. I
 
 If the existing clone contains local modifications or untracked files, the installer stops and leaves it untouched; commit or stash those changes before retrying. It never deletes unrelated Git repositories, project folders, OpenCode settings, sessions or provider credentials. Successful setup commands run quietly; full command output is shown if a step fails.
 
+When replacing an older installation, the installer removes the global npm package `opencode-termux` only when its package metadata is valid and its installed `opencode` symlink resolves inside that package. It also recognizes a short allowlist of Termux/dpkg package names (`opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` and `opencode1-wrapper`) through package ownership metadata. Previous launchers from this project are replaced in place. If another or manually copied executable cannot be identified safely, installation stops and leaves it untouched; remove that installation yourself after confirming its origin. This avoids deleting an unrelated command just because it is named `opencode`.
+
 When installation completes, start OpenCode:
 
 ```bash
