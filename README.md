@@ -86,7 +86,7 @@ Open Termux and run this single command:
 curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh | bash
 ```
 
-The installer prepares a persistent checkout at `$PREFIX/opt/opencode-termux`. It installs Git automatically if needed, then downloads and verifies the runtime exactly as before. You do not need to clone the repository or change directories manually.
+The installer prepares a persistent checkout at `$PREFIX/opt/opencode-termux`. It installs Git automatically if needed, then downloads and verifies the runtime exactly as before. Successful setup commands run quietly, so package-manager and Git progress does not flood the terminal; concise English status messages are shown instead. Full command output is displayed if a step fails. You do not need to clone the repository or change directories manually.
 
 The traditional installation from a manually cloned checkout remains supported.
 
@@ -133,6 +133,7 @@ When `opencode` is launched from an interactive terminal, the launcher quietly r
 - Choose **Install update now** to update the clone and reinstall the verified runtime.
 - Choose **Wait for the next version** to continue with the installed version.
 - If the network check fails or GitHub is unavailable, the current installation can still start.
+- Successful Git update output is kept hidden; errors remain visible.
 - Non-interactive launches do not display the update menu.
 
 Use the **Up/Down** arrow keys and press **Enter** to confirm.
