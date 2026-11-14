@@ -116,7 +116,7 @@ The installer reads the version and archive digest from [`release-checksums.json
 5. Extracts and checks the expected runtime files.
 6. Runs an OpenCode version smoke test using the bundled musl loader.
 7. Activates the runtime under `$PREFIX/lib/opencode-termux`.
-8. Installs the `opencode` launcher and `opencode-termux-update` updater under `$PREFIX/bin`.
+8. Installs the `opencode` launcher, `opencode-termux` manager and internal updater under `$PREFIX/bin`.
 9. Tests the installed executable again before reporting success.
 
 The installer records the persistent checkout location in the runtime. For the one-line installation, this is `$PREFIX/opt/opencode-termux`. Keep that directory in place so the updater can find `install.sh` and the release metadata.
@@ -142,11 +142,25 @@ Use the **Up/Down** arrow keys and press **Enter** to confirm.
 
 ### Manual update
 
-Run this command at any time:
+Run the manager command at any time:
 
 ```bash
-opencode-termux-update
+opencode-termux update
 ```
+
+The `opencode-termux` manager also provides:
+
+| Command | Action |
+| --- | --- |
+| `opencode-termux install` | Install or repair the managed runtime |
+| `opencode-termux update` | Pull changes and reinstall the verified runtime |
+| `opencode-termux uninstall` | Remove the managed runtime and launchers after confirmation |
+| `opencode-termux version` | Show manager and OpenCode versions |
+| `opencode-termux status` | Show installation state and paths |
+| `opencode-termux doctor` | Check architecture and installation files |
+| `opencode-termux help` | Show command help |
+
+The equivalent `--install`, `--update`, `--uninstall`, `--version`, `--status`, `--doctor` and `--help` options are supported too.
 
 The updater runs a fast-forward-only `git pull` in the managed checkout at `$PREFIX/opt/opencode-termux` and then reruns `install.sh`. If the curl installer adopted an existing clone, this is the migrated checkout. The installer downloads the version pinned in `release-checksums.json` and verifies its SHA-256 digest before replacing the runtime.
 
@@ -170,7 +184,8 @@ The package combines the upstream OpenCode executable with a small, bundled musl
 | --- | --- |
 | OpenCode runtime | `$PREFIX/lib/opencode-termux/` |
 | OpenCode command | `$PREFIX/bin/opencode` |
-| Manual updater | `$PREFIX/bin/opencode-termux-update` |
+| Manager command | `$PREFIX/bin/opencode-termux` |
+| Internal updater | `$PREFIX/bin/opencode-termux-update` |
 | Installed version marker | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
 | Original repository path | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
 | Release version and checksum | `release-checksums.json` in the cloned repository |
@@ -243,7 +258,7 @@ The updater deliberately uses `git pull --ff-only`. Check the clone for local ch
 git -C ~/opencode-termux status --short
 ```
 
-Commit, stash or otherwise resolve local changes, then run `opencode-termux-update` again.
+Commit, stash or otherwise resolve local changes, then run `opencode-termux update` again.
 
 ### Shell commands behave incorrectly inside OpenCode
 
@@ -270,6 +285,7 @@ The uninstaller asks for confirmation, then removes only:
 - `$PREFIX/lib/opencode-termux`
 - `$PREFIX/bin/opencode`
 - `$PREFIX/bin/opencode-termux-update`
+- `$PREFIX/bin/opencode-termux` (manager command)
 
 It does **not** remove the cloned repository, Termux packages, OpenCode configuration, sessions, provider credentials or other user data. To remove the project source as well, delete the cloned repository yourself after uninstalling.
 
@@ -278,7 +294,7 @@ It does **not** remove the cloned repository, Termux packages, OpenCode configur
 Issues and pull requests are welcome. Before submitting changes, run the local syntax checks and relevant tests:
 
 ```bash
-bash -n install.sh uninstall.sh
+bash -n install.sh uninstall.sh opencode-termux
 bash -n scripts/build-android-release.sh scripts/setup-alpine-chroot.sh
 node --check scripts/resolve-opencode-release.mjs
 node --check scripts/check-toolchain-updates.mjs

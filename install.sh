@@ -124,10 +124,13 @@ NEW=""
 ACTIVATED=0
 LAUNCHER="$PREFIX/bin/opencode"
 UPDATER="$PREFIX/bin/opencode-termux-update"
+MANAGER="$PREFIX/bin/opencode-termux"
 LAUNCHER_BACKUP="$PREFIX/bin/.opencode-backup-$BASHPID"
 UPDATER_BACKUP="$PREFIX/bin/.opencode-updater-backup-$BASHPID"
+MANAGER_BACKUP="$PREFIX/bin/.opencode-manager-backup-$BASHPID"
 LAUNCHER_WAS_PRESENT=0
 UPDATER_WAS_PRESENT=0
+MANAGER_WAS_PRESENT=0
 LAUNCHERS_TOUCHED=0
 cleanup() {
   local status=$?
@@ -159,6 +162,14 @@ cleanup() {
         fi
       elif [[ "$UPDATER_WAS_PRESENT" == 0 ]]; then
         rm -f "$UPDATER"
+      fi
+      if [[ -e "$MANAGER_BACKUP" || -L "$MANAGER_BACKUP" ]]; then
+        rm -f "$MANAGER"
+        if ! mv "$MANAGER_BACKUP" "$MANAGER"; then
+          echo "Error: failed to restore the previous manager from $MANAGER_BACKUP." >&2
+        fi
+      elif [[ "$MANAGER_WAS_PRESENT" == 0 ]]; then
+        rm -f "$MANAGER"
       fi
     fi
   fi
@@ -284,6 +295,10 @@ exec "$RUNTIME/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
 
+# Keep one canonical manager implementation; this is also the file installed by users from the checkout.
+cp "$REPO_DIR/opencode-termux" "$STAGE/opencode-termux-manager"
+chmod 755 "$STAGE/opencode-termux-manager"
+
 cat > "$STAGE/opencode-termux-update" <<UPDATER
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
@@ -366,6 +381,15 @@ if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
   fi
 fi
 
+# Protect the manager path too: never replace an unrelated command.
+if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
+  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
+    echo "Error: an unrecognized command already exists at $MANAGER." >&2
+    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
+    exit 1
+  fi
+fi
+
 # Activate launchers transactionally: keep the previous files until the
 # installed runtime passes its final test.
 LAUNCHERS_TOUCHED=1
@@ -377,14 +401,20 @@ if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
   UPDATER_WAS_PRESENT=1
   mv "$UPDATER" "$UPDATER_BACKUP"
 fi
+if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
+  MANAGER_WAS_PRESENT=1
+  mv "$MANAGER" "$MANAGER_BACKUP"
+fi
 mv "$STAGE/opencode-launcher" "$LAUNCHER"
 mv "$STAGE/opencode-termux-update" "$UPDATER"
+mv "$STAGE/opencode-termux-manager" "$MANAGER"
 
 FINAL_VERSION="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
-rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP"
+rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
 echo "OpenCode $VERSION installed successfully."
 echo "Start: opencode"
-echo "Update: opencode-termux-update"
-echo "Uninstall: bash \"$REPO_DIR/uninstall.sh\""
+echo "Manage: opencode-termux --help"
+echo "Update: opencode-termux update"
+echo "Uninstall: opencode-termux uninstall"

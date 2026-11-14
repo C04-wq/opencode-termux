@@ -1,0 +1,90 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -Eeuo pipefail
+# OPENCODE_TERMUX_MANAGER=1
+PREFIX="/data/data/com.termux/files/usr"
+RUNTIME="$PREFIX/lib/opencode-termux"
+MANAGER_VERSION="1"
+REPO_DIR=""
+if [[ -f "$RUNTIME/.opencode-termux-repo-dir" ]]; then
+  IFS= read -r REPO_DIR < "$RUNTIME/.opencode-termux-repo-dir" || true
+fi
+if [[ ! -f "$REPO_DIR/install.sh" && -f "$PREFIX/opt/opencode-termux/install.sh" ]]; then REPO_DIR="$PREFIX/opt/opencode-termux"; fi
+usage() {
+  cat <<'HELP'
+OpenCode Termux manager
+Usage: opencode-termux <command>
+Commands:
+  install       Install or repair the managed runtime
+  update        Update the checkout and verified runtime
+  uninstall     Remove this project's runtime and launchers
+  version       Show manager and OpenCode versions
+  status        Show installation state and paths
+  doctor        Check architecture and installation integrity
+  help          Show this help
+Options: --install --update --uninstall --version --status --doctor --help
+HELP
+}
+require_repo() {
+  [[ -n "$REPO_DIR" && -f "$REPO_DIR/install.sh" ]] || {
+    echo "Error: managed repository checkout was not found. Run the one-line installer to restore it." >&2
+    exit 1
+  }
+}
+case "${1:---help}" in
+  install|--install) require_repo; exec bash "$REPO_DIR/install.sh" ;;
+  update|--update)
+    [[ -x "$PREFIX/bin/opencode-termux-update" ]] || { echo "Error: updater is not installed." >&2; exit 1; }
+    exec "$PREFIX/bin/opencode-termux-update" ;;
+  uninstall|--uninstall) require_repo; exec bash "$REPO_DIR/uninstall.sh" ;;
+  version|--version|-V)
+    echo "opencode-termux manager $MANAGER_VERSION"
+    if [[ -f "$RUNTIME/.opencode-termux-version" ]]; then
+      echo "OpenCode $(cat "$RUNTIME/.opencode-termux-version")"
+    else echo "OpenCode runtime: not installed"; fi ;;
+  status|--status)
+    if [[ -f "$RUNTIME/.opencode-termux-version" ]]; then
+      echo "Status: installed"
+      echo "Version: $(cat "$RUNTIME/.opencode-termux-version")"
+    else echo "Status: not installed"; fi
+    printf 'Runtime: %s\nLauncher: %s\nCheckout: %s\n' "$RUNTIME" "$PREFIX/bin/opencode" "${REPO_DIR:-not found}" ;;
+  doctor|--doctor)
+    failed=0
+    [[ "$(uname -m)" == aarch64 ]] || { echo "FAIL: architecture must be aarch64"; failed=1; }
+    for cmd in git curl tar sha256sum; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done
+    for file in opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime; do
+      [[ -s "$RUNTIME/$file" ]] || { echo "FAIL: runtime file missing: $file"; failed=1; }
+    done
+    [[ -x "$RUNTIME/opencode" && -x "$RUNTIME/ld-musl-aarch64.so.1" ]] || { echo "FAIL: runtime executable or loader is not executable"; failed=1; }
+    if [[ -s "$RUNTIME/.opencode-termux-version" ]]; then
+      EXPECTED_VERSION="$(cat "$RUNTIME/.opencode-termux-version")"
+      if [[ ! "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+        echo "FAIL: invalid installed version marker"; failed=1
+      fi
+    else
+      echo "FAIL: installation marker missing"; failed=1
+    fi
+    if [[ -f "$PREFIX/bin/opencode" ]] && grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE=1' "$PREFIX/bin/opencode" && grep -Fq '/lib/opencode-termux' "$PREFIX/bin/opencode"; then
+      echo "OK: managed launcher"
+    else echo "FAIL: managed launcher missing or unrecognized"; failed=1; fi
+    if [[ -f "$PREFIX/bin/opencode-termux" ]] && grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$PREFIX/bin/opencode-termux"; then
+      echo "OK: managed CLI"
+    else echo "FAIL: managed CLI missing or unrecognized"; failed=1; fi
+    if [[ -f "$PREFIX/bin/opencode-termux-update" ]] && grep -Fq 'git -C' "$PREFIX/bin/opencode-termux-update" && grep -Fq 'install.sh' "$PREFIX/bin/opencode-termux-update"; then
+      echo "OK: managed updater"
+    else echo "FAIL: managed updater missing or unrecognized"; failed=1; fi
+    [[ -s "$PREFIX/etc/tls/cert.pem" ]] || { echo "FAIL: CA bundle missing"; failed=1; }
+    [[ -s "$PREFIX/etc/resolv.conf" ]] || { echo "FAIL: resolver configuration missing"; failed=1; }
+    if (( failed == 0 )); then
+      VERSION_OUTPUT="$(env -u LD_PRELOAD LD_LIBRARY_PATH="$RUNTIME" SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem" "$RUNTIME/opencode" --version)" || {
+        echo "FAIL: OpenCode runtime smoke test failed"; failed=1;
+      }
+      if (( failed == 0 )) && [[ "$VERSION_OUTPUT" == "opencode v$EXPECTED_VERSION" ]]; then
+        echo "OK: runtime starts ($VERSION_OUTPUT)"
+      elif (( failed == 0 )); then
+        echo "FAIL: runtime version mismatch: $VERSION_OUTPUT"; failed=1
+      fi
+    fi
+    if (( failed == 0 )); then echo "All checks passed."; else exit 1; fi ;;
+  help|--help|-h) usage ;;
+  *) echo "Unknown command: $1" >&2; usage >&2; exit 2 ;;
+esac
