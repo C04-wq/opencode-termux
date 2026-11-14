@@ -74,7 +74,7 @@ The result is a direct Termux installation managed with Bash and Git. There is n
 | Runtime tools | Bash, Git, curl, tar and `sha256sum` (provided by `coreutils`) |
 | Termux system files | CA certificate bundle and resolver configuration |
 
-The installer checks for missing runtime tools and uses Termux `pkg` to install the required packages, including `ca-certificates` and `resolv-conf` when their files are absent. Git must be available for the initial clone.
+The installer checks for missing runtime tools and uses Termux `pkg` to install the required packages, including Git, `ca-certificates` and `resolv-conf` when needed. The one-line command requires `curl` to be available before it starts.
 
 **Not supported:** 32-bit ARM, x86, x86_64, or non-Termux Android environments.
 
