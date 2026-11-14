@@ -1,54 +1,84 @@
-# opencode-termux
+<!--
+  Project documentation: keep installation paths, runtime behavior and CI claims
+  aligned with install.sh, uninstall.sh, scripts/ and .github/workflows/.
+-->
 
 <p align="center">
-  <img src="./opencode-logo.svg" alt="OpenCode logo" width="72" height="90">
+  <img src="./opencode-logo.svg" alt="OpenCode logo" width="88" height="110">
+</p>
+
+<h1 align="center">OpenCode for Termux</h1>
+
+<p align="center">
+  <strong>Run OpenCode directly on Android with Termux.</strong><br>
+  A verified ARM64 runtime, a Bash installer and consent-based updates — without Node.js or npm on your phone.
 </p>
 
 <p align="center">
-  <strong>Run OpenCode natively on Android through Termux.</strong><br>
-  Install and maintain it directly from this Git repository with Bash.
+  <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?display_name=tag&style=for-the-badge" alt="Latest release"></a>
+  <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Validation workflow"></a>
+  <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/release.yml?branch=main&label=Release%20build&style=for-the-badge" alt="Release workflow"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="MIT license"></a>
 </p>
 
+<p align="center">
+  <a href="#installation">Installation</a> ·
+  <a href="#updates">Updates</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#troubleshooting">Troubleshooting</a> ·
+  <a href="#development">Development</a>
+</p>
 
-Run OpenCode natively on Android through Termux. Install and maintain it directly from this Git repository with Bash. **Node.js and npm are not required on your Android device.**
+---
+
+## Overview
+
+[OpenCode](https://opencode.ai/) is an AI coding agent that runs in the terminal. This project packages the official Linux **ARM64 musl** release so it can run in **Android Termux**.
+
+Android does not provide the same runtime environment as a conventional Linux distribution. This project supplies a compatible musl runtime, adjusts its DNS resolver path for Termux, and configures the OpenCode executable to use the bundled interpreter.
+
+The result is a direct Termux installation managed with Bash and Git. There is no proot container, virtual machine, or Node.js/npm installation required on the Android device.
+
+> **Project scope:** this repository provides the Termux packaging, runtime integration, installer and update mechanism. OpenCode itself is developed upstream by [anomalyco/opencode](https://github.com/anomalyco/opencode). This is a community-maintained, unofficial Termux package.
+
+## Features
+
+- **Android ARM64:** targets `aarch64` devices running Termux.
+- **Upstream stable releases:** discovers the newest supported stable OpenCode version across major versions, including 1.x → 2.x transitions.
+- **Verified downloads:** checks the release archive against the SHA-256 digest tracked in this repository before extraction.
+- **Bundled runtime:** includes the musl loader and required runtime libraries; no `patchelf`, Node.js or npm is needed on the phone.
+- **Termux networking:** builds musl with Termux's resolver path and configures the Termux CA certificate bundle at launch.
+- **Consent-based updates:** checks for a newer package on interactive launches and asks before installing it.
+- **Safe installation:** validates the archive and runtime before activation, keeps the previous runtime during replacement, and attempts to restore it if installation fails.
+- **Preserved user data:** uninstalling removes only this project's runtime and launchers.
 
 ## Screenshots
 
-The following screenshots are stored in this repository and displayed directly below.
-
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="./screenshots/screenshot-1.png" alt="OpenCode running in Termux — screenshot 1" width="100%">
-    </td>
-    <td width="50%" align="center">
-      <img src="./screenshots/screenshot-2.png" alt="OpenCode running in Termux — screenshot 2" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="./screenshots/screenshot-3.png" alt="OpenCode running in Termux — screenshot 3" width="100%">
-    </td>
-    <td width="50%" align="center">
-      <img src="./screenshots/screenshot-4.png" alt="OpenCode running in Termux — screenshot 4" width="100%">
-    </td>
-  </tr>
-</table>
-
-## Status
-
-- ARM64/aarch64 support for Android with Termux.
-- Tested on a real Android device: OpenCode launches and its interactive terminal interface and background server work correctly.
-- The packaged runtime is built from official stable OpenCode releases.
-- Automatic update discovery and a dedicated updater are included.
+<p align="center">
+  <img src="./screenshots/screenshot-1.png" alt="OpenCode running in Termux — screenshot 1" width="48%">
+  <img src="./screenshots/screenshot-2.png" alt="OpenCode running in Termux — screenshot 2" width="48%">
+</p>
+<p align="center">
+  <img src="./screenshots/screenshot-3.png" alt="OpenCode running in Termux — screenshot 3" width="48%">
+  <img src="./screenshots/screenshot-4.png" alt="OpenCode running in Termux — screenshot 4" width="48%">
+</p>
 
 ## Requirements
 
-- Android with [Termux](https://termux.dev/) on ARM64/aarch64.
-- Internet access.
-- Git, curl, tar, sha256sum, Termux CA certificates, and resolver configuration. The installer checks for required tools and uses Termux `pkg` to install missing dependencies.
+| Requirement | Details |
+| --- | --- |
+| Device | Android with Termux |
+| Architecture | **ARM64 / aarch64 only** |
+| Network | Internet access for installation, provider access and update checks |
+| Initial tool | Git, to clone this repository |
+| Runtime tools | Bash, Git, curl, tar and `sha256sum` (provided by `coreutils`) |
+| Termux system files | CA certificate bundle and resolver configuration |
 
-## Install
+The installer checks for missing runtime tools and uses Termux `pkg` to install the required packages, including `ca-certificates` and `resolv-conf` when their files are absent. Git must be available for the initial clone.
+
+**Not supported:** 32-bit ARM, x86, x86_64, or non-Termux Android environments.
+
+## Installation
 
 Open Termux and run:
 
@@ -60,50 +90,11 @@ cd opencode-termux
 bash install.sh
 ```
 
-Then start OpenCode:
+When installation completes, start OpenCode:
 
 ```bash
 opencode
 ```
-
-The installer reads the pinned version and SHA-256 digest from `release-checksums.json`, downloads the corresponding ARM64 runtime archive from this repository's GitHub Releases, verifies its integrity, checks the required runtime files, tests it, and installs it under `$PREFIX/lib/opencode-termux`. The launcher is installed at `$PREFIX/bin/opencode`.
-
-## Updates
-
-### Automatic update discovery
-
-Every interactive launch of `opencode` quietly checks the version metadata on this repository's `main` branch.
-
-When a newer stable version has been built and published for Termux, the launcher displays a small two-option menu:
-
-- **Install update now** — updates the repository clone, installs the new verified runtime, and starts OpenCode.
-- **Wait for the next version** — starts the currently installed version without updating.
-
-Use the Up/Down arrow keys to select an option and press Enter to confirm. If no newer version is available, OpenCode starts normally. If GitHub cannot be reached, the current installation still starts; an update check never intentionally blocks normal startup.
-
-This is automatic **update detection**, not a forced background installation: you choose when to install the update.
-
-### Manual update
-
-You can update at any time with:
-
-```bash
-opencode-termux-update
-```
-
-The updater performs a fast-forward-only Git pull in the original cloned repository and reruns the installer. The installer downloads the version pinned by the repository metadata and verifies its SHA-256 before installation. Local Git changes that prevent a fast-forward are not overwritten.
-
-**Keep the cloned repository in its original location.** The installed launcher and updater use that path to find the installer and update metadata.
-
-### New OpenCode versions and major releases
-
-The release workflow checks official stable OpenCode releases across **all major version numbers**, selects the highest stable semantic version, and builds a Termux package for it when the required official ARM64 musl archive and verifiable upstream checksum are available.
-
-This is designed to follow major-version transitions too, for example from 1.x to 2.x and later to 3.x, without hard-coding the project to a particular major version. A new upstream release is not installed on your phone until the corresponding Termux release has been built and published and you accept the update.
-
-If the newest stable upstream release does not provide the required ARM64 musl archive or a verifiable checksum, the workflow fails rather than silently packaging an older version. Draft and prerelease versions are excluded.
-
-## Verify
 
 Check the installed version and available commands:
 
@@ -112,44 +103,187 @@ opencode --version
 opencode --help
 ```
 
-## Uninstall
+### What the installer does
 
-From the cloned repository:
+The installer reads the version and archive digest from [`release-checksums.json`](./release-checksums.json), then:
+
+1. Checks that the device reports `aarch64`.
+2. Installs missing Termux tools and required certificate/resolver files.
+3. Downloads the matching `opencode-termux-aarch64.tar.gz` asset from this repository's GitHub Release over HTTPS.
+4. Verifies the archive's SHA-256 digest. A mismatch stops installation.
+5. Extracts and checks the expected runtime files.
+6. Runs an OpenCode version smoke test using the bundled musl loader.
+7. Activates the runtime under `$PREFIX/lib/opencode-termux`.
+8. Installs the `opencode` launcher and `opencode-termux-update` updater under `$PREFIX/bin`.
+9. Tests the installed executable again before reporting success.
+
+The installer records the original clone location in the runtime. **Keep the cloned repository in its original location** so the updater can find `install.sh` and the release metadata.
+
+## Updates
+
+Updates are designed to be deliberate: the launcher detects an available version, but it does not silently replace the installed runtime.
+
+### Automatic update check
+
+When `opencode` is launched from an interactive terminal, the launcher quietly requests the version metadata from the repository's `main` branch.
+
+- If the metadata contains a newer version, a two-option menu appears.
+- Choose **Install update now** to update the clone and reinstall the verified runtime.
+- Choose **Wait for the next version** to continue with the installed version.
+- If the network check fails or GitHub is unavailable, the current installation can still start.
+- Non-interactive launches do not display the update menu.
+
+Use the **Up/Down** arrow keys and press **Enter** to confirm.
+
+### Manual update
+
+Run this command at any time:
+
+```bash
+opencode-termux-update
+```
+
+The updater runs a fast-forward-only `git pull` in the original clone and then reruns `install.sh`. The installer downloads the version pinned in `release-checksums.json` and verifies its SHA-256 digest before replacing the runtime.
+
+Local Git changes that prevent a fast-forward are not overwritten; the update stops instead.
+
+## How it works
+
+The package combines the upstream OpenCode executable with a small, bundled musl runtime adapted for Termux.
+
+1. **Upstream executable:** the build downloads the official `opencode-linux-arm64-musl.tar.gz` asset from [OpenCode releases](https://github.com/anomalyco/opencode/releases).
+2. **Runtime libraries:** the package includes the musl loader, musl libc, libgcc and libstdc++ runtime files.
+3. **Termux DNS:** the build uses musl 1.2.6 with its resolver configuration path adjusted to Termux's `$PREFIX/etc/resolv.conf`.
+4. **ELF interpreter:** the build sets the executable's `PT_INTERP` to the installed bundled musl loader.
+5. **Direct execution:** the launcher executes the OpenCode binary directly. This matters because OpenCode 2.x re-executes `/proc/self/exe` when starting its background server; invoking the loader as a wrapper would make that path refer to the loader instead of the OpenCode executable.
+6. **Environment isolation:** the launcher clears inherited `LD_PRELOAD`, sets the Termux CA bundle, and adds the bundled runtime directory to `LD_LIBRARY_PATH`.
+7. **Upstream self-update:** `OPENCODE_DISABLE_AUTOUPDATE=1` keeps OpenCode's own updater from replacing the Termux-managed runtime outside this project's verified installation flow.
+
+### Installed paths
+
+| Component | Location |
+| --- | --- |
+| OpenCode runtime | `$PREFIX/lib/opencode-termux/` |
+| OpenCode command | `$PREFIX/bin/opencode` |
+| Manual updater | `$PREFIX/bin/opencode-termux-update` |
+| Installed version marker | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
+| Original repository path | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
+| Release version and checksum | `release-checksums.json` in the cloned repository |
+
+## Release automation and validation
+
+GitHub Actions maintain the package and check its compatibility:
+
+| Workflow | Trigger | Purpose |
+| --- | --- | --- |
+| [Validate Termux installer](.github/workflows/validate.yml) | Pushes, pull requests and manual dispatch | Shell/Node syntax checks, metadata checks, resolver tests, toolchain-parser tests and ARM64 runtime smoke tests under QEMU |
+| [Build and publish GitHub release](.github/workflows/release.yml) | Every 6 hours, relevant pushes to `main`, or manual dispatch | Finds the newest stable upstream release, builds the Termux archive, publishes release assets and updates checksum metadata |
+| [Check toolchain updates](.github/workflows/toolchain-updates.yml) | Daily schedule, relevant pushes, pull requests or manual dispatch | Checks Alpine stable branches and opens a reviewable PR when the pinned build branch needs updating |
+
+The release resolver:
+
+- Compares stable semantic versions across all major versions.
+- Excludes draft and prerelease releases.
+- Requires the official ARM64 musl archive and a valid upstream SHA-256 digest.
+- Fails rather than silently falling back to an older release if the newest stable release is missing the required asset or digest.
+
+The release archive contains the OpenCode executable and its required runtime files. A matching `.sha256` asset is published with each release.
+
+**Testing note:** CI uses ARM64 emulation with QEMU to inspect the archive and ELF interpreter, run `opencode --version`, and verify that `opencode serve` remains running during a smoke test. This is useful runtime coverage, but QEMU is not a substitute for testing every new release on a physical Android/Termux device.
+
+Node.js is used by hosted GitHub Actions scripts only; it is not required on the Android device.
+
+## Troubleshooting
+
+### `opencode: command not found`
+
+Run the installer again from the cloned repository:
+
+```bash
+cd ~/opencode-termux
+bash install.sh
+hash -r
+opencode --version
+```
+
+If you cloned the repository into a different directory, use that directory instead of `~/opencode-termux`.
+
+### The installer reports an unsupported architecture
+
+This package currently supports only ARM64. Check your device with:
+
+```bash
+uname -m
+dpkg --print-architecture
+```
+
+Both should report `aarch64` on a supported Termux installation.
+
+### Download, TLS or DNS errors
+
+Update Termux packages and verify that GitHub is reachable:
+
+```bash
+pkg update
+pkg install git curl tar coreutils ca-certificates
+curl -I https://github.com
+```
+
+The installer also checks for the Termux resolver configuration and installs `resolv-conf` if it is missing. Do not bypass the SHA-256 check if a download fails or the digest does not match.
+
+### The update cannot fast-forward
+
+The updater deliberately uses `git pull --ff-only`. Check the clone for local changes before updating:
+
+```bash
+git -C ~/opencode-termux status --short
+```
+
+Commit, stash or otherwise resolve local changes, then run `opencode-termux-update` again.
+
+### Shell commands behave incorrectly inside OpenCode
+
+The current launcher clears Termux's inherited `LD_PRELOAD` before starting the bundled musl executable. Update to the latest repository version and reinstall:
+
+```bash
+opencode-termux-update
+```
+
+If the problem persists, open an [issue](https://github.com/C04-wq/opencode-termux/issues) with your Android version, the output of `uname -m`, the OpenCode version and the relevant error output.
+
+## Uninstallation
+
+From the cloned repository, run:
 
 ```bash
 bash uninstall.sh
 ```
 
-The uninstaller removes only the runtime and launchers managed by this project. It preserves your OpenCode configuration, sessions, provider credentials, and user data in:
+The uninstaller asks for confirmation, then removes only:
 
-- `~/.config/opencode`
-- `~/.local/share/opencode`
+- `$PREFIX/lib/opencode-termux`
+- `$PREFIX/bin/opencode`
+- `$PREFIX/bin/opencode-termux-update`
 
-It does not remove Termux packages that other applications may use. Delete the cloned repository manually if you also want to remove the installer source.
+It does **not** remove the cloned repository, Termux packages, OpenCode configuration, sessions, provider credentials or other user data. To remove the project source as well, delete the cloned repository yourself after uninstalling.
 
-## Compatibility and security
+## Contributing
 
-- **Architecture:** ARM64/aarch64 on Android with Termux.
-- **Device dependencies:** Bash, Git, curl, tar, and checksum utilities; no Node.js, npm, or `patchelf` is required on the phone.
-- **Integrity:** the installer verifies the downloaded archive against the SHA-256 value tracked in `release-checksums.json` before extraction or execution.
-- **Runtime validation:** required files are checked and the OpenCode binary is tested before and after activation.
-- **Termux environment:** the launcher clears inherited `LD_PRELOAD` to avoid conflicts between Termux and the bundled musl runtime, configures the Termux CA certificate bundle, and supplies the bundled C++ libraries through `LD_LIBRARY_PATH`.
-- **Background server:** the OpenCode ELF interpreter (`PT_INTERP`) points to the bundled musl loader in the installed runtime. The launcher executes the binary directly so that `/proc/self/exe` remains correct when OpenCode starts its background server.
-- **Self-updates:** OpenCode's own updater is disabled so it cannot replace the Termux-adjusted runtime outside this project's verified installation process.
-- **Provider access:** API access is not included. Configure a supported provider from within OpenCode.
-
-## Development and release automation
-
-GitHub Actions validate the installer and build ARM64 Termux release archives. The scheduled release workflow checks upstream stable releases every six hours, resolves the highest stable semantic version across all major versions, verifies the required upstream ARM64 musl archive and checksum, builds the Termux runtime, and publishes the archive and checksum metadata.
-
-Node.js is used by hosted CI scripts only; it is not needed on the Android device.
-
-Run the local Bash syntax checks with:
+Issues and pull requests are welcome. Before submitting changes, run the local syntax checks and relevant tests:
 
 ```bash
 bash -n install.sh uninstall.sh
+bash -n scripts/build-android-release.sh scripts/setup-alpine-chroot.sh
+node --check scripts/resolve-opencode-release.mjs
+node --check scripts/check-toolchain-updates.mjs
+node scripts/test-opencode-release-resolver.mjs
+node scripts/test-toolchain-updates.mjs
 ```
+
+Changes to the build process should preserve the archive layout, SHA-256 verification, Termux resolver path and direct ELF execution required by OpenCode's background server.
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](./LICENSE).
+
+OpenCode is a separate upstream project maintained by [anomalyco](https://github.com/anomalyco). Refer to its repository for OpenCode's own licensing and notices.
