@@ -329,7 +329,7 @@ fi
 # Termux packages are identified through dpkg ownership, not by filename.
 # Remove only known OpenCode package names; leave unknown package owners alone.
 if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]] && command -v dpkg-query >/dev/null 2>&1; then
-  PACKAGE_OWNER="$(dpkg-query -S "$LAUNCHER" 2>/dev/null | head -n1 | sed 's/: .*//')"
+  PACKAGE_OWNER="$(dpkg-query -S "$LAUNCHER" 2>/dev/null | head -n1 | sed 's/:.*//')"
   case "$PACKAGE_OWNER" in
     opencode|opencode1|opencode-termux|opencode-wrapper|opencode1-wrapper)
       echo "Found Termux package installation ($PACKAGE_OWNER); replacing it..."
