@@ -112,6 +112,93 @@ opencode --version
 opencode --help
 ```
 
+## Troubleshooting
+
+### `opencode: command not found`
+
+Run the installer again from the root of the cloned repository, then refresh Bash's
+command cache:
+
+```bash
+bash install.sh
+hash -r
+opencode --version
+```
+
+A stale command cache is the usual cause right after an install or after switching
+shells; `hash -r` alone fixes that case.
+
+### Migrating from the npm package
+
+`npm install -g opencode-termux` is the legacy installation method. It required
+Node.js, npm, and `patchelf` on the device and is the source of the `spawnSync pkg
+EACCES`, `spawnSync patchelf EACCES`, and `Could not find a PHDR` errors reported in
+[#4](https://github.com/C04-wq/opencode-termux/issues/4),
+[#20](https://github.com/C04-wq/opencode-termux/issues/20), and
+[#21](https://github.com/C04-wq/opencode-termux/issues/21).
+
+The current installer uses Bash and ships a prebuilt runtime, so Node.js, npm, and
+`patchelf` are no longer needed. Remove the legacy package and install from source:
+
+```bash
+npm uninstall -g opencode-termux
+git clone https://github.com/C04-wq/opencode-termux.git
+cd opencode-termux
+bash install.sh
+```
+
+If a clone already exists, update it instead of cloning again:
+
+```bash
+git -C opencode-termux pull --ff-only
+cd opencode-termux
+bash install.sh
+```
+
+### `spawnSync pkg EACCES` or `spawnSync patchelf EACCES`
+
+These errors come from the legacy npm package. Follow
+[Migrating from the npm package](#migrating-from-the-npm-package) to switch to the
+Bash installer.
+
+### `Could not find a PHDR: broken executable?`
+
+This error was reported when older npm-installed runtimes prepared the bundled musl
+runtime with `patchelf` on the device. Follow
+[Migrating from the npm package](#migrating-from-the-npm-package) to switch to the
+Bash installer. If the error persists after a Bash install, open an issue with your
+Android version, the output of `uname -m`, and the full installer output.
+
+### Installer download fails or `curl` rejects an option
+
+Update the Termux packages the installer downloads with:
+
+```bash
+pkg update
+pkg install git curl tar coreutils ca-certificates
+```
+
+The installer checks for `git`, `curl`, `tar`, and `sha256sum` (from `coreutils`)
+and installs any that are missing, along with `ca-certificates` and `resolv-conf`
+when Termux lacks them. If downloads still fail, verify connectivity before
+retrying:
+
+```bash
+curl -I https://github.com
+```
+
+### Shell or search tools hang inside OpenCode
+
+Older packages exported the bundled musl loader through `LD_PRELOAD`, which crashed
+Termux child processes. The current launcher clears `LD_PRELOAD` before starting
+OpenCode. If you installed with npm, follow
+[Migrating from the npm package](#migrating-from-the-npm-package). If you installed
+with the Bash installer, update to the latest release:
+
+```bash
+opencode-termux-update
+```
+
 ## Uninstall
 
 From the cloned repository:
