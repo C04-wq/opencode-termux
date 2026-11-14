@@ -57,7 +57,7 @@ case "${1:---help}" in
     [[ -x "$RUNTIME/opencode" && -x "$RUNTIME/ld-musl-aarch64.so.1" ]] || { echo "FAIL: runtime executable or loader is not executable"; failed=1; }
     if [[ -s "$RUNTIME/.opencode-termux-version" ]]; then
       EXPECTED_VERSION="$(cat "$RUNTIME/.opencode-termux-version")"
-      if [[ ! "$EXPECTED_VERSION" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+      if [[ ! "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
         echo "FAIL: invalid installed version marker"; failed=1
       fi
     else
