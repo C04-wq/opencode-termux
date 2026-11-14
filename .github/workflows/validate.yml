@@ -28,6 +28,7 @@ jobs:
           node scripts/test-opencode-release-resolver.mjs
           bash -n install.sh
           bash -n uninstall.sh
+          bash -n opencode-termux
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
           node <<'NODE'
@@ -62,7 +63,18 @@ jobs:
           if (!installer.includes('unrecognized command already exists at $UPDATER') || !installer.includes("grep -Fq 'git -C' \"$UPDATER\"")) {
             throw new Error('installer must refuse to overwrite an unrecognized updater command');
           }
+          const manager = fs.readFileSync('opencode-termux', 'utf8');
+          for (const command of ['install|--install', 'update|--update', 'uninstall|--uninstall', 'version|--version', 'status|--status', 'doctor|--doctor', 'help|--help']) {
+            if (!manager.includes(command)) throw new Error('manager is missing command: ' + command);
+          }
+          if (!manager.includes('OPENCODE_TERMUX_MANAGER=1')) throw new Error('manager ownership marker is missing');
+          if (!installer.includes('opencode-termux-manager') || !installer.includes('OPENCODE_TERMUX_MANAGER=1')) {
+            throw new Error('installer must install the manager command');
+          }
           const uninstaller = fs.readFileSync('uninstall.sh', 'utf8');
+          if (!uninstaller.includes('OPENCODE_TERMUX_MANAGER=1') || !uninstaller.includes('"$MANAGER"')) {
+            throw new Error('uninstaller must verify and remove the manager command');
+          }
           if (!uninstaller.includes('marker missing') || !uninstaller.includes('Nothing was removed')) {
             throw new Error('uninstaller must refuse to remove files when project ownership cannot be established');
           }
