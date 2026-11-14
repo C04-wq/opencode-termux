@@ -53,6 +53,12 @@ jobs:
           if (!installer.includes('pull --ff-only')) {
             throw new Error('installer bootstrap must update an existing checkout with fast-forward only');
           }
+          if (!installer.includes('run_quiet()') || !installer.includes('Successful setup commands')) {
+            throw new Error('installer must keep successful setup output concise and preserve errors');
+          }
+          if (!installer.includes('LOG=\\\\$(mktemp)')) {
+            throw new Error('generated updater must preserve its temporary log variable');
+          }
           if (!builder.includes('--arch aarch64')) {
             throw new Error('Alpine APK architecture must be pinned to aarch64');
           }
