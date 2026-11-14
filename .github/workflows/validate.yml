@@ -56,7 +56,7 @@ jobs:
           if (!installer.includes('run_quiet()') || !installer.includes('Preparing OpenCode for Termux...')) {
             throw new Error('installer must keep successful setup output concise and use English status messages');
           }
-          if (!installer.includes('LOG="\\\\$(mktemp)"')) {
+          if (!installer.includes('LOG="\\$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
           }
           if (!builder.includes('--arch aarch64')) {
