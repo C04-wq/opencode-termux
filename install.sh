@@ -233,7 +233,7 @@ cat > "$STAGE/opencode-termux-update" <<UPDATER
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 REPO_DIR="$REPO_DIR"
-LOG="$(mktemp)"
+LOG="\$(mktemp)"
 if git -C "\$REPO_DIR" pull --ff-only >"\$LOG" 2>&1; then
   rm -f "\$LOG"
 else
