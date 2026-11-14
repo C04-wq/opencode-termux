@@ -116,7 +116,7 @@ The installer reads the version and archive digest from [`release-checksums.json
 5. Extracts and checks the expected runtime files.
 6. Runs an OpenCode version smoke test using the bundled musl loader.
 7. Activates the runtime under `$PREFIX/lib/opencode-termux`.
-8. Installs the `opencode` launcher and `opencode-termux-update` updater under `$PREFIX/bin`.
+8. Installs the `opencode` launcher, `opencode-termux` manager and internal updater under `$PREFIX/bin`.
 9. Tests the installed executable again before reporting success.
 
 The installer records the persistent checkout location in the runtime. For the one-line installation, this is `$PREFIX/opt/opencode-termux`. Keep that directory in place so the updater can find `install.sh` and the release metadata.
@@ -258,7 +258,7 @@ The updater deliberately uses `git pull --ff-only`. Check the clone for local ch
 git -C ~/opencode-termux status --short
 ```
 
-Commit, stash or otherwise resolve local changes, then run `opencode-termux-update` again.
+Commit, stash or otherwise resolve local changes, then run `opencode-termux update` again.
 
 ### Shell commands behave incorrectly inside OpenCode
 
