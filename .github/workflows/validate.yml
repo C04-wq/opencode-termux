@@ -47,6 +47,9 @@ jobs:
           if (!installer.includes('installed runtime failed final test')) {
             throw new Error('installer must verify the runtime after activation');
           }
+          if (!installer.includes('npm uninstall -g --ignore-scripts opencode-termux') || !installer.includes('Found legacy npm installation')) {
+            throw new Error('installer must replace the known legacy npm package before activating its launcher');
+          }
           if (!installer.includes('opencode-termux.git') || !installer.includes('$PREFIX/opt/opencode-termux')) {
             throw new Error('installer must bootstrap a persistent checkout for one-line installation');
           }
