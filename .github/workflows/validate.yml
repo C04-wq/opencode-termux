@@ -50,6 +50,15 @@ jobs:
           if (!installer.includes('npm uninstall -g --ignore-scripts opencode-termux') || !installer.includes('Found legacy npm installation')) {
             throw new Error('installer must replace the known legacy npm package before activating its launcher');
           }
+          if (!installer.includes('readlink -f "$LAUNCHER"') || !installer.includes('$NPM_OPENCODE_PACKAGE/*')) {
+            throw new Error('installer must verify that the known npm package actually owns the command before uninstalling it');
+          }
+          if (!installer.includes('dpkg-query -S "$LAUNCHER"') || !installer.includes('opencode1-wrapper')) {
+            throw new Error('installer must identify known Termux package owners before replacing them');
+          }
+          if (!installer.includes('unrecognized OpenCode command already exists') || !installer.includes('It has been left untouched')) {
+            throw new Error('installer must refuse to overwrite an unrecognized command');
+          }
           if (!installer.includes('opencode-termux.git') || !installer.includes('$PREFIX/opt/opencode-termux')) {
             throw new Error('installer must bootstrap a persistent checkout for one-line installation');
           }
