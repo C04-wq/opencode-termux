@@ -70,7 +70,7 @@ The result is a direct Termux installation managed with Bash and Git. There is n
 | Device | Android with Termux |
 | Architecture | **ARM64 / aarch64 only** |
 | Network | Internet access for installation, provider access and update checks |
-| Initial tool | Git, to clone this repository |
+| Initial tools | curl (for the one-line command); Git is installed automatically if missing |
 | Runtime tools | Bash, Git, curl, tar and `sha256sum` (provided by `coreutils`) |
 | Termux system files | CA certificate bundle and resolver configuration |
 
@@ -80,15 +80,15 @@ The installer checks for missing runtime tools and uses Termux `pkg` to install 
 
 ## Installation
 
-Open Termux and run:
+Open Termux and run this single command:
 
 ```bash
-pkg update
-pkg install git
-git clone https://github.com/C04-wq/opencode-termux.git
-cd opencode-termux
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh | bash
 ```
+
+The installer prepares a persistent checkout at `$PREFIX/opt/opencode-termux`. It installs Git automatically if needed, then downloads and verifies the runtime exactly as before. You do not need to clone the repository or change directories manually.
+
+The traditional installation from a manually cloned checkout remains supported.
 
 When installation completes, start OpenCode:
 
@@ -117,7 +117,7 @@ The installer reads the version and archive digest from [`release-checksums.json
 8. Installs the `opencode` launcher and `opencode-termux-update` updater under `$PREFIX/bin`.
 9. Tests the installed executable again before reporting success.
 
-The installer records the original clone location in the runtime. **Keep the cloned repository in its original location** so the updater can find `install.sh` and the release metadata.
+The installer records the persistent checkout location in the runtime. For the one-line installation, this is `$PREFIX/opt/opencode-termux`. Keep that directory in place so the updater can find `install.sh` and the release metadata.
 
 > **Provider access:** API access and provider credentials are not bundled with this package. Configure a supported provider in OpenCode using your own account or API key.
 
@@ -199,16 +199,15 @@ Node.js is used by hosted GitHub Actions scripts only; it is not required on the
 
 ### `opencode: command not found`
 
-Run the installer again from the cloned repository:
+Run the installer again from its persistent checkout:
 
 ```bash
-cd ~/opencode-termux
-bash install.sh
+bash "$PREFIX/opt/opencode-termux/install.sh"
 hash -r
 opencode --version
 ```
 
-If you cloned the repository into a different directory, use that directory instead of `~/opencode-termux`.
+If you originally installed from a manually cloned checkout, run `bash install.sh` from that checkout instead.
 
 ### The installer reports an unsupported architecture
 
@@ -255,11 +254,13 @@ If the problem persists, open an [issue](https://github.com/C04-wq/opencode-term
 
 ## Uninstallation
 
-From the cloned repository, run:
+Run the uninstaller from the persistent checkout:
 
 ```bash
-bash uninstall.sh
+bash "$PREFIX/opt/opencode-termux/uninstall.sh"
 ```
+
+If you used a manually cloned checkout, run `bash uninstall.sh` from that directory.
 
 The uninstaller asks for confirmation, then removes only:
 
