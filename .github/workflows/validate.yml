@@ -47,6 +47,12 @@ jobs:
           if (!installer.includes('installed runtime failed final test')) {
             throw new Error('installer must verify the runtime after activation');
           }
+          if (!installer.includes('curl -fsSL') || !installer.includes('opencode-termux.git')) {
+            throw new Error('installer must support the one-line curl bootstrap');
+          }
+          if (!installer.includes('git pull --ff-only')) {
+            throw new Error('installer bootstrap must update an existing checkout with fast-forward only');
+          }
           if (!builder.includes('--arch aarch64')) {
             throw new Error('Alpine APK architecture must be pinned to aarch64');
           }
