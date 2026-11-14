@@ -53,6 +53,18 @@ jobs:
           if (!installer.includes('pull --ff-only')) {
             throw new Error('installer bootstrap must update an existing checkout with fast-forward only');
           }
+          if (!installer.includes('remote get-url origin') || !installer.includes('C04-wq/opencode-termux')) {
+            throw new Error('installer must identify existing clones by their origin URL');
+          }
+          if (!installer.includes('SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"') || !installer.includes('SCRIPT_DIR=""')) {
+            throw new Error('installer must distinguish piped execution from a script launched inside a clone');
+          }
+          if (!installer.includes('find "$HOME" -maxdepth 5') || !installer.includes('status --porcelain --untracked-files=all')) {
+            throw new Error('installer must discover existing clones and protect dirty checkouts');
+          }
+          if (!installer.includes('mv "$REPO_DIR" "$SOURCE_REPO"')) {
+            throw new Error('installer must migrate an existing clean clone to the managed checkout');
+          }
           if (!installer.includes('run_quiet()') || !installer.includes('Preparing OpenCode for Termux...')) {
             throw new Error('installer must keep successful setup output concise and use English status messages');
           }
