@@ -29,6 +29,8 @@ jobs:
           bash -n install.sh
           bash -n uninstall.sh
           bash -n opencode-termux
+          bash opencode-termux help >/dev/null
+          bash opencode-termux --help >/dev/null
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
           node <<'NODE'
