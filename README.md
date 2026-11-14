@@ -86,9 +86,9 @@ Open Termux and run this single command:
 curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh | bash
 ```
 
-The installer prepares a persistent checkout at `$PREFIX/opt/opencode-termux`. It installs Git automatically if needed, then downloads and verifies the runtime exactly as before. Successful setup commands run quietly, so package-manager and Git progress does not flood the terminal; concise English status messages are shown instead. Full command output is displayed if a step fails. You do not need to clone the repository or change directories manually.
+The installer prepares a persistent checkout at `$PREFIX/opt/opencode-termux`. If it finds an existing clean clone of this repository under your Termux home directory, it updates that clone and migrates it to the managed location instead of creating a duplicate. The old path disappears because the clone is moved, not because its contents are deleted. Git is installed automatically if needed.
 
-The traditional installation from a manually cloned checkout remains supported.
+If the existing clone contains local modifications or untracked files, the installer stops and leaves it untouched; commit or stash those changes before retrying. It never deletes unrelated Git repositories, project folders, OpenCode settings, sessions or provider credentials. Successful setup commands run quietly; full command output is shown if a step fails.
 
 When installation completes, start OpenCode:
 
@@ -146,7 +146,7 @@ Run this command at any time:
 opencode-termux-update
 ```
 
-The updater runs a fast-forward-only `git pull` in the original clone and then reruns `install.sh`. The installer downloads the version pinned in `release-checksums.json` and verifies its SHA-256 digest before replacing the runtime.
+The updater runs a fast-forward-only `git pull` in the managed checkout at `$PREFIX/opt/opencode-termux` and then reruns `install.sh`. If the curl installer adopted an existing clone, this is the migrated checkout. The installer downloads the version pinned in `release-checksums.json` and verifies its SHA-256 digest before replacing the runtime.
 
 Local Git changes that prevent a fast-forward are not overwritten; the update stops instead.
 
@@ -208,7 +208,7 @@ hash -r
 opencode --version
 ```
 
-If you originally installed from a manually cloned checkout, run `bash install.sh` from that checkout instead.
+You can also rerun the one-line curl command from any directory. It will detect and adopt an existing clean clone automatically.
 
 ### The installer reports an unsupported architecture
 
@@ -261,7 +261,7 @@ Run the uninstaller from the persistent checkout:
 bash "$PREFIX/opt/opencode-termux/uninstall.sh"
 ```
 
-If you used a manually cloned checkout, run `bash uninstall.sh` from that directory.
+If the repository was migrated by the curl installer, use the managed checkout path shown above.
 
 The uninstaller asks for confirmation, then removes only:
 
