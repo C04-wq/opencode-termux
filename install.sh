@@ -409,6 +409,16 @@ mv "$STAGE/opencode-launcher" "$LAUNCHER"
 mv "$STAGE/opencode-termux-update" "$UPDATER"
 mv "$STAGE/opencode-termux-manager" "$MANAGER"
 
+# Enforce executable permissions at the final destination as well as in staging.
+# This repairs restrictive umasks or stale non-executable manager files on upgrades.
+chmod 755 "$LAUNCHER" "$UPDATER" "$MANAGER"
+for executable in "$LAUNCHER" "$UPDATER" "$MANAGER"; do
+  [[ -x "$executable" ]] || {
+    echo "Error: installed command is not executable: $executable" >&2
+    exit 1
+  }
+done
+
 FINAL_VERSION="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
