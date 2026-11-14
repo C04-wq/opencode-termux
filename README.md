@@ -26,7 +26,7 @@
   <a href="#updates">Updates</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#troubleshooting">Troubleshooting</a> ·
-  <a href="#development">Development</a>
+  <a href="#contributing">Contributing</a>
 </p>
 
 ---
