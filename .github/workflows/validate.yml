@@ -47,8 +47,8 @@ jobs:
           if (!installer.includes('installed runtime failed final test')) {
             throw new Error('installer must verify the runtime after activation');
           }
-          if (!installer.includes('curl -fsSL') || !installer.includes('opencode-termux.git')) {
-            throw new Error('installer must support the one-line curl bootstrap');
+          if (!installer.includes('opencode-termux.git') || !installer.includes('$PREFIX/opt/opencode-termux')) {
+            throw new Error('installer must bootstrap a persistent checkout for one-line installation');
           }
           if (!installer.includes('git pull --ff-only')) {
             throw new Error('installer bootstrap must update an existing checkout with fast-forward only');
