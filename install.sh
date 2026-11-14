@@ -301,6 +301,21 @@ exec bash "\$REPO_DIR/install.sh"
 UPDATER
 chmod 755 "$STAGE/opencode-termux-update"
 
+# If the legacy npm package owns the OpenCode command, remove that package
+# through npm before installing our launcher. This keeps npm's global package
+# database consistent and avoids EEXIST on the next npm installation.
+# Only the known opencode-termux package is eligible; unrelated npm packages
+# and user data are never removed.
+if command -v npm >/dev/null 2>&1; then
+  NPM_GLOBAL_ROOT="$(npm root -g 2>/dev/null || true)"
+  NPM_OPENCODE_PACKAGE="$NPM_GLOBAL_ROOT/opencode-termux"
+  if [[ -n "$NPM_GLOBAL_ROOT" && -f "$NPM_OPENCODE_PACKAGE/package.json" ]] &&
+    node -e 'const p=require(process.argv[1]); process.exit(p.name === "opencode-termux" ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
+    echo "Found legacy npm installation (opencode-termux); replacing it..."
+    run_quiet npm uninstall -g --ignore-scripts opencode-termux
+  fi
+fi
+
 # Activate launchers transactionally: keep the previous files until the
 # installed runtime passes its final test.
 LAUNCHERS_TOUCHED=1
