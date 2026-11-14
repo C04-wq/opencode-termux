@@ -30,7 +30,7 @@ require_repo() {
     exit 1
   }
 }
-case "\${1:---help}" in
+case "${1:---help}" in
   install|--install) require_repo; exec bash "$REPO_DIR/install.sh" ;;
   update|--update)
     [[ -x "$PREFIX/bin/opencode-termux-update" ]] || { echo "Error: updater is not installed." >&2; exit 1; }
@@ -46,7 +46,7 @@ case "\${1:---help}" in
       echo "Status: installed"
       echo "Version: $(cat "$RUNTIME/.opencode-termux-version")"
     else echo "Status: not installed"; fi
-    printf 'Runtime: %s\nLauncher: %s\nCheckout: %s\n' "$RUNTIME" "$PREFIX/bin/opencode" "\${REPO_DIR:-not found}" ;;
+    printf 'Runtime: %s\nLauncher: %s\nCheckout: %s\n' "$RUNTIME" "$PREFIX/bin/opencode" "${REPO_DIR:-not found}" ;;
   doctor|--doctor)
     failed=0
     [[ "$(uname -m)" == aarch64 ]] || { echo "FAIL: architecture must be aarch64"; failed=1; }
