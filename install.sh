@@ -124,10 +124,13 @@ NEW=""
 ACTIVATED=0
 LAUNCHER="$PREFIX/bin/opencode"
 UPDATER="$PREFIX/bin/opencode-termux-update"
+MANAGER="$PREFIX/bin/opencode-termux"
 LAUNCHER_BACKUP="$PREFIX/bin/.opencode-backup-$BASHPID"
 UPDATER_BACKUP="$PREFIX/bin/.opencode-updater-backup-$BASHPID"
+MANAGER_BACKUP="$PREFIX/bin/.opencode-manager-backup-$BASHPID"
 LAUNCHER_WAS_PRESENT=0
 UPDATER_WAS_PRESENT=0
+MANAGER_WAS_PRESENT=0
 LAUNCHERS_TOUCHED=0
 cleanup() {
   local status=$?
@@ -159,6 +162,14 @@ cleanup() {
         fi
       elif [[ "$UPDATER_WAS_PRESENT" == 0 ]]; then
         rm -f "$UPDATER"
+      fi
+      if [[ -e "$MANAGER_BACKUP" || -L "$MANAGER_BACKUP" ]]; then
+        rm -f "$MANAGER"
+        if ! mv "$MANAGER_BACKUP" "$MANAGER"; then
+          echo "Error: failed to restore the previous manager from $MANAGER_BACKUP." >&2
+        fi
+      elif [[ "$MANAGER_WAS_PRESENT" == 0 ]]; then
+        rm -f "$MANAGER"
       fi
     fi
   fi
@@ -284,6 +295,74 @@ exec "$RUNTIME/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
 
+cat > "$STAGE/opencode-termux-manager" <<'MANAGER'
+#!/data/data/com.termux/files/usr/bin/bash
+set -Eeuo pipefail
+# OPENCODE_TERMUX_MANAGER=1
+PREFIX="/data/data/com.termux/files/usr"
+RUNTIME="$PREFIX/lib/opencode-termux"
+MANAGER_VERSION="1"
+REPO_DIR=""
+if [[ -f "$RUNTIME/.opencode-termux-repo-dir" ]]; then
+  IFS= read -r REPO_DIR < "$RUNTIME/.opencode-termux-repo-dir" || true
+fi
+if [[ -z "$REPO_DIR" && -f "$PREFIX/opt/opencode-termux/install.sh" ]]; then REPO_DIR="$PREFIX/opt/opencode-termux"; fi
+usage() {
+  cat <<'HELP'
+OpenCode Termux manager
+Usage: opencode-termux <command>
+Commands:
+  install       Install or repair the managed runtime
+  update        Update the checkout and verified runtime
+  uninstall     Remove this project's runtime and launchers
+  version       Show manager and OpenCode versions
+  status        Show installation state and paths
+  doctor        Check architecture and installation integrity
+  help          Show this help
+Options: --install --update --uninstall --version --status --doctor --help
+HELP
+}
+require_repo() {
+  [[ -n "$REPO_DIR" && -f "$REPO_DIR/install.sh" ]] || {
+    echo "Error: managed repository checkout was not found. Run the one-line installer to restore it." >&2
+    exit 1
+  }
+}
+case "\${1:---help}" in
+  install|--install) require_repo; exec bash "$REPO_DIR/install.sh" ;;
+  update|--update)
+    [[ -x "$PREFIX/bin/opencode-termux-update" ]] || { echo "Error: updater is not installed." >&2; exit 1; }
+    exec "$PREFIX/bin/opencode-termux-update" ;;
+  uninstall|--uninstall) require_repo; exec bash "$REPO_DIR/uninstall.sh" ;;
+  version|--version|-V)
+    echo "opencode-termux manager $MANAGER_VERSION"
+    if [[ -f "$RUNTIME/.opencode-termux-version" ]]; then
+      echo "OpenCode $(cat "$RUNTIME/.opencode-termux-version")"
+    else echo "OpenCode runtime: not installed"; fi ;;
+  status|--status)
+    if [[ -f "$RUNTIME/.opencode-termux-version" ]]; then
+      echo "Status: installed"
+      echo "Version: $(cat "$RUNTIME/.opencode-termux-version")"
+    else echo "Status: not installed"; fi
+    printf 'Runtime: %s\nLauncher: %s\nCheckout: %s\n' "$RUNTIME" "$PREFIX/bin/opencode" "\${REPO_DIR:-not found}" ;;
+  doctor|--doctor)
+    failed=0
+    [[ "$(uname -m)" == aarch64 ]] || { echo "FAIL: architecture must be aarch64"; failed=1; }
+    for cmd in git curl tar sha256sum; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done
+    [[ -s "$RUNTIME/opencode" && -s "$RUNTIME/ld-musl-aarch64.so.1" ]] || { echo "FAIL: runtime files missing"; failed=1; }
+    [[ -f "$RUNTIME/.opencode-termux-version" ]] || { echo "FAIL: installation marker missing"; failed=1; }
+    if [[ -f "$PREFIX/bin/opencode" ]] && grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE=1' "$PREFIX/bin/opencode" && grep -Fq '/lib/opencode-termux' "$PREFIX/bin/opencode"; then
+      echo "OK: managed launcher"
+    else echo "FAIL: managed launcher missing or unrecognized"; failed=1; fi
+    [[ -f "$PREFIX/etc/tls/cert.pem" ]] || { echo "FAIL: CA bundle missing"; failed=1; }
+    [[ -f "$PREFIX/etc/resolv.conf" ]] || { echo "FAIL: resolver configuration missing"; failed=1; }
+    if (( failed == 0 )); then echo "All checks passed."; else exit 1; fi ;;
+  help|--help|-h) usage ;;
+  *) echo "Unknown command: $1" >&2; usage >&2; exit 2 ;;
+esac
+MANAGER
+chmod 755 "$STAGE/opencode-termux-manager"
+
 cat > "$STAGE/opencode-termux-update" <<UPDATER
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
@@ -366,6 +445,15 @@ if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
   fi
 fi
 
+# Protect the manager path too: never replace an unrelated command.
+if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
+  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
+    echo "Error: an unrecognized command already exists at $MANAGER." >&2
+    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
+    exit 1
+  fi
+fi
+
 # Activate launchers transactionally: keep the previous files until the
 # installed runtime passes its final test.
 LAUNCHERS_TOUCHED=1
@@ -377,14 +465,20 @@ if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
   UPDATER_WAS_PRESENT=1
   mv "$UPDATER" "$UPDATER_BACKUP"
 fi
+if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
+  MANAGER_WAS_PRESENT=1
+  mv "$MANAGER" "$MANAGER_BACKUP"
+fi
 mv "$STAGE/opencode-launcher" "$LAUNCHER"
 mv "$STAGE/opencode-termux-update" "$UPDATER"
+mv "$STAGE/opencode-termux-manager" "$MANAGER"
 
 FINAL_VERSION="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
-rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP"
+rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
 echo "OpenCode $VERSION installed successfully."
 echo "Start: opencode"
-echo "Update: opencode-termux-update"
-echo "Uninstall: bash \"$REPO_DIR/uninstall.sh\""
+echo "Manage: opencode-termux --help"
+echo "Update: opencode-termux update"
+echo "Uninstall: opencode-termux uninstall"
