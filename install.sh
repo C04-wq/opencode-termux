@@ -1,7 +1,33 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
-REPO_DIR="$(cd -- "$(dirname -- "$0")" && pwd -P)"
+
 PREFIX="/data/data/com.termux/files/usr"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-.}")" && pwd -P)"
+REPO_DIR="$SCRIPT_DIR"
+
+# Support both a normal checkout and: curl -fsSL .../install.sh | bash
+# A piped script has no repository metadata beside it, so bootstrap a
+# persistent checkout that the existing Git-based updater can maintain.
+if [[ ! -f "$REPO_DIR/release-checksums.json" ]] || ! git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "◇ Preparing the OpenCode for Termux installer…"
+  if ! command -v git >/dev/null 2>&1; then
+    pkg install -y git
+  fi
+  command -v git >/dev/null 2>&1 || { echo "Error: Git could not be installed." >&2; exit 1; }
+
+  REPO_DIR="$PREFIX/opt/opencode-termux"
+  mkdir -p "$PREFIX/opt"
+  if [[ -e "$REPO_DIR" && ! -d "$REPO_DIR/.git" ]]; then
+    echo "Error: $REPO_DIR exists but is not a Git checkout. Move it and retry." >&2
+    exit 1
+  elif [[ -d "$REPO_DIR/.git" ]]; then
+    git -C "$REPO_DIR" pull --ff-only
+  else
+    git clone -- https://github.com/C04-wq/opencode-termux.git "$REPO_DIR"
+  fi
+  exec bash "$REPO_DIR/install.sh" "$@"
+fi
+
 META="$REPO_DIR/release-checksums.json"
 RUNTIME="$PREFIX/lib/opencode-termux"
 CERT="$PREFIX/etc/tls/cert.pem"
