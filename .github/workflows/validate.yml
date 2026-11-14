@@ -50,7 +50,7 @@ jobs:
           if (!installer.includes('npm uninstall -g --ignore-scripts opencode-termux') || !installer.includes('Found legacy npm installation')) {
             throw new Error('installer must replace the known legacy npm package before activating its launcher');
           }
-          if (!installer.includes('readlink -f "$LAUNCHER"') || !installer.includes('$NPM_OPENCODE_PACKAGE/*')) {
+          if (!installer.includes('readlink -f "$LAUNCHER"') || !installer.includes('"$NPM_OPENCODE_PACKAGE"/*')) {
             throw new Error('installer must verify that the known npm package actually owns the command before uninstalling it');
           }
           if (!installer.includes('dpkg-query -S "$LAUNCHER"') || !installer.includes('opencode1-wrapper')) {
@@ -60,7 +60,7 @@ jobs:
             throw new Error('installer must refuse to overwrite an unrecognized command');
           }
           const uninstaller = fs.readFileSync('uninstall.sh', 'utf8');
-          if (!uninstaller.includes('runtime marker missing') || !uninstaller.includes('Nothing was removed')) {
+          if (!uninstaller.includes('marker missing') || !uninstaller.includes('Nothing was removed')) {
             throw new Error('uninstaller must refuse to remove files when project ownership cannot be established');
           }
           if (!uninstaller.includes('OPENCODE_DISABLE_AUTOUPDATE=1') || !uninstaller.includes('/lib/opencode-termux')) {
