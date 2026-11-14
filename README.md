@@ -24,6 +24,7 @@
 <p align="center">
   <a href="#installation">Installation</a> ·
   <a href="#updates">Updates</a> ·
+  <a href="#management">Management CLI</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#troubleshooting">Troubleshooting</a> ·
   <a href="#contributing">Contributing</a>
@@ -49,6 +50,7 @@ The result is a direct Termux installation managed with Bash and Git. There is n
 - **Bundled runtime:** includes the musl loader and required runtime libraries; no `patchelf`, Node.js or npm is needed on the phone.
 - **Termux networking:** builds musl with Termux's resolver path and configures the Termux CA certificate bundle at launch.
 - **Consent-based updates:** checks for a newer package on interactive launches and asks before installing it.
+- **Management CLI:** install, update, uninstall, inspect and diagnose the managed installation with `opencode-termux`.
 - **Safe installation:** validates the archive and runtime before activation, keeps the previous runtime during replacement, and attempts to restore it if installation fails.
 - **Preserved user data:** uninstalling removes only this project's runtime and launchers.
 
@@ -140,15 +142,26 @@ When `opencode` is launched from an interactive terminal, the launcher quietly r
 
 Use the **Up/Down** arrow keys and press **Enter** to confirm.
 
+## Management
+
+The `opencode-termux` command is installed alongside `opencode`. It manages this project's Termux installation; it is separate from the OpenCode application command.
+
+Run a command without arguments to display help, or use `--help`:
+
+```bash
+opencode-termux
+opencode-termux --help
+```
+
 ### Manual update
 
-Run the manager command at any time:
+Update the repository checkout and reinstall the verified runtime:
 
 ```bash
 opencode-termux update
 ```
 
-The `opencode-termux` manager also provides:
+The manager also provides:
 
 | Command | Action |
 | --- | --- |
@@ -157,10 +170,20 @@ The `opencode-termux` manager also provides:
 | `opencode-termux uninstall` | Remove the managed runtime and launchers after confirmation |
 | `opencode-termux version` | Show manager and OpenCode versions |
 | `opencode-termux status` | Show installation state and paths |
-| `opencode-termux doctor` | Check architecture and installation files |
+| `opencode-termux doctor` | Diagnose architecture, runtime files, launchers, updater, certificates, resolver and runtime startup |
 | `opencode-termux help` | Show command help |
 
-The equivalent `--install`, `--update`, `--uninstall`, `--version`, `--status`, `--doctor` and `--help` options are supported too.
+The equivalent `--install`, `--update`, `--uninstall`, `--version`, `--status`, `--doctor` and `--help` options are supported too. The manager also accepts `-V` for `version` and `-h` for `help`.
+
+Useful checks after installation or an update:
+
+```bash
+opencode-termux status
+opencode-termux version
+opencode-termux doctor
+```
+
+`doctor` checks that the device is ARM64, required commands and runtime files are present, executable permissions and version metadata are valid, the managed launcher/CLI/updater are recognizable, Termux CA and resolver files exist, and OpenCode starts with the installed version. It reports a non-zero exit status when a check fails.
 
 The updater runs a fast-forward-only `git pull` in the managed checkout at `$PREFIX/opt/opencode-termux` and then reruns `install.sh`. If the curl installer adopted an existing clone, this is the migrated checkout. The installer downloads the version pinned in `release-checksums.json` and verifies its SHA-256 digest before replacing the runtime.
 
@@ -255,7 +278,7 @@ The installer also checks for the Termux resolver configuration and installs `re
 The updater deliberately uses `git pull --ff-only`. Check the clone for local changes before updating:
 
 ```bash
-git -C ~/opencode-termux status --short
+git -C "$PREFIX/opt/opencode-termux" status --short
 ```
 
 Commit, stash or otherwise resolve local changes, then run `opencode-termux update` again.
@@ -272,13 +295,17 @@ If the problem persists, open an [issue](https://github.com/C04-wq/opencode-term
 
 ## Uninstallation
 
-Run the uninstaller from the persistent checkout:
+The recommended way to uninstall the managed installation is:
+
+```bash
+opencode-termux uninstall
+```
+
+The manager asks for confirmation before removing the runtime and launchers. You can also invoke the uninstaller directly from the persistent checkout:
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/uninstall.sh"
 ```
-
-If the repository was migrated by the curl installer, use the managed checkout path shown above.
 
 The uninstaller asks for confirmation, then removes only:
 
