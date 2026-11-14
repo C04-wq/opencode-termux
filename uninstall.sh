@@ -4,6 +4,7 @@ PREFIX="/data/data/com.termux/files/usr"
 RUNTIME="$PREFIX/lib/opencode-termux"
 LAUNCHER="$PREFIX/bin/opencode"
 UPDATER="$PREFIX/bin/opencode-termux-update"
+MANAGER="$PREFIX/bin/opencode-termux"
 
 # Require the runtime marker and recognizable project launchers before
 # removing anything. This prevents uninstall from deleting another tool's
@@ -31,11 +32,18 @@ if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
     exit 1
   fi
 fi
+if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
+  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
+    echo "Error: $MANAGER is not the recognized OpenCode Termux manager." >&2
+    echo "Nothing was removed; inspect the file before retrying." >&2
+    exit 1
+  fi
+fi
 
-echo "This removes only the opencode-termux runtime and launchers."
+echo "This removes only the opencode-termux runtime, manager and launchers."
 echo "Settings, sessions, and provider credentials will be preserved."
 read -r -p "Continue? [y/N] " answer
 [[ "$answer" == [yY] || "$answer" == [yY][eE][sS] ]] || { echo "Cancelled."; exit 0; }
 rm -rf "$RUNTIME"
-rm -f "$LAUNCHER" "$UPDATER"
+rm -f "$LAUNCHER" "$UPDATER" "$MANAGER"
 echo "Runtime and launchers removed. User data was left untouched."
