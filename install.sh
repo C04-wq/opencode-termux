@@ -312,7 +312,7 @@ fi
 
 LEGACY_NPM_OWNS_COMMAND=0
 if [[ -n "$NPM_GLOBAL_ROOT" && -f "$NPM_OPENCODE_PACKAGE/package.json" ]] &&
-  node -e 'const p=require(process.argv[1]); process.exit(p.name === "opencode-termux" && (typeof p.bin === "string" || (p.bin && Object.hasOwn(p.bin, "opencode"))) ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
+  node -e 'const p=require(process.argv[1]); process.exit(p.name === "opencode-termux" && (typeof p.bin === "string" || (p.bin && Object.prototype.hasOwnProperty.call(p.bin, "opencode"))) ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
   if [[ -L "$LAUNCHER" ]]; then
     LAUNCHER_TARGET="$(readlink -f "$LAUNCHER" 2>/dev/null || true)"
     case "$LAUNCHER_TARGET" in
