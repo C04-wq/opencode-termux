@@ -119,6 +119,8 @@ The installer reads the version and archive digest from [`release-checksums.json
 
 The installer records the original clone location in the runtime. **Keep the cloned repository in its original location** so the updater can find `install.sh` and the release metadata.
 
+> **Provider access:** API access and provider credentials are not bundled with this package. Configure a supported provider in OpenCode using your own account or API key.
+
 ## Updates
 
 Updates are designed to be deliberate: the launcher detects an available version, but it does not silently replace the installed runtime.
