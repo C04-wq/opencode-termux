@@ -59,6 +59,9 @@ jobs:
           if (!installer.includes('unrecognized OpenCode command already exists') || !installer.includes('It has been left untouched')) {
             throw new Error('installer must refuse to overwrite an unrecognized command');
           }
+          if (!installer.includes('unrecognized command already exists at $UPDATER') || !installer.includes("grep -Fq 'git -C' \"$UPDATER\"")) {
+            throw new Error('installer must refuse to overwrite an unrecognized updater command');
+          }
           const uninstaller = fs.readFileSync('uninstall.sh', 'utf8');
           if (!uninstaller.includes('marker missing') || !uninstaller.includes('Nothing was removed')) {
             throw new Error('uninstaller must refuse to remove files when project ownership cannot be established');
