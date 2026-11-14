@@ -343,9 +343,7 @@ fi
 # configuration establishes ownership. Unknown/manual launchers are preserved.
 if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   MANAGED_LAUNCHER=0
-  if [[ -f "$RUNTIME/.opencode-termux-version" ]]; then
-    MANAGED_LAUNCHER=1
-  elif [[ -f "$LAUNCHER" ]] &&
+  if [[ -f "$LAUNCHER" ]] &&
     grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE=1' "$LAUNCHER" &&
     grep -Fq '/lib/opencode-termux' "$LAUNCHER"; then
     MANAGED_LAUNCHER=1
@@ -353,6 +351,17 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   if [[ "$MANAGED_LAUNCHER" != 1 ]]; then
     echo "Error: an unrecognized OpenCode command already exists at $LAUNCHER." >&2
     echo "It has been left untouched. Identify/uninstall its source, then rerun this installer." >&2
+    exit 1
+  fi
+fi
+
+# Protect the updater path too: never back up or replace an unrelated file.
+if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
+  if [[ ! -f "$UPDATER" ]] ||
+    ! grep -Fq 'git -C' "$UPDATER" ||
+    ! grep -Fq 'install.sh' "$UPDATER"; then
+    echo "Error: an unrecognized command already exists at $UPDATER." >&2
+    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
     exit 1
   fi
 fi
