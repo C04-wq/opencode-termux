@@ -173,8 +173,8 @@ jobs:
           if (!installer.includes('LOG="\\$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
           }
-          if (!builder.includes('invalid Alpine stable branch') || !builder.includes('^\\\\.[0-9]+
-            throw new Error('builder must allow an explicitly selected Alpine candidate for CI verification');
+          if (!builder.includes('invalid Alpine stable branch') || !builder.includes('OPENCODE_TERMUX_ALPINE_VERSION:-$ALPINE_VERSION')) {
+            throw new Error('builder must validate and allow an explicitly selected Alpine candidate');
           }
           const candidateOutput = '${' + '{ needs.check-alpine.outputs.latest }}';
           if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION: ' + candidateOutput)) {
