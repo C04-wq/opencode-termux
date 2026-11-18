@@ -25,7 +25,12 @@ for command in bash readelf qemu-aarch64 timeout sha256sum; do
   }
 done
 
-mkdir -p "$WORKDIR"
+if [[ -z "$WORKDIR" || "$WORKDIR" == "/" || -e "$WORKDIR" || -L "$WORKDIR" ]]; then
+  echo "Work directory must be a new, non-root path: $WORKDIR" >&2
+  exit 1
+fi
+mkdir -p "$(dirname "$WORKDIR")"
+mkdir "$WORKDIR"
 RUNTIME="$WORKDIR/runtime"
 SYSROOT="$WORKDIR/termux-sysroot"
 SERVE_LOG="$WORKDIR/opencode-serve.log"
