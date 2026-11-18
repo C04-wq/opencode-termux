@@ -160,7 +160,8 @@ jobs:
           if (!builder.includes('OPENCODE_TERMUX_ALPINE_VERSION:-$ALPINE_VERSION')) {
             throw new Error('builder must allow an explicitly selected Alpine candidate for CI verification');
           }
-          if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION="${{ needs.check-alpine.outputs.latest }}"')) {
+          const candidateOutput = '${' + '{ needs.check-alpine.outputs.latest }}';
+          if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION="' + candidateOutput + '"')) {
             throw new Error('toolchain workflow must build against the exact Alpine candidate it validated');
           }
           if (!toolchainWorkflow.includes('sed -i "s/^ALPINE_VERSION=')) {
