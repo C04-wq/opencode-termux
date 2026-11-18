@@ -69,7 +69,11 @@ jobs:
           process.exit(valid ? 0 : 1);
           NODE
               then
-                SKIP_BUILD=true
+                CHECKSUM_URL="$(node -p 'const r=JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); (r.assets || []).find((asset) => asset.name === "opencode-termux-aarch64.tar.gz.sha256")?.browser_download_url || ""' "$RELEASE_RESPONSE")"
+                EXPECTED_ARCHIVE_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).archiveSha256' release-checksums.json)"
+                if [[ -n "$CHECKSUM_URL" ]] && curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' "$CHECKSUM_URL" -o "$RUNNER_TEMP/release-checksum.txt" && grep -Fxq "$EXPECTED_ARCHIVE_SHA256  opencode-termux-aarch64.tar.gz" "$RUNNER_TEMP/release-checksum.txt"; then
+                  SKIP_BUILD=true
+                fi
               fi
               ;;
             404) ;;
