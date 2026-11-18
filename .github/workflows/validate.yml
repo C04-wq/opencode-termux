@@ -16,6 +16,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+
       - name: Validate scripts and release metadata
         run: |
           set -euo pipefail
@@ -39,6 +44,10 @@ jobs:
           bash manager.sh status | grep -Fq 'Status: not installed'
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
+          bash -n scripts/validate-runtime-archive.sh
+          bash -n scripts/test-runtime-archive.sh
+          shellcheck -S error install.sh uninstall.sh opencode-termux manager.sh scripts/*.sh
+          bash scripts/test-runtime-archive.sh
           node <<'NODE'
           const fs = require('fs');
           const sums = JSON.parse(fs.readFileSync('release-checksums.json', 'utf8'));
