@@ -61,6 +61,8 @@ jobs:
             throw new Error('invalid release SHA-256');
           }
           const installer = fs.readFileSync('install.sh', 'utf8');
+          const ownerHelper = fs.readFileSync('scripts/package-owner.sh', 'utf8');
+          const archiveValidator = fs.readFileSync('scripts/validate-runtime-archive.sh', 'utf8');
           const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
           if (!installer.includes('SHA-256 mismatch; refusing to install')) {
             throw new Error('installer must reject an archive with an incorrect checksum');
@@ -74,8 +76,15 @@ jobs:
           if (!installer.includes('readlink -f "$LAUNCHER"') || !installer.includes('"$NPM_OPENCODE_PACKAGE"/*')) {
             throw new Error('installer must verify that the known npm package actually owns the command before uninstalling it');
           }
-          if (!installer.includes('dpkg-query -S "$LAUNCHER"') || !installer.includes('opencode1-wrapper')) {
-            throw new Error('installer must identify known Termux package owners before replacing them');
+          if (!installer.includes('get_dpkg_package_owner "$LAUNCHER"') ||
+              !ownerHelper.includes('dpkg-query -S "$1"') ||
+              !installer.includes('opencode1-wrapper')) {
+            throw new Error('installer must safely identify known Termux package owners before replacing them');
+          }
+          if (!installer.includes('validate-runtime-archive.sh') ||
+              !archiveValidator.includes('unexpected runtime archive entry') ||
+              !archiveValidator.includes('libstdc++.so.6 must link only to libstdc++.so.6.runtime')) {
+            throw new Error('installer must validate the complete runtime archive manifest and its only allowed symlink');
           }
           if (!installer.includes('unrecognized OpenCode command already exists') || !installer.includes('It has been left untouched')) {
             throw new Error('installer must refuse to overwrite an unrecognized command');
