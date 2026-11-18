@@ -219,7 +219,7 @@ GitHub Actions maintain the package and check its compatibility:
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
-| [Validate Termux installer](.github/workflows/validate.yml) | Pushes, pull requests and manual dispatch | Shell/Node syntax checks, metadata checks, resolver tests, toolchain-parser tests and ARM64 runtime smoke tests under QEMU |
+| [Validate Termux installer](.github/workflows/validate.yml) | Pushes, pull requests and manual dispatch | Shell/Node syntax checks, ShellCheck, release-metadata checks, archive safety tests (unexpected paths, traversal and symlinks), dpkg-owner regression tests, resolver tests, toolchain-parser tests and ARM64 runtime smoke tests under QEMU |
 | [Build and publish GitHub release](.github/workflows/release.yml) | Every 6 hours, relevant pushes to `main`, or manual dispatch | Finds the newest stable upstream release, builds the Termux archive, publishes release assets and updates checksum metadata |
 | [Check toolchain updates](.github/workflows/toolchain-updates.yml) | Daily schedule, relevant pushes, pull requests or manual dispatch | Checks Alpine stable branches and opens a reviewable PR when the pinned build branch needs updating |
 
