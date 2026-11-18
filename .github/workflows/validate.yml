@@ -26,8 +26,21 @@ jobs:
           persist-credentials: false
       - name: Install ShellCheck
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes shellcheck
+          set -euo pipefail
+          retry_apt() {
+            local attempt=1 delay=10
+            while ! "$@"; do
+              if [[ "$attempt" -ge 4 ]]; then
+                echo "APT failed after $attempt attempts: $*" >&2
+                return 1
+              fi
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+          retry_apt sudo apt-get -o Acquire::Retries=3 update
+          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes shellcheck
 
       - name: Validate workflow YAML syntax
         run: |
@@ -228,8 +241,20 @@ jobs:
       - name: Install cross-build dependencies
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf qemu-user
+          retry_apt() {
+            local attempt=1 delay=10
+            while ! "$@"; do
+              if [[ "$attempt" -ge 4 ]]; then
+                echo "APT failed after $attempt attempts: $*" >&2
+                return 1
+              fi
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+          retry_apt sudo apt-get -o Acquire::Retries=3 update
+          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf qemu-user
 
       - name: Prepare verified Alpine chroot
         run: |
