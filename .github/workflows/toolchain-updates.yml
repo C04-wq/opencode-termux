@@ -39,7 +39,7 @@ permissions:
 
 concurrency:
   group: opencode-termux-toolchain-update
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   check-alpine:
