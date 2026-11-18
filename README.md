@@ -187,7 +187,7 @@ opencode-termux doctor
 
 The updater runs a fast-forward-only `git pull` in the managed checkout at `$PREFIX/opt/opencode-termux` and then reruns `install.sh`. If the curl installer adopted an existing clone, this is the migrated checkout. The installer downloads the version pinned in `release-checksums.json` and verifies its SHA-256 digest before replacing the runtime.
 
-Local Git changes that prevent a fast-forward are not overwritten; the update stops instead.
+The updater sets the checkout's local `core.filemode=false` before pulling. This ignores chmod-only drift (common on Termux) while Git continues to detect content changes. Local content edits or untracked files that prevent a fast-forward are not overwritten; the update stops instead.
 
 ## How it works
 
