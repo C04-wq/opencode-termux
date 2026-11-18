@@ -186,9 +186,8 @@ ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz" | awk '{print $1}')"
 [[ "$ACTUAL" == "$HASH" ]] || { echo "Error: SHA-256 mismatch; refusing to install." >&2; exit 1; }
 echo "Verifying package integrity... OK"
 mkdir "$STAGE/files"
-tar -xzf "$STAGE/runtime.tar.gz" -C "$STAGE/files"
+bash "$REPO_DIR/scripts/validate-runtime-archive.sh" "$STAGE/runtime.tar.gz" "$STAGE/files"
 FILES="opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime"
-for file in $FILES; do [[ -s "$STAGE/files/$file" ]] || { echo "Error: archive missing $file" >&2; exit 1; }; done
 chmod u+x "$STAGE/files/opencode" "$STAGE/files/ld-musl-aarch64.so.1"
 # The packaged ELF has an absolute PT_INTERP pointing at the final runtime
 # directory. It cannot be executed from STAGE before activation. The
