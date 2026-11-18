@@ -22,6 +22,10 @@
 </p>
 
 <p align="center">
+  <a href="./README.md">English</a> · <a href="./README.es.md">Español</a> · <a href="./README.fr.md">Français</a>
+</p>
+
+<p align="center">
   <a href="#-about-the-project">About</a> ·
   <a href="#-requirements">Requirements</a> ·
   <a href="#-installation">Installation</a> ·
