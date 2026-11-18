@@ -12,16 +12,26 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   static-checks:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Install ShellCheck
         run: |
           sudo apt-get update
           sudo apt-get install --yes shellcheck
+
+      - name: Validate workflow YAML syntax
+        run: |
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Valid YAML: #{path}" }' .github/workflows/*.yml
 
       - name: Validate scripts and release metadata
         run: |
@@ -67,6 +77,7 @@ jobs:
           const ownerHelper = fs.readFileSync('scripts/package-owner.sh', 'utf8');
           const archiveValidator = fs.readFileSync('scripts/validate-runtime-archive.sh', 'utf8');
           const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
+          const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
           if (!installer.includes('SHA-256 mismatch; refusing to install')) {
             throw new Error('installer must reject an archive with an incorrect checksum');
           }
@@ -145,6 +156,15 @@ jobs:
           }
           if (!installer.includes('LOG="\\$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
+          }
+          if (!builder.includes('OPENCODE_TERMUX_ALPINE_VERSION:-$ALPINE_VERSION')) {
+            throw new Error('builder must allow an explicitly selected Alpine candidate for CI verification');
+          }
+          if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION="${{ needs.check-alpine.outputs.latest }}"')) {
+            throw new Error('toolchain workflow must build against the exact Alpine candidate it validated');
+          }
+          if (!toolchainWorkflow.includes('sed -i "s/^ALPINE_VERSION=')) {
+            throw new Error('toolchain update PR must actually change the pinned Alpine branch');
           }
           if (!builder.includes('--arch aarch64')) {
             throw new Error('Alpine APK architecture must be pinned to aarch64');
