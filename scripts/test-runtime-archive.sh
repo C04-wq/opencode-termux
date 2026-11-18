@@ -28,8 +28,8 @@ echo "PASS: unexpected paths rejected"
 
 mkdir "$TMP/traversal"
 cp "$TMP/good/"* "$TMP/traversal/"
-printf 'escape\n' > "$TMP/traversal/../outside"
-tar -czf "$TMP/traversal.tar.gz" -C "$TMP/traversal" .
+printf 'escape\\n' > "$TMP/traversal/extra"
+tar --transform='s|^extra$|../outside|' -czf "$TMP/traversal.tar.gz" -C "$TMP/traversal" "${FILES[@]}" extra
 if bash "$VALIDATOR" "$TMP/traversal.tar.gz" "$TMP/traversal-out" >/dev/null 2>&1; then
   echo "FAIL: archive with traversal entry was accepted" >&2
   exit 1
