@@ -69,7 +69,6 @@ export async function fetchAllReleases({
   perPage = 100,
   maxPages = 20,
 } = {}) {
-  if (!token) throw new Error("GH_TOKEN is required");
   if (!Number.isInteger(perPage) || perPage < 1 || perPage > 100) {
     throw new Error("perPage must be an integer between 1 and 100");
   }
@@ -86,7 +85,7 @@ export async function fetchAllReleases({
     const response = await fetchImpl(url, {
       headers: {
         accept: "application/vnd.github+json",
-        authorization: "Bearer " + token,
+        ...(token ? { authorization: "Bearer " + token } : {}),
         "x-github-api-version": "2022-11-28",
       },
       signal: AbortSignal.timeout(30000),
