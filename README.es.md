@@ -25,6 +25,17 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="Licencia MIT"></a>
 </p>
 
+
+<p align="center">
+  <a href="#-acerca-del-proyecto">Proyecto</a> ·
+  <a href="#-requisitos">Requisitos</a> ·
+  <a href="#-instalación">Instalación</a> ·
+  <a href="#-actualizaciones">Actualizaciones</a> ·
+  <a href="#-cli-de-administración">CLI de administración</a> ·
+  <a href="#-descripción-técnica">Descripción técnica</a> ·
+  <a href="#-solución-de-problemas">Solución de problemas</a>
+</p>
+
 ---
 
 ## 📱 Acerca del proyecto
