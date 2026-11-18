@@ -96,10 +96,12 @@ jobs:
             local max_attempts=3
             local delay=10
             while true; do
+              local status=0
               if timeout --signal=TERM --kill-after=30s 8m "$@"; then
                 return 0
+              else
+                status=$?
               fi
-              local status=$?
               if [[ "$attempt" -ge "$max_attempts" ]]; then
                 echo "APT command failed (exit $status) after $attempt attempts: $*" >&2
                 return "$status"
