@@ -5,6 +5,7 @@ on:
       - main
       - "codex/**"
       - "security/**"
+      - "ci/**"
   pull_request:
   workflow_dispatch:
 
@@ -157,7 +158,7 @@ jobs:
           NODE
 
   release-build:
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/security/')
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/security/') || startsWith(github.ref, 'refs/heads/ci/')
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
