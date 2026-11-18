@@ -186,6 +186,9 @@ jobs:
           if (!toolchainWorkflow.includes('sed -i "s/^ALPINE_VERSION=')) {
             throw new Error('toolchain update PR must actually change the pinned Alpine branch');
           }
+          if (!toolchainWorkflow.includes("github.event_name != 'pull_request' && github.token")) {
+            throw new Error('toolchain release resolver must not receive a token on pull_request events');
+          }
           if (!releaseWorkflow.includes('persist-credentials: false') ||
               !validateWorkflow.includes('persist-credentials: false') ||
               !toolchainWorkflow.includes('persist-credentials: false') ||
