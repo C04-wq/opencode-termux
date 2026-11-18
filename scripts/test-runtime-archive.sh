@@ -19,7 +19,8 @@ make_fixture() {
   done
 }
 expect_rejected() {
-  local archive="$1" name="$2" destination="$TMP/out-$name"
+  local archive="$1" name="$2"
+  local destination="$TMP/out-$name"
   if bash "$VALIDATOR" "$archive" "$destination" >/dev/null 2>&1; then
     echo "FAIL: $name archive was accepted" >&2
     exit 1
