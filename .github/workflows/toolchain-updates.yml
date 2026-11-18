@@ -108,7 +108,7 @@ jobs:
           OPENCODE_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
           UPSTREAM_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
           OUTPUT="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
-          bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
+          OPENCODE_TERMUX_ALPINE_VERSION="${{ needs.check-alpine.outputs.latest }}" bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
           bash scripts/smoke-test-runtime-archive.sh "$OUTPUT" "$OPENCODE_VERSION" "$RUNNER_TEMP/runtime-smoke"
   open-alpine-update-pr:
     needs: [check-alpine, validate-candidate]
@@ -130,6 +130,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
+          sed -i "s/^ALPINE_VERSION=\"[0-9.]*\"$/ALPINE_VERSION=\"$LATEST\"/" scripts/build-android-release.sh
+          grep -Fxq "ALPINE_VERSION=\"$LATEST\"" scripts/build-android-release.sh
           git add scripts/build-android-release.sh
           if git diff --cached --quiet; then
             echo "No Alpine pin change to commit."
