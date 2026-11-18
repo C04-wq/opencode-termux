@@ -296,7 +296,7 @@ LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
 
 # Keep one canonical manager implementation; this is also the file installed by users from the checkout.
-cp "$REPO_DIR/opencode-termux" "$STAGE/opencode-termux-manager"
+cp "$REPO_DIR/manager.sh" "$STAGE/opencode-termux-manager"
 chmod 755 "$STAGE/opencode-termux-manager"
 
 cat > "$STAGE/opencode-termux-update" <<UPDATER
