@@ -187,9 +187,9 @@ jobs:
           const workflowFiles = fs.readdirSync('.github/workflows').filter((name) => name.endsWith('.yml'));
           for (const file of workflowFiles) {
             const source = fs.readFileSync('.github/workflows/' + file, 'utf8');
-            for (const match of source.matchAll(/^\\s*uses:\\s*([^\\s]+)$/gm)) {
+            for (const match of source.matchAll(/^\s*uses:\s*([^\s]+)$/gm)) {
               const action = match[1];
-              if (!/^\\.\\//.test(action) && !/@[a-f0-9]{40}$/.test(action)) {
+              if (!/^\.\//.test(action) && !/@[a-f0-9]{40}$/.test(action)) {
                 throw new Error(file + ' uses an action without a full commit SHA: ' + action);
               }
             }
