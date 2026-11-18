@@ -303,6 +303,9 @@ cat > "$STAGE/opencode-termux-update" <<UPDATER
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 REPO_DIR="$REPO_DIR"
+# Termux filesystems may report chmod-only changes even when tracked content
+# is untouched. Ignore permission-bit drift, while Git still detects content edits.
+git -C "\$REPO_DIR" config core.filemode false
 LOG="\$(mktemp)"
 if git -C "\$REPO_DIR" pull --ff-only >"\$LOG" 2>&1; then
   rm -f "\$LOG"
