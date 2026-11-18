@@ -196,6 +196,11 @@ jobs:
               releaseWorkflow.includes('git push --force')) {
             throw new Error('release workflow must use scoped write permissions, verify upstream/archive checksums, and avoid force pushes');
           }
+          const candidateBuildStep = (toolchainWorkflow.split('      - name: Build and smoke-test candidate archive')[1] || '').split('\\n      - name:')[0];
+          const releaseBuildStep = (releaseWorkflow.split('      - name: Build, validate, and smoke-test ARM64 archive')[1] || '').split('\\n      - name:')[0];
+          if (!candidateBuildStep || !releaseBuildStep || candidateBuildStep.includes('GH_TOKEN') || releaseBuildStep.includes('GH_TOKEN')) {
+            throw new Error('build and QEMU smoke-test steps must never receive the GitHub API token');
+          }
           if (!dependabot.includes('package-ecosystem: github-actions') ||
               !dependabot.includes('interval: weekly') ||
               !dependabot.includes('patterns:')) {
