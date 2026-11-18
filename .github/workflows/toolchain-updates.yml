@@ -3,8 +3,13 @@ on:
   push:
     branches:
       - main
+      - "ci/**"
     paths:
       - ".github/workflows/toolchain-updates.yml"
+      - ".github/workflows/validate.yml"
+      - ".github/workflows/release.yml"
+      - ".github/dependabot.yml"
+      - "scripts/**"
       - "scripts/build-android-release.sh"
       - "scripts/check-toolchain-updates.mjs"
       - "scripts/setup-alpine-chroot.sh"
@@ -16,7 +21,10 @@ on:
       - main
     paths:
       - ".github/workflows/toolchain-updates.yml"
-      - "scripts/build-android-release.sh"
+      - ".github/workflows/validate.yml"
+      - ".github/workflows/release.yml"
+      - ".github/dependabot.yml"
+      - "scripts/**"
       - "scripts/check-toolchain-updates.mjs"
       - "scripts/setup-alpine-chroot.sh"
       - "scripts/resolve-opencode-release.mjs"
