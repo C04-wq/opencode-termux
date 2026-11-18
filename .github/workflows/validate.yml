@@ -173,6 +173,128 @@ jobs:
           if (!installer.includes('LOG="\\$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
           }
+          if (!builder.includes('invalid Alpine stable branch') || !builder.includes('^\\\\.[0-9]+
+            throw new Error('builder must allow an explicitly selected Alpine candidate for CI verification');
+          }
+          const candidateOutput = '${' + '{ needs.check-alpine.outputs.latest }}';
+          if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION: ' + candidateOutput)) {
+            throw new Error('toolchain workflow must build against the exact Alpine candidate it validated');
+          }
+          if (!toolchainWorkflow.includes('      - "ci/**"') || !toolchainWorkflow.includes('      - "scripts/**"')) {
+            throw new Error('toolchain candidate workflow must run on CI branches when scripts change');
+          }
+          if (toolchainWorkflow.includes('git push --force') ||
+              !toolchainWorkflow.includes('REMOTE_FILES') ||
+              !toolchainWorkflow.includes('EXPECTED_BUILDER')) {
+            throw new Error('Alpine automation must not force-push or reuse branches containing unrelated edits');
+          }
+          if (!releaseWorkflow.includes('0 */6 * * *')) {
+            throw new Error('release polling frequency must remain unchanged');
+          }
+          if (!toolchainWorkflow.includes('sed -i "s/^ALPINE_VERSION=')) {
+            throw new Error('toolchain update PR must actually change the pinned Alpine branch');
+          }
+          if (!releaseWorkflow.includes('persist-credentials: false') ||
+              !validateWorkflow.includes('persist-credentials: false') ||
+              !toolchainWorkflow.includes('persist-credentials: false') ||
+              !/permissions:\s+contents: read/.test(releaseWorkflow) ||
+              !/permissions:\s+contents: write/.test(releaseWorkflow) ||
+              !releaseWorkflow.includes('CHECKSUM_URL') ||
+              !releaseWorkflow.includes('UPSTREAM_SHA256') ||
+              releaseWorkflow.includes('git push --force')) {
+            throw new Error('release workflow must use scoped write permissions, verify upstream/archive checksums, and avoid force pushes');
+          }
+          const candidateBuildStep = (toolchainWorkflow.split('      - name: Build and smoke-test candidate archive')[1] || '').split(String.fromCharCode(10) + '      - name:')[0];
+          const releaseBuildStep = (releaseWorkflow.split('      - name: Build, validate, and smoke-test ARM64 archive')[1] || '').split(String.fromCharCode(10) + '      - name:')[0];
+          if (!candidateBuildStep || !releaseBuildStep || candidateBuildStep.includes('GH_TOKEN') || releaseBuildStep.includes('GH_TOKEN')) {
+            throw new Error('build and QEMU smoke-test steps must never receive the GitHub API token');
+          }
+          if (!dependabot.includes('package-ecosystem: github-actions') ||
+              !dependabot.includes('interval: weekly') ||
+              !dependabot.includes('patterns:')) {
+            throw new Error('Dependabot must check GitHub Actions weekly and group updates');
+          }
+          const workflowFiles = fs.readdirSync('.github/workflows').filter((name) => name.endsWith('.yml'));
+          for (const file of workflowFiles) {
+            const source = fs.readFileSync('.github/workflows/' + file, 'utf8');
+            for (const match of source.matchAll(/^\s*uses:\s*([^\s]+)$/gm)) {
+              const action = match[1];
+              if (!/^\.\//.test(action) && !/@[a-f0-9]{40}$/.test(action)) {
+                throw new Error(file + ' uses an action without a full commit SHA: ' + action);
+              }
+            }
+          }
+          if (!builder.includes('--arch aarch64')) {
+            throw new Error('Alpine APK architecture must be pinned to aarch64');
+          }
+          if (!builder.includes('libstdc++.so.6.runtime')) {
+            throw new Error('builder runtime library filename mismatch');
+          }
+          if (/\bdocker\b/i.test(builder)) {
+            throw new Error('release builder must not depend on Docker');
+          }
+          NODE
+
+  release-build:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/security/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - name: Resolve newest stable upstream release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/resolve-opencode-release.mjs > "$RUNNER_TEMP/upstream-release.json"
+          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
+          SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "Testing upstream OpenCode v$VERSION"
+
+      - name: Install cross-build dependencies
+        run: |
+          set -euo pipefail
+          retry_apt() {
+            local attempt=1 delay=10
+            while ! "$@"; do
+              if [[ "$attempt" -ge 4 ]]; then
+                echo "APT failed after $attempt attempts: $*" >&2
+                return 1
+              fi
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+          retry_apt sudo apt-get -o Acquire::Retries=3 update
+          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf qemu-user
+
+      - name: Prepare verified Alpine chroot
+        run: |
+          set -euo pipefail
+          ALPINE_VERSION="$(awk -F'"' '/^ALPINE_VERSION=/{print $2; exit}' scripts/build-android-release.sh)"
+          test -n "$ALPINE_VERSION"
+          bash scripts/setup-alpine-chroot.sh "$ALPINE_VERSION" "$RUNNER_TEMP/alpine-root"
+          echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
+
+      - name: Build and inspect ARM64 Termux archive
+        env:
+          VERSION: ${{ steps.upstream.outputs.version }}
+          UPSTREAM_SHA256: ${{ steps.upstream.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          OUTPUT="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
+          bash scripts/build-android-release.sh "$VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
+          bash scripts/smoke-test-runtime-archive.sh "$OUTPUT" "$VERSION" "$RUNNER_TEMP/runtime-smoke"
+)) {
+            throw new Error('builder must validate the Alpine branch override before using it in repository URLs');
+          }
           if (!builder.includes('OPENCODE_TERMUX_ALPINE_VERSION:-$ALPINE_VERSION')) {
             throw new Error('builder must allow an explicitly selected Alpine candidate for CI verification');
           }
