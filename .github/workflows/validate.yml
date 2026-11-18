@@ -177,7 +177,7 @@ jobs:
             throw new Error('builder must allow an explicitly selected Alpine candidate for CI verification');
           }
           const candidateOutput = '${' + '{ needs.check-alpine.outputs.latest }}';
-          if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION="' + candidateOutput + '"')) {
+          if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION: ' + candidateOutput)) {
             throw new Error('toolchain workflow must build against the exact Alpine candidate it validated');
           }
           if (!toolchainWorkflow.includes('      - "ci/**"') || !toolchainWorkflow.includes('      - "scripts/**"')) {
