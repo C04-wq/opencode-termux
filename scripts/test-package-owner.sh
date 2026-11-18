@@ -6,7 +6,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir "$TMP/bin"
 cat > "$TMP/bin/dpkg-query" <<'STUB'
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 case "${DPKG_QUERY_MODE:-missing}" in
   missing) exit 1 ;;
   found) printf '%s: /data/data/com.termux/files/usr/bin/opencode\n' "${DPKG_QUERY_PACKAGE:-opencode1}"; exit 0 ;;
