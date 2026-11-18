@@ -9,11 +9,12 @@ cat > "$TMP/bin/dpkg-query" <<'STUB'
 #!/usr/bin/env bash
 case "${DPKG_QUERY_MODE:-missing}" in
   missing) exit 1 ;;
-  found) printf '%s: /data/data/com.termux/files/usr/bin/opencode\\n' "${DPKG_QUERY_PACKAGE:-opencode1}"; exit 0 ;;
+  found) printf '%s: %s\n' "${DPKG_QUERY_PACKAGE:-opencode1}" "$2"; exit 0 ;;
+  *) exit 2 ;;
 esac
 STUB
 chmod 755 "$TMP/bin/dpkg-query"
-PATH="$TMP/bin:$PATH"
+export PATH="$TMP/bin:$PATH"
 source "$ROOT/scripts/package-owner.sh"
 
 export DPKG_QUERY_MODE=missing
