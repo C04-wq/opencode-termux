@@ -85,43 +85,48 @@ jobs:
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
       - name: Validate build script
         run: bash -n scripts/build-android-release.sh
-      - name: Build and inspect candidate archive
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Install ARM64 cross-build dependencies
         run: |
           set -euo pipefail
-          # Ubuntu package mirrors can temporarily fail DNS resolution on hosted
-          # runners. Retry the complete APT operation with bounded backoff.
           retry_apt() {
             local attempt=1
-            local max_attempts=4
             local delay=15
-
-            while true; do
-              if "$@"; then
-                return 0
-              fi
-
-              if [ "$attempt" -ge "$max_attempts" ]; then
+            while ! "$@"; do
+              if [[ "$attempt" -ge 4 ]]; then
                 echo "APT command failed after $attempt attempts: $*" >&2
                 return 1
               fi
-
-              echo "APT command failed (attempt $attempt/$max_attempts); retrying in ${delay}s..." >&2
+              echo "APT command failed (attempt $attempt/4); retrying in ${delay}s..." >&2
               sleep "$delay"
               attempt=$((attempt + 1))
               delay=$((delay * 2))
             done
           }
-
           retry_apt sudo apt-get -o Acquire::Retries=3 update
           retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf qemu-user
+
+      - name: Resolve newest stable OpenCode release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
           node scripts/resolve-opencode-release.mjs > "$RUNNER_TEMP/upstream-release.json"
-          OPENCODE_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
-          UPSTREAM_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
+          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
+          SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Build and smoke-test candidate archive
+        env:
+          VERSION: ${{ steps.upstream.outputs.version }}
+          UPSTREAM_SHA256: ${{ steps.upstream.outputs.sha256 }}
+          OPENCODE_TERMUX_ALPINE_VERSION: ${{ needs.check-alpine.outputs.latest }}
+        run: |
+          set -euo pipefail
           OUTPUT="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
-          OPENCODE_TERMUX_ALPINE_VERSION="${{ needs.check-alpine.outputs.latest }}" bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
-          bash scripts/smoke-test-runtime-archive.sh "$OUTPUT" "$OPENCODE_VERSION" "$RUNNER_TEMP/runtime-smoke"
+          bash scripts/build-android-release.sh "$VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
+          bash scripts/smoke-test-runtime-archive.sh "$OUTPUT" "$VERSION" "$RUNNER_TEMP/runtime-smoke"
   open-alpine-update-pr:
     needs: [check-alpine, validate-candidate]
     if: needs.check-alpine.outputs.changed == 'true' && github.ref == 'refs/heads/main'
