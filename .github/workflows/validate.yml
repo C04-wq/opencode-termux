@@ -31,7 +31,7 @@ jobs:
 
       - name: Validate workflow YAML syntax
         run: |
-          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Valid YAML: #{path}" }' .github/workflows/*.yml
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Valid YAML: #{path}" }' .github/workflows/*.yml .github/dependabot.yml
 
       - name: Validate scripts and release metadata
         run: |
@@ -78,6 +78,8 @@ jobs:
           const archiveValidator = fs.readFileSync('scripts/validate-runtime-archive.sh', 'utf8');
           const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
           const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
+          const releaseWorkflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
+          const dependabot = fs.readFileSync('.github/dependabot.yml', 'utf8');
           if (!installer.includes('SHA-256 mismatch; refusing to install')) {
             throw new Error('installer must reject an archive with an incorrect checksum');
           }
@@ -169,6 +171,28 @@ jobs:
           }
           if (!toolchainWorkflow.includes('sed -i "s/^ALPINE_VERSION=')) {
             throw new Error('toolchain update PR must actually change the pinned Alpine branch');
+          }
+          if (!releaseWorkflow.includes('permissions:\\n  contents: read') ||
+              !releaseWorkflow.includes('permissions:\\n      contents: write') ||
+              !releaseWorkflow.includes('CHECKSUM_URL') ||
+              !releaseWorkflow.includes('UPSTREAM_SHA256') ||
+              releaseWorkflow.includes('git push --force')) {
+            throw new Error('release workflow must use scoped write permissions, verify upstream/archive checksums, and avoid force pushes');
+          }
+          if (!dependabot.includes('package-ecosystem: github-actions') ||
+              !dependabot.includes('interval: weekly') ||
+              !dependabot.includes('patterns:')) {
+            throw new Error('Dependabot must check GitHub Actions weekly and group updates');
+          }
+          const workflowFiles = fs.readdirSync('.github/workflows').filter((name) => name.endsWith('.yml'));
+          for (const file of workflowFiles) {
+            const source = fs.readFileSync('.github/workflows/' + file, 'utf8');
+            for (const match of source.matchAll(/^\\s*uses:\\s*([^\\s]+)$/gm)) {
+              const action = match[1];
+              if (!/^\\.\\//.test(action) && !/@[a-f0-9]{40}$/.test(action)) {
+                throw new Error(file + ' uses an action without a full commit SHA: ' + action);
+              }
+            }
           }
           if (!builder.includes('--arch aarch64')) {
             throw new Error('Alpine APK architecture must be pinned to aarch64');
