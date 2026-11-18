@@ -221,8 +221,7 @@ jobs:
           }
 
           RUNTIME="$RUNNER_TEMP/runtime"
-          mkdir -p "$RUNTIME"
-          tar -xzf "$OUTPUT" -C "$RUNTIME"
+          bash scripts/validate-runtime-archive.sh "$OUTPUT" "$RUNTIME"
 
           # Emulate the Termux filesystem path so QEMU can resolve PT_INTERP
           # exactly as Android's kernel will. Run the ELF directly, not through
