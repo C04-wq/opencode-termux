@@ -29,10 +29,14 @@ jobs:
           bash -n install.sh
           bash -n uninstall.sh
           bash -n opencode-termux
+          bash -n manager.sh
           bash opencode-termux help >/dev/null
           bash opencode-termux --help >/dev/null
           bash opencode-termux version | grep -Fq 'opencode-termux manager'
           bash opencode-termux status | grep -Fq 'Status: not installed'
+          bash manager.sh help >/dev/null
+          bash manager.sh version | grep -Fq 'opencode-termux manager'
+          bash manager.sh status | grep -Fq 'Status: not installed'
           bash -n scripts/build-android-release.sh
           bash -n scripts/setup-alpine-chroot.sh
           node <<'NODE'
@@ -67,7 +71,10 @@ jobs:
           if (!installer.includes('unrecognized command already exists at $UPDATER') || !installer.includes("grep -Fq 'git -C' \"$UPDATER\"")) {
             throw new Error('installer must refuse to overwrite an unrecognized updater command');
           }
-          const manager = fs.readFileSync('opencode-termux', 'utf8');
+          const manager = fs.readFileSync('manager.sh', 'utf8');
+          if (fs.readFileSync('opencode-termux', 'utf8') !== manager) {
+            throw new Error('repository manager entry point must match the installed manager implementation');
+          }
           for (const command of ['install|--install', 'update|--update', 'uninstall|--uninstall', 'version|--version', 'status|--status', 'doctor|--doctor', 'help|--help']) {
             if (!manager.includes(command)) throw new Error('manager is missing command: ' + command);
           }
@@ -75,7 +82,7 @@ jobs:
           if (!manager.includes('case "${1:---help}" in') || manager.includes('\\${1:---help}')) {
             throw new Error('manager must expand its command argument instead of matching a literal expression');
           }
-          if (!installer.includes('cp "$REPO_DIR/opencode-termux" "$STAGE/opencode-termux-manager"')) {
+          if (!installer.includes('cp "$REPO_DIR/manager.sh" "$STAGE/opencode-termux-manager"')) {
             throw new Error('installer must install the canonical manager script from the checkout');
           }
           if (!installer.includes('opencode-termux-manager') || !installer.includes('OPENCODE_TERMUX_MANAGER=1')) {
