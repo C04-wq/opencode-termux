@@ -164,6 +164,9 @@ jobs:
           if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION="' + candidateOutput + '"')) {
             throw new Error('toolchain workflow must build against the exact Alpine candidate it validated');
           }
+          if (!toolchainWorkflow.includes('      - "ci/**"') || !toolchainWorkflow.includes('      - "scripts/**"')) {
+            throw new Error('toolchain candidate workflow must run on CI branches when scripts change');
+          }
           if (!toolchainWorkflow.includes('sed -i "s/^ALPINE_VERSION=')) {
             throw new Error('toolchain update PR must actually change the pinned Alpine branch');
           }
@@ -179,7 +182,7 @@ jobs:
           NODE
 
   release-build:
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/security/') || startsWith(github.ref, 'refs/heads/ci/')
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/security/')
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
