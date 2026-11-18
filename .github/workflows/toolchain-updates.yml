@@ -8,6 +8,9 @@ on:
       - "scripts/build-android-release.sh"
       - "scripts/check-toolchain-updates.mjs"
       - "scripts/setup-alpine-chroot.sh"
+      - "scripts/resolve-opencode-release.mjs"
+      - "scripts/validate-runtime-archive.sh"
+      - "scripts/smoke-test-runtime-archive.sh"
   pull_request:
     branches:
       - main
@@ -16,6 +19,9 @@ on:
       - "scripts/build-android-release.sh"
       - "scripts/check-toolchain-updates.mjs"
       - "scripts/setup-alpine-chroot.sh"
+      - "scripts/resolve-opencode-release.mjs"
+      - "scripts/validate-runtime-archive.sh"
+      - "scripts/smoke-test-runtime-archive.sh"
   schedule:
     - cron: "23 7 * * *"
   workflow_dispatch:
@@ -97,15 +103,13 @@ jobs:
           }
 
           retry_apt sudo apt-get -o Acquire::Retries=3 update
-          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf
-          OPENCODE_VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
-          UPSTREAM_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
-          if ! [[ "$UPSTREAM_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
-            echo "Official OpenCode release did not provide a valid SHA-256 digest." >&2
-            exit 1
-          fi
-          bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz" "$UPSTREAM_SHA256"
-          tar -tzf "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
+          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf qemu-user
+          node scripts/resolve-opencode-release.mjs > "$RUNNER_TEMP/upstream-release.json"
+          OPENCODE_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
+          UPSTREAM_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
+          OUTPUT="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
+          bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
+          bash scripts/smoke-test-runtime-archive.sh "$OUTPUT" "$OPENCODE_VERSION" "$RUNNER_TEMP/runtime-smoke"
   open-alpine-update-pr:
     needs: [check-alpine, validate-candidate]
     if: needs.check-alpine.outputs.changed == 'true' && github.ref == 'refs/heads/main'
