@@ -16,7 +16,11 @@ EXPECTED_FILES=(
 [[ -f "$ARCHIVE" ]] || { echo "Error: runtime archive not found." >&2; exit 1; }
 [[ ! -e "$DESTINATION" ]] || { echo "Error: extraction destination already exists." >&2; exit 1; }
 
-mapfile -t ARCHIVE_FILES < <(tar -tzf "$ARCHIVE")
+LISTING="$(tar -tzf "$ARCHIVE")" || {
+  echo "Error: runtime archive is corrupt or unreadable." >&2
+  exit 1
+}
+mapfile -t ARCHIVE_FILES <<< "$LISTING"
 if [[ "${#ARCHIVE_FILES[@]}" -ne "${#EXPECTED_FILES[@]}" ]]; then
   echo "Error: runtime archive contains an unexpected number of entries." >&2
   exit 1
