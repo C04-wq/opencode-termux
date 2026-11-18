@@ -188,7 +188,7 @@ FILES="opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstd
 for file in $FILES; do [[ -s "$STAGE/files/$file" ]] || { echo "Error: archive missing $file" >&2; exit 1; }; done
 chmod u+x "$STAGE/files/opencode" "$STAGE/files/ld-musl-aarch64.so.1"
 echo "Checking runtime..."
-VERSION_OUTPUT="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$STAGE/files"; "$STAGE/files/ld-musl-aarch64.so.1" --library-path "$STAGE/files" "$STAGE/files/opencode" --version )" || { echo "Error: runtime test failed." >&2; exit 1; }
+VERSION_OUTPUT="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$STAGE/files"; "$STAGE/files/opencode" --version )" || { echo "Error: runtime test failed." >&2; exit 1; }
 [[ "$VERSION_OUTPUT" == "opencode v$VERSION" ]] || { echo "Error: unexpected runtime version: $VERSION_OUTPUT" >&2; exit 1; }
 
 mkdir -p "$PREFIX/lib" "$PREFIX/bin"
