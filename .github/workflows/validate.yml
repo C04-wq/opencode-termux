@@ -90,6 +90,7 @@ jobs:
           const ownerHelper = fs.readFileSync('scripts/package-owner.sh', 'utf8');
           const archiveValidator = fs.readFileSync('scripts/validate-runtime-archive.sh', 'utf8');
           const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
+          const validateWorkflow = fs.readFileSync('.github/workflows/validate.yml', 'utf8');
           const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
           const releaseWorkflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
           const dependabot = fs.readFileSync('.github/dependabot.yml', 'utf8');
