@@ -55,7 +55,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate workflow and Dependabot YAML
-        run: ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Valid YAML: #{path}" }' .github/workflows/*.yml .github/dependabot.yml
+        run: |
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Valid YAML: #{path}" }' .github/workflows/*.yml .github/dependabot.yml
       - name: Check official Alpine stable branch
         id: check
         run: |
