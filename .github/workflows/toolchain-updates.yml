@@ -3,38 +3,60 @@ on:
   push:
     branches:
       - main
+      - "ci/**"
     paths:
       - ".github/workflows/toolchain-updates.yml"
+      - ".github/workflows/validate.yml"
+      - ".github/workflows/release.yml"
+      - ".github/dependabot.yml"
+      - "scripts/**"
       - "scripts/build-android-release.sh"
       - "scripts/check-toolchain-updates.mjs"
       - "scripts/setup-alpine-chroot.sh"
+      - "scripts/resolve-opencode-release.mjs"
+      - "scripts/validate-runtime-archive.sh"
+      - "scripts/smoke-test-runtime-archive.sh"
   pull_request:
     branches:
       - main
     paths:
       - ".github/workflows/toolchain-updates.yml"
-      - "scripts/build-android-release.sh"
+      - ".github/workflows/validate.yml"
+      - ".github/workflows/release.yml"
+      - ".github/dependabot.yml"
+      - "scripts/**"
       - "scripts/check-toolchain-updates.mjs"
       - "scripts/setup-alpine-chroot.sh"
+      - "scripts/resolve-opencode-release.mjs"
+      - "scripts/validate-runtime-archive.sh"
+      - "scripts/smoke-test-runtime-archive.sh"
   schedule:
     - cron: "23 7 * * *"
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: opencode-termux-toolchain-update
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   check-alpine:
     runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      current: ${{ steps.check.outputs.current }}
+      latest: ${{ steps.check.outputs.latest }}
     timeout-minutes: 20
     steps:
       # actions/checkout v5 pinned to a full SHA; v5 uses Node.js 24.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Validate workflow and Dependabot YAML
+        run: |
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Valid YAML: #{path}" }' .github/workflows/*.yml .github/dependabot.yml
       - name: Check official Alpine stable branch
         id: check
         run: |
@@ -50,72 +72,117 @@ jobs:
             echo "current=$PINNED_BRANCH" >> "$GITHUB_OUTPUT"
             echo "latest=$PINNED_BRANCH" >> "$GITHUB_OUTPUT"
           fi
+  validate-candidate:
+    needs: check-alpine
+    if: github.event_name != 'schedule' || needs.check-alpine.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Prepare Alpine package verifier without a container action
         run: |
           set -euo pipefail
-          bash scripts/setup-alpine-chroot.sh "${{ steps.check.outputs.latest }}" "$RUNNER_TEMP/alpine-root"
+          bash scripts/setup-alpine-chroot.sh "${{ needs.check-alpine.outputs.latest }}" "$RUNNER_TEMP/alpine-root"
           echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
       - name: Validate build script
         run: bash -n scripts/build-android-release.sh
-      - name: Build and inspect candidate archive
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Install ARM64 cross-build dependencies
         run: |
           set -euo pipefail
-          # Ubuntu package mirrors can temporarily fail DNS resolution on hosted
-          # runners. Retry the complete APT operation with bounded backoff.
           retry_apt() {
             local attempt=1
-            local max_attempts=4
-            local delay=15
-
+            local max_attempts=3
+            local delay=10
             while true; do
-              if "$@"; then
+              local status=0
+              if timeout --signal=TERM --kill-after=30s 8m "$@"; then
                 return 0
+              else
+                status=$?
               fi
-
-              if [ "$attempt" -ge "$max_attempts" ]; then
-                echo "APT command failed after $attempt attempts: $*" >&2
-                return 1
+              if [[ "$attempt" -ge "$max_attempts" ]]; then
+                echo "APT command failed (exit $status) after $attempt attempts: $*" >&2
+                return "$status"
               fi
-
-              echo "APT command failed (attempt $attempt/$max_attempts); retrying in ${delay}s..." >&2
+              echo "APT command failed (attempt $attempt/$max_attempts, exit $status); retrying in ${delay}s..." >&2
               sleep "$delay"
               attempt=$((attempt + 1))
               delay=$((delay * 2))
             done
           }
+          APT_OPTIONS=(-o Acquire::Retries=2 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60)
+          retry_apt sudo apt-get "${APT_OPTIONS[@]}" update
+          retry_apt sudo apt-get "${APT_OPTIONS[@]}" install --yes gcc-aarch64-linux-gnu patchelf qemu-user
 
-          retry_apt sudo apt-get -o Acquire::Retries=3 update
-          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf
-          OPENCODE_VERSION="$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name' | sed 's/^v//')"
-          UPSTREAM_SHA256="$(gh api repos/anomalyco/opencode/releases/latest --jq '.assets[] | select(.name == "opencode-linux-arm64-musl.tar.gz") | .digest' | sed 's/^sha256://')"
-          if ! [[ "$UPSTREAM_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
-            echo "Official OpenCode release did not provide a valid SHA-256 digest." >&2
-            exit 1
-          fi
-          bash scripts/build-android-release.sh "$OPENCODE_VERSION" "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz" "$UPSTREAM_SHA256"
-          tar -tzf "$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
+      - name: Resolve newest stable OpenCode release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.event_name != 'pull_request' && github.token || '' }}
+        run: |
+          set -euo pipefail
+          node scripts/resolve-opencode-release.mjs > "$RUNNER_TEMP/upstream-release.json"
+          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
+          SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Build and smoke-test candidate archive
+        env:
+          VERSION: ${{ steps.upstream.outputs.version }}
+          UPSTREAM_SHA256: ${{ steps.upstream.outputs.sha256 }}
+          OPENCODE_TERMUX_ALPINE_VERSION: ${{ needs.check-alpine.outputs.latest }}
+        run: |
+          set -euo pipefail
+          OUTPUT="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
+          bash scripts/build-android-release.sh "$VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
+          bash scripts/smoke-test-runtime-archive.sh "$OUTPUT" "$VERSION" "$RUNNER_TEMP/runtime-smoke"
+  open-alpine-update-pr:
+    needs: [check-alpine, validate-candidate]
+    if: needs.check-alpine.outputs.changed == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Open pull request for validated Alpine update
-        if: steps.check.outputs.changed == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
-          LATEST: ${{ steps.check.outputs.latest }}
+          LATEST: ${{ needs.check-alpine.outputs.latest }}
         run: |
           set -euo pipefail
           BRANCH="automation/alpine-${LATEST//./-}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
+          sed -i "s/^ALPINE_VERSION=\"[0-9.]*\"$/ALPINE_VERSION=\"$LATEST\"/" scripts/build-android-release.sh
+          grep -Fxq "ALPINE_VERSION=\"$LATEST\"" scripts/build-android-release.sh
           git add scripts/build-android-release.sh
           if git diff --cached --quiet; then
             echo "No Alpine pin change to commit."
             exit 0
           fi
           git commit -m "build: update Alpine stable branch to ${LATEST}"
-          # Publish only to a dedicated automation branch; never push a workflow
-          # checkout directly to the protected main branch.
-          git push --force origin "HEAD:refs/heads/$BRANCH"
+          # Publish only to a dedicated automation branch. Never overwrite a
+          # branch containing edits beyond this exact, validated Alpine pin update.
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch origin main "$BRANCH"
+            REMOTE_FILES="$(git diff --name-only "origin/main...origin/$BRANCH")"
+            REMOTE_BUILDER="$(git show "origin/$BRANCH:scripts/build-android-release.sh")"
+            EXPECTED_BUILDER="$(cat scripts/build-android-release.sh)"
+            if [ "$REMOTE_FILES" != "scripts/build-android-release.sh" ] || [ "$REMOTE_BUILDER" != "$EXPECTED_BUILDER" ]; then
+              echo "Existing automation branch $BRANCH contains additional or outdated changes; refusing to reuse it." >&2
+              exit 1
+            fi
+            echo "Existing automation branch exactly matches the validated Alpine update; preserving its review history."
+          else
+            git push origin "HEAD:refs/heads/$BRANCH"
+          fi
           PR_NUMBER="$(gh pr list --state open --base main --head "$BRANCH" --json number --jq '.[0].number // empty')"
           PR_TITLE="build: update Alpine stable branch to ${LATEST}"
           PR_BODY="Alpine stable branch ${LATEST} was discovered and the candidate ARM64 runtime archive passed the hosted build checks. Please review this toolchain update before merging."

@@ -15,6 +15,11 @@ VERSION="$1"
 OUTPUT="$2"
 EXPECTED_UPSTREAM_SHA256="${3:-}"
 ALPINE_VERSION="3.24"
+ALPINE_VERSION="${OPENCODE_TERMUX_ALPINE_VERSION:-$ALPINE_VERSION}"
+if ! [[ "$ALPINE_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: invalid Alpine stable branch: $ALPINE_VERSION" >&2
+  exit 64
+fi
 ALPINE_REPO="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main"
 MUSL_VERSION="1.2.6"
 MUSL_SHA256="d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a"
