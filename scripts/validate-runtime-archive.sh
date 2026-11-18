@@ -51,7 +51,12 @@ mkdir -p "$DESTINATION"
 tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE" -C "$DESTINATION"
 
 for file in "${EXPECTED_FILES[@]}"; do
-  if [[ ! -f "$DESTINATION/$file" || -L "$DESTINATION/$file" || ! -s "$DESTINATION/$file" ]]; then
+  if [[ "$file" == "libstdc++.so.6" ]]; then
+    if [[ ! -L "$DESTINATION/$file" || "$(readlink "$DESTINATION/$file")" != "libstdc++.so.6.runtime" ]]; then
+      echo "Error: libstdc++.so.6 must link only to libstdc++.so.6.runtime." >&2
+      exit 1
+    fi
+  elif [[ ! -f "$DESTINATION/$file" || -L "$DESTINATION/$file" || ! -s "$DESTINATION/$file" ]]; then
     echo "Error: runtime archive entry is not a non-empty regular file: $file" >&2
     exit 1
   fi
