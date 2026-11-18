@@ -46,6 +46,9 @@ jobs:
           bash -n scripts/setup-alpine-chroot.sh
           bash -n scripts/validate-runtime-archive.sh
           bash -n scripts/test-runtime-archive.sh
+          bash -n scripts/package-owner.sh
+          bash -n scripts/test-package-owner.sh
+          bash scripts/test-package-owner.sh
           shellcheck -S error install.sh uninstall.sh opencode-termux manager.sh scripts/*.sh
           bash scripts/test-runtime-archive.sh
           node <<'NODE'
