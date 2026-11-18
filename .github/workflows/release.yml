@@ -106,8 +106,20 @@ jobs:
           UPSTREAM_SHA256: ${{ steps.version.outputs.upstream_sha256 }}
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes gcc-aarch64-linux-gnu patchelf qemu-user
+          retry_apt() {
+            local attempt=1 delay=10
+            while ! "$@"; do
+              if [[ "$attempt" -ge 4 ]]; then
+                echo "APT failed after $attempt attempts: $*" >&2
+                return 1
+              fi
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+          retry_apt sudo apt-get -o Acquire::Retries=3 update
+          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf qemu-user
           OUTPUT="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
           bash -n scripts/build-android-release.sh
           bash scripts/build-android-release.sh "$VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
