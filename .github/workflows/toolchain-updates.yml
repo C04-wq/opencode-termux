@@ -155,16 +155,18 @@ jobs:
             exit 0
           fi
           git commit -m "build: update Alpine stable branch to ${LATEST}"
-          # Publish only to a dedicated automation branch; never push a workflow
-          # checkout directly to main or overwrite a branch that may contain review edits.
+          # Publish only to a dedicated automation branch. Never overwrite a
+          # branch containing edits beyond this exact, validated Alpine pin update.
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            git fetch origin "$BRANCH"
-            REMOTE_PIN="$(git show FETCH_HEAD:scripts/build-android-release.sh | sed -n 's/^ALPINE_VERSION="\([0-9.]*\)"$/\1/p')"
-            if [ "$REMOTE_PIN" != "$LATEST" ]; then
-              echo "Existing automation branch $BRANCH has a different Alpine pin ($REMOTE_PIN); refusing to overwrite it." >&2
+            git fetch origin main "$BRANCH"
+            REMOTE_FILES="$(git diff --name-only "origin/main...origin/$BRANCH")"
+            REMOTE_BUILDER="$(git show "origin/$BRANCH:scripts/build-android-release.sh")"
+            EXPECTED_BUILDER="$(cat scripts/build-android-release.sh)"
+            if [ "$REMOTE_FILES" != "scripts/build-android-release.sh" ] || [ "$REMOTE_BUILDER" != "$EXPECTED_BUILDER" ]; then
+              echo "Existing automation branch $BRANCH contains additional or outdated changes; refusing to reuse it." >&2
               exit 1
             fi
-            echo "Existing automation branch already contains the validated Alpine pin; preserving its review history."
+            echo "Existing automation branch exactly matches the validated Alpine update; preserving its review history."
           else
             git push origin "HEAD:refs/heads/$BRANCH"
           fi
