@@ -66,9 +66,9 @@ case "${1:---help}" in
     if [[ -f "$PREFIX/bin/opencode" ]] && grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE=1' "$PREFIX/bin/opencode" && grep -Fq '/lib/opencode-termux' "$PREFIX/bin/opencode"; then
       echo "OK: managed launcher"
     else echo "FAIL: managed launcher missing or unrecognized"; failed=1; fi
-    if [[ -f "$PREFIX/bin/opencode-termux" ]] && grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$PREFIX/bin/opencode-termux"; then
-      echo "OK: managed CLI"
-    else echo "FAIL: managed CLI missing or unrecognized"; failed=1; fi
+    if [[ -x "$PREFIX/bin/opencode-termux" ]] && grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$PREFIX/bin/opencode-termux"; then
+      echo "OK: managed CLI (executable)"
+    else echo "FAIL: managed CLI missing, non-executable or unrecognized"; failed=1; fi
     if [[ -f "$PREFIX/bin/opencode-termux-update" ]] && grep -Fq 'git -C' "$PREFIX/bin/opencode-termux-update" && grep -Fq 'install.sh' "$PREFIX/bin/opencode-termux-update"; then
       echo "OK: managed updater"
     else echo "FAIL: managed updater missing or unrecognized"; failed=1; fi
