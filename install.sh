@@ -187,9 +187,11 @@ tar -xzf "$STAGE/runtime.tar.gz" -C "$STAGE/files"
 FILES="opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime"
 for file in $FILES; do [[ -s "$STAGE/files/$file" ]] || { echo "Error: archive missing $file" >&2; exit 1; }; done
 chmod u+x "$STAGE/files/opencode" "$STAGE/files/ld-musl-aarch64.so.1"
-echo "Checking runtime..."
-VERSION_OUTPUT="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$STAGE/files"; "$STAGE/files/opencode" --version )" || { echo "Error: runtime test failed." >&2; exit 1; }
-[[ "$VERSION_OUTPUT" == "opencode v$VERSION" ]] || { echo "Error: unexpected runtime version: $VERSION_OUTPUT" >&2; exit 1; }
+# The packaged ELF has an absolute PT_INTERP pointing at the final runtime
+# directory. It cannot be executed from STAGE before activation. The
+# transactional final smoke test below runs it from RUNTIME and restores the
+# previous runtime automatically if that test fails.
+echo "Runtime package prepared; executable test will run after activation."
 
 mkdir -p "$PREFIX/lib" "$PREFIX/bin"
 NEW="$PREFIX/lib/.opencode-termux-new-$$"
@@ -422,6 +424,7 @@ for executable in "$LAUNCHER" "$UPDATER" "$MANAGER"; do
   }
 done
 
+echo "Checking installed runtime..."
 FINAL_VERSION="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
