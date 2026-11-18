@@ -8,11 +8,21 @@ trap 'rm -rf "$TMP"' EXIT
 
 FILES=(opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime)
 mkdir "$TMP/good"
-for file in "${FILES[@]}"; do printf 'fixture:%s\n' "$file" > "$TMP/good/$file"; done
+for file in "${FILES[@]}"; do
+  if [[ "$file" == "libstdc++.so.6" ]]; then
+    ln -s libstdc++.so.6.runtime "$TMP/good/$file"
+  else
+    printf 'fixture:%s\n' "$file" > "$TMP/good/$file"
+  fi
+done
 tar -czf "$TMP/good.tar.gz" -C "$TMP/good" "${FILES[@]}"
 bash "$VALIDATOR" "$TMP/good.tar.gz" "$TMP/extracted"
 for file in "${FILES[@]}"; do
-  [[ -s "$TMP/extracted/$file" && ! -L "$TMP/extracted/$file" ]]
+  if [[ "$file" == "libstdc++.so.6" ]]; then
+    [[ -L "$TMP/extracted/$file" && "$(readlink "$TMP/extracted/$file")" == "libstdc++.so.6.runtime" ]]
+  else
+    [[ -s "$TMP/extracted/$file" && ! -L "$TMP/extracted/$file" ]]
+  fi
 done
 echo "PASS: valid runtime archive"
 
