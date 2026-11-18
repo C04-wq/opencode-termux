@@ -350,7 +350,7 @@ The archive validator requires exactly these six entries. It rejects additional 
 
 The installation flow is designed to fail closed when package integrity or file ownership cannot be established.
 
-- Downloads use HTTPS and explicitly restrict curl protocols to HTTPS.
+- The runtime archive is downloaded over HTTPS, with curl restricted to HTTPS for the initial request and redirects.
 - The runtime archive must match the SHA-256 digest in `release-checksums.json`.
 - The release builder independently checks the official upstream archive digest before packaging it.
 - The archive validator checks every member before extraction and allows only the expected relative C++ library symlink.
