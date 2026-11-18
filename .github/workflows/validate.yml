@@ -172,8 +172,8 @@ jobs:
           if (!toolchainWorkflow.includes('sed -i "s/^ALPINE_VERSION=')) {
             throw new Error('toolchain update PR must actually change the pinned Alpine branch');
           }
-          if (!releaseWorkflow.includes('permissions:\\n  contents: read') ||
-              !releaseWorkflow.includes('permissions:\\n      contents: write') ||
+          if (!/permissions:\\s+contents: read/.test(releaseWorkflow) ||
+              !/permissions:\\s+contents: write/.test(releaseWorkflow) ||
               !releaseWorkflow.includes('CHECKSUM_URL') ||
               !releaseWorkflow.includes('UPSTREAM_SHA256') ||
               releaseWorkflow.includes('git push --force')) {
