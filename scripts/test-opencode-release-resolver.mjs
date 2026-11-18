@@ -64,6 +64,16 @@ assert.match(pageCalls[0].url, /page=1/);
 assert.match(pageCalls[1].url, /page=2/);
 assert.equal(pageCalls[0].options.headers.authorization, "Bearer test-token");
 
+const publicCalls = [];
+await fetchAllReleases({
+  fetchImpl: async (url, options) => {
+    publicCalls.push({ url: String(url), options });
+    return { ok: true, json: async () => [release("v2.0.0")] };
+  },
+});
+assert.equal(publicCalls.length, 1);
+assert.equal("authorization" in publicCalls[0].options.headers, false);
+
 await assert.rejects(
   fetchAllReleases({ token: "test-token", fetchImpl: async () => ({ ok: false, status: 403, text: async () => "rate limited" }) }),
   /HTTP 403: rate limited/,
@@ -80,6 +90,5 @@ await assert.rejects(
   fetchAllReleases({ token: "test-token", perPage: 1, maxPages: 2, fetchImpl: async () => ({ ok: true, json: async () => [release("v1.0.0")] }) }),
   /pagination limit exceeded/,
 );
-await assert.rejects(fetchAllReleases({}), /GH_TOKEN is required/);
 
 console.log("OpenCode release resolver tests passed.");
