@@ -54,8 +54,6 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
-        with:
-          persist-credentials: false
       - name: Check official Alpine stable branch
         id: check
         run: |
@@ -78,6 +76,8 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Prepare Alpine package verifier without a container action
         run: |
           set -euo pipefail
