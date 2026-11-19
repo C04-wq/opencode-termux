@@ -11,7 +11,7 @@
 
 <p align="center">
   <strong>Agent de programmation IA OpenCode exécuté nativement dans Android Termux.</strong><br>
-  Paquet ARM64 · Vérification SHA-256 · Installation gérée · Mises à jour avec consentement
+  Empaquetage de l’environnement d’exécution ARM64 · Vérification SHA-256 · Installation gérée · Mises à jour avec consentement
 </p>
 
 <p align="center">
