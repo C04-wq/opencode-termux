@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="./README.md">English</a> · <a href="./README.es.md">Español</a> · <a href="./README.fr.md">Français</a>
+  <a href="./README.md">Español</a> · <a href="./README.en.md">English</a> · <a href="./README.fr.md">Français</a>
 </p>
 
 <p align="center">
@@ -335,6 +335,7 @@ Le validateur exige exactement ces six entrées. Il rejette les chemins supplém
 ├── release-checksums.json
 ├── opencode-logo.svg
 ├── README.md
+├── README.en.md
 ├── README.es.md
 └── README.fr.md
 ```
