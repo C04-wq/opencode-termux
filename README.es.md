@@ -11,7 +11,7 @@
 
 <p align="center">
   <strong>Agente de programación con IA OpenCode ejecutándose de forma nativa en Android mediante Termux.</strong><br>
-  Empaquetado del entorno de ejecución ARM64 · Verificación SHA-256 · Instalación gestionada · Actualizaciones con consentimiento
+  Empaquetado del entorno de ejecución ARM64 · Verificación SHA-256 · Instalación gestionada
 </p>
 
 
@@ -51,13 +51,15 @@ El resultado es una instalación directa en Termux. No requiere contenedor proot
 
 ### Características principales
 
+- **Actualizaciones interactivas con consentimiento:** comprueba si existe una versión más reciente al iniciar OpenCode en una terminal interactiva y pregunta antes de instalarla.
+
 - **Ejecución nativa en Termux:** funciona directamente en Termux, sin proot ni máquina virtual Linux.
 - **Compatibilidad ARM64:** dispositivos Android cuyo entorno Termux informa `aarch64`.
 - **Detección de versiones entre ramas principales:** selecciona la versión estable más reciente de OpenCode entre todas las versiones principales (por ejemplo, de 1.x a 2.x).
 - **Paquete verificado:** comprueba el archivo descargado con el hash SHA-256 registrado en este repositorio antes de extraerlo.
 - **Entorno musl incluido:** incorpora el cargador y las bibliotecas necesarias; no necesita `patchelf`, Node.js ni npm en el teléfono.
 - **Integración de red con Termux:** utiliza la configuración DNS y el paquete de certificados CA de Termux.
-- **Actualizaciones interactivas con consentimiento:** comprueba si existe una versión más reciente al iniciar OpenCode en una terminal interactiva y pregunta antes de instalarla.
+
 - **Comando de administración:** permite instalar, actualizar, desinstalar, inspeccionar y diagnosticar la instalación gestionada.
 - **Instalación defensiva:** valida el paquete, prepara los archivos antes de activarlos, conserva el entorno anterior durante el reemplazo e intenta restaurarlo si falla la activación o la comprobación final.
 - **Protección de datos:** el desinstalador elimina únicamente el entorno gestionado y sus lanzadores.
