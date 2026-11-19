@@ -1,6 +1,6 @@
 <!--
-  Gardez ce document synchronisé avec README.md, install.sh, manager.sh,
-  uninstall.sh, scripts/, release-checksums.json et .github/workflows/.
+  Gardez ce document synchronisé avec README.md, README.es.md, README.en.md,
+  install.sh, manager.sh, uninstall.sh, scripts/, release-checksums.json et .github/workflows/.
 -->
 
 <p align="center">
@@ -10,7 +10,7 @@
 <h1 align="center">OpenCode pour Termux</h1>
 
 <p align="center">
-  <strong>Agent de programmation IA OpenCode exécuté nativement dans Android Termux.</strong><br>
+  <strong>Agent de programmation OpenCode assisté par IA, exécuté nativement sur Android avec Termux.</strong><br>
   Empaquetage de l’environnement d’exécution ARM64 · Vérification SHA-256 · Installation gérée · Mises à jour avec consentement
 </p>
 
@@ -24,7 +24,6 @@
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/release.yml?branch=main&label=Build%20release&style=for-the-badge" alt="Workflow de release"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="Licence MIT"></a>
 </p>
-
 
 <p align="center">
   <a href="#-à-propos-du-projet">Projet</a> ·
