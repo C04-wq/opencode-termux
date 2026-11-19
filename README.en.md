@@ -50,6 +50,8 @@ The result is a direct Termux installation. It does not require a proot containe
 
 ### Highlights
 
+- **Interactive, consent-based updates:** checks for a newer OpenCode runtime on interactive launches and asks before installing it.
+
 - **Native Termux execution:** runs directly in the Termux environment; no proot or Linux VM.
 - **ARM64 support:** targets Android devices whose Termux environment reports `aarch64`.
 - **Cross-major release discovery:** selects the newest stable upstream OpenCode version across major versions (for example, 1.x to 2.x).
