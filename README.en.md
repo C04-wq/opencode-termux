@@ -11,7 +11,7 @@
 
 <p align="center">
   <strong>OpenCode AI coding agent running natively on Android with Termux.</strong><br>
-  ARM64 runtime packaging · SHA-256 verification · managed installation · consent-based updates
+  ARM64 runtime packaging · SHA-256 verification · managed installation
 </p>
 
 <p align="center">
@@ -56,7 +56,7 @@ The result is a direct Termux installation. It does not require a proot containe
 - **Verified package:** validates the downloaded archive against the SHA-256 digest recorded in this repository before extraction.
 - **Bundled musl runtime:** includes the loader and required runtime libraries; no `patchelf`, Node.js or npm is needed on the phone.
 - **Termux networking integration:** uses Termux's resolver configuration and CA certificate bundle.
-- **Interactive, consent-based updates:** checks for a newer OpenCode runtime on interactive launches and asks before installing it.
+
 - **Management command:** install, update, uninstall, inspect and diagnose this project's managed installation.
 - **Defensive installation:** validates the package, stages files before activation, keeps the previous runtime during replacement and attempts rollback if activation or the final runtime check fails.
 - **User-data preservation:** the uninstaller removes only the managed runtime and its launchers.
