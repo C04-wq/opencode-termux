@@ -1,6 +1,6 @@
 <!--
-  Keep this document aligned with install.sh, manager.sh, uninstall.sh,
-  scripts/, release-checksums.json and .github/workflows/.
+  Keep this document aligned with README.md, README.es.md, README.fr.md,
+  install.sh, manager.sh, uninstall.sh, scripts/, release-checksums.json and .github/workflows/.
 -->
 
 <p align="center">
@@ -10,8 +10,12 @@
 <h1 align="center">OpenCode for Termux</h1>
 
 <p align="center">
-  <strong>OpenCode AI coding agent running natively in Android Termux.</strong><br>
+  <strong>OpenCode AI coding agent running natively on Android with Termux.</strong><br>
   ARM64 runtime packaging · SHA-256 verification · managed installation · consent-based updates
+</p>
+
+<p align="center">
+  <a href="./README.md">Español</a> · <a href="./README.en.md">English</a> · <a href="./README.fr.md">Français</a>
 </p>
 
 <p align="center">
@@ -19,10 +23,6 @@
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Validation workflow"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/release.yml?branch=main&label=Release%20build&style=for-the-badge" alt="Release workflow"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="MIT license"></a>
-</p>
-
-<p align="center">
-  <a href="./README.md">Español</a> · <a href="./README.en.md">English</a> · <a href="./README.fr.md">Français</a>
 </p>
 
 <p align="center">
