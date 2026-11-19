@@ -50,6 +50,8 @@ Le résultat est une installation directe dans Termux. Aucun conteneur proot, ma
 
 ### Fonctionnalités principales
 
+- **Mises à jour interactives avec consentement :** recherche une version plus récente au lancement interactif d’OpenCode et demande confirmation avant l’installation.
+
 - **Exécution native dans Termux :** fonctionne directement dans Termux, sans proot ni machine virtuelle Linux.
 - **Prise en charge ARM64 :** cible les appareils Android dont l’environnement Termux indique `aarch64`.
 - **Détection des versions entre versions majeures :** sélectionne la dernière version stable d’OpenCode toutes versions majeures confondues (par exemple, de 1.x à 2.x).
