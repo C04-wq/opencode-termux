@@ -51,6 +51,8 @@ El resultado es una instalación directa en Termux. No requiere contenedor proot
 
 ### Características principales
 
+- **Actualizaciones interactivas con consentimiento:** comprueba si existe una versión más reciente al iniciar OpenCode en una terminal interactiva y pregunta antes de instalarla.
+
 - **Ejecución nativa en Termux:** funciona directamente en Termux, sin proot ni máquina virtual Linux.
 - **Compatibilidad ARM64:** dispositivos Android cuyo entorno Termux informa `aarch64`.
 - **Detección de versiones entre ramas principales:** selecciona la versión estable más reciente de OpenCode entre todas las versiones principales (por ejemplo, de 1.x a 2.x).
