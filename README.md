@@ -1,5 +1,5 @@
 <!--
-  Mantén este documento sincronizado con README.es.md, README.en.md, README.fr.md,
+  Mantén este documento sincronizado con README.md, README.es.md, README.en.md, README.fr.md,
   install.sh, manager.sh, uninstall.sh, scripts/, release-checksums.json y .github/workflows/.
 -->
 
