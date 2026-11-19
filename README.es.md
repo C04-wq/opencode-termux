@@ -22,7 +22,7 @@
 <p align="center">
   <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?display_name=tag&style=for-the-badge" alt="Última versión"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Flujo de validación"></a>
-  <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml"><img src="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml/badge.svg?branch=main" alt="Flujo de releases"></a>
+  <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/release.yml?branch=main&label=Release%20build&style=for-the-badge" alt="Flujo de releases"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="Licencia MIT"></a>
 </p>
 
