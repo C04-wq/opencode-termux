@@ -11,7 +11,7 @@
 
 <p align="center">
   <strong>Agent de programmation OpenCode assisté par IA, exécuté nativement sur Android avec Termux.</strong><br>
-  Empaquetage de l’environnement d’exécution ARM64 · Vérification SHA-256 · Installation gérée · Mises à jour avec consentement
+  Empaquetage de l’environnement d’exécution ARM64 · Vérification SHA-256 · Installation gérée
 </p>
 
 <p align="center">
@@ -56,7 +56,7 @@ Le résultat est une installation directe dans Termux. Aucun conteneur proot, ma
 - **Paquet vérifié :** contrôle l’archive téléchargée avec le condensat SHA-256 enregistré dans ce dépôt avant extraction.
 - **Environnement musl intégré :** inclut le chargeur et les bibliothèques nécessaires ; aucun `patchelf`, Node.js ou npm n’est requis sur le téléphone.
 - **Intégration réseau Termux :** utilise la configuration DNS et le bundle de certificats CA de Termux.
-- **Mises à jour interactives avec consentement :** recherche une version plus récente au lancement interactif d’OpenCode et demande confirmation avant l’installation.
+
 - **Commande de gestion :** permet d’installer, mettre à jour, désinstaller, inspecter et diagnostiquer l’installation gérée.
 - **Installation défensive :** valide le paquet, prépare les fichiers avant activation, conserve l’environnement précédent pendant le remplacement et tente un retour arrière en cas d’échec de l’activation ou du contrôle final.
 - **Préservation des données :** le désinstallateur supprime uniquement l’environnement géré et ses lanceurs.
