@@ -9,10 +9,7 @@
 
 <h1 align="center">OpenCode para Termux</h1>
 
-<p align="center">
-  <strong>Agente de programación con IA OpenCode ejecutándose de forma nativa en Android Termux.</strong><br>
-  Paquete ARM64 · Verificación SHA-256 · Instalación gestionada · Actualizaciones con consentimiento
-</p>
+**OpenCode para Termux** es un proyecto comunitario que adapta y empaqueta el agente de programación con inteligencia artificial [OpenCode](https://opencode.ai/) para ejecutarlo directamente en dispositivos Android mediante Termux. Su objetivo es ofrecer una experiencia de desarrollo desde la terminal, aprovechando las capacidades del entorno Android.
 
 <p align="center">
   <a href="./README.md">Español</a> · <a href="./README.en.md">English</a> · <a href="./README.fr.md">Français</a>
