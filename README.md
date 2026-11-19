@@ -1,6 +1,6 @@
 <!--
-  Mantén este documento sincronizado con README.md, install.sh, manager.sh,
-  uninstall.sh, scripts/, release-checksums.json y .github/workflows/.
+  Mantén este documento sincronizado con README.es.md, README.en.md, README.fr.md,
+  install.sh, manager.sh, uninstall.sh, scripts/, release-checksums.json y .github/workflows/.
 -->
 
 <p align="center">
@@ -10,7 +10,7 @@
 <h1 align="center">OpenCode para Termux</h1>
 
 <p align="center">
-  <strong>Agente de programación con IA OpenCode ejecutándose de forma nativa en Android Termux.</strong><br>
+  <strong>Agente de programación con IA OpenCode ejecutándose de forma nativa en Android mediante Termux.</strong><br>
   Empaquetado del entorno de ejecución ARM64 · Verificación SHA-256 · Instalación gestionada · Actualizaciones con consentimiento
 </p>
 
@@ -25,7 +25,6 @@
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/release.yml?branch=main&label=Compilación%20de%20release&style=for-the-badge" alt="Flujo de releases"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="Licencia MIT"></a>
 </p>
-
 
 <p align="center">
   <a href="#-acerca-del-proyecto">Proyecto</a> ·
@@ -336,6 +335,7 @@ El validador exige exactamente estas seis entradas. Rechaza rutas adicionales, d
 ├── release-checksums.json
 ├── opencode-logo.svg
 ├── README.md
+├── README.en.md
 ├── README.es.md
 └── README.fr.md
 ```
