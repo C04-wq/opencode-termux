@@ -47,6 +47,9 @@ assert.ok(!sourcePatch.includes("'    if (prefix) return\\n'"), "Termux must not
 assert.ok(!sourcePatch.includes('exec(["sh", installer]'), "Bash installer must never be invoked through sh");
 
 const workflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
+assert.ok(workflow.includes("group: validate-native-${{ github.event.pull_request.number || github.ref }}"), "validation runs for the same PR must share one concurrency group");
+assert.ok(workflow.includes("cancel-in-progress: true"), "new PR validation must cancel superseded runs");
+
 for (const token of [
   "https://github.com/anomalyco/opentui.git",
   "tools/supply-chain-lock.json",
