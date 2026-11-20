@@ -15,9 +15,9 @@ for (const token of [
   "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "DEFERRED_RUNTIME_ID", ".opencode-termux-deferred-version", "A new Termux runtime is available", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
-const launcherStart = 'cat > "$STAGE/opencode-launcher" <<\'LAUNCHER\'\\n';
-const launcherEnd = "\\nLAUNCHER";
-const launcherOffset = installer.indexOf(launcherStart);
+const newline = String.fromCharCode(10);
+const launcherStart = 'cat > "$STAGE/opencode-launcher" <<\\'LAUNCHER\\'' + newline;
+const launcherEnd = newline + "LAUNCHER";
 assert.notEqual(launcherOffset, -1, "installer launcher heredoc is missing");
 const launcherBodyStart = launcherOffset + launcherStart.length;
 const launcherBodyEnd = installer.indexOf(launcherEnd, launcherBodyStart);
