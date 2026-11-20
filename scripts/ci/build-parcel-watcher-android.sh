@@ -118,10 +118,12 @@ if printf '%s\n' "$needed" | grep -Eq 'lib(c|m|dl|pthread|rt)\.so\.[0-9]'; then
   echo "watcher: glibc-linked dependency found: $needed" >&2
   exit 1
 fi
-readelf --dyn-syms "$tmp/watcher.node" | grep -q 'napi_register_module_v1' || {
+dyn_symbols="$(readelf --dyn-syms --wide "$tmp/watcher.node")"
+if ! grep -F 'napi_register_module_v1' <<<"$dyn_symbols" >/dev/null; then
   echo "watcher: N-API registration export is missing" >&2
+  printf '%s\n' "$dyn_symbols" | grep -E 'napi_register|node_api_module' >&2 || true
   exit 1
-}
+fi
 
 install -m 0644 "$tmp/watcher.node" "$OUT"
 echo "watcher: built $TARGET_ARCH Android/Bionic N-API module -> $OUT ($(stat -c%s "$OUT") bytes)"
