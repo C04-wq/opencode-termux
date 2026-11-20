@@ -108,17 +108,31 @@ RESOLVER="$PREFIX/etc/resolv.conf"
 [[ -f "$META" ]] || { echo "Error: release-checksums.json missing." >&2; exit 1; }
 VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 HASH="$(sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' "$META" | head -n1)"
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "Error: invalid version." >&2; exit 1; }
+SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
 [[ "$HASH" =~ ^[a-f0-9]{64}$ ]] || { echo "Error: invalid checksum." >&2; exit 1; }
-for cmd in git curl tar sha256sum; do
+[[ "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" && "$SOURCE_TAG" == "v$VERSION" ]] || {
+  echo "Error: native runtime source is not an approved, version-matched release." >&2
+  exit 1
+}
+for cmd in git curl tar sha256sum sed find grep awk; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     case "$cmd" in sha256sum) package="coreutils" ;; *) package="$cmd" ;; esac
     run_quiet pkg install -y "$package"
   fi
 done
+# The native bundle runs on Termux Bun and loads Bionic modules at runtime.
+if ! command -v bun >/dev/null 2>&1 || ! command -v rg >/dev/null 2>&1 || [[ ! -s "$PREFIX/lib/libc++_shared.so" ]]; then
+  echo "Preparing native runtime dependencies..."
+  run_quiet pkg install -y bun ripgrep libc++
+fi
+for cmd in git curl tar sha256sum sed find grep awk bun rg; do
+  command -v "$cmd" >/dev/null 2>&1 || { echo "Missing required command: $cmd" >&2; exit 1; }
+done
+[[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "Termux libc++ shared library is missing." >&2; exit 1; }
 [[ -f "$CERT" ]] || run_quiet pkg install -y ca-certificates
 [[ -f "$RESOLVER" ]] || run_quiet pkg install -y resolv-conf
-for cmd in git curl tar sha256sum; do command -v "$cmd" >/dev/null 2>&1 || { echo "Missing command: $cmd" >&2; exit 1; }; done
 [[ -f "$CERT" && -f "$RESOLVER" ]] || { echo "Termux TLS/resolver files are missing." >&2; exit 1; }
 
 STAGE="$(mktemp -d)"
@@ -179,25 +193,30 @@ cleanup() {
   exit "$status"
 }
 trap cleanup EXIT
-URL="https://github.com/C04-wq/opencode-termux/releases/download/v$VERSION/opencode-termux-aarch64.tar.gz"
+ARCHIVE="opencode-$VERSION-android-aarch64-bundle.tar.gz"
+URL="https://github.com/$SOURCE_REPO_PIN/releases/download/$SOURCE_TAG/$ARCHIVE"
 echo "Downloading OpenCode $VERSION..."
 curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
 ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz" | awk '{print $1}')"
 [[ "$ACTUAL" == "$HASH" ]] || { echo "Error: SHA-256 mismatch; refusing to install." >&2; exit 1; }
 echo "Verifying package integrity... OK"
 bash "$REPO_DIR/scripts/validate-runtime-archive.sh" "$STAGE/runtime.tar.gz" "$STAGE/files"
-FILES="opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime"
-chmod u+x "$STAGE/files/opencode" "$STAGE/files/ld-musl-aarch64.so.1"
-# The packaged ELF has an absolute PT_INTERP pointing at the final runtime
-# directory. It cannot be executed from STAGE before activation. The
-# transactional final smoke test below runs it from RUNTIME and restores the
-# previous runtime automatically if that test fails.
-echo "Runtime package prepared; executable test will run after activation."
+# Release assets are built with a prefix placeholder so the same pinned bundle
+# works in every Termux installation path.
+find "$STAGE/files/lib/opencode" -type f -name '*.js' -exec \
+  sed -i "s|@TERMUX_PREFIX@/lib/opencode|$RUNTIME/lib/opencode|g" {} +
+if grep -rlq '@TERMUX_PREFIX@' "$STAGE/files/lib/opencode"; then
+  echo "Error: native bundle contains an unresolved install path." >&2
+  exit 1
+fi
+chmod 755 "$STAGE/files/bin/opencode"
+echo "Native runtime package prepared; executable test will run after activation."
 
 mkdir -p "$PREFIX/lib" "$PREFIX/bin"
-NEW="$PREFIX/lib/.opencode-termux-new-$$"
-rm -rf "$NEW"; mkdir "$NEW"
-for file in $FILES; do cp -a "$STAGE/files/$file" "$NEW/$file"; done
+NEW="$PREFIX/lib/.opencode-termux-new-$"
+rm -rf "$NEW"; mkdir -p "$NEW"
+cp -a "$STAGE/files/bin" "$NEW/bin"
+cp -a "$STAGE/files/lib" "$NEW/lib"
 printf '%s\n' "$VERSION" > "$NEW/.opencode-termux-version"
 chmod 600 "$NEW/.opencode-termux-version"
 printf '%s\n' "$REPO_DIR" > "$NEW/.opencode-termux-repo-dir"
@@ -217,7 +236,6 @@ export OPENCODE_DISABLE_AUTOUPDATE=1
 export SSL_CERT_FILE="/data/data/com.termux/files/usr/etc/tls/cert.pem"
 PREFIX="/data/data/com.termux/files/usr"
 RUNTIME="$PREFIX/lib/opencode-termux"
-export LD_LIBRARY_PATH="$RUNTIME${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
 UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
@@ -294,7 +312,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
   fi
 fi
 
-exec "$RUNTIME/opencode" "$@"
+exec "$RUNTIME/bin/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
 
@@ -427,7 +445,7 @@ for executable in "$LAUNCHER" "$UPDATER" "$MANAGER"; do
 done
 
 echo "Checking installed runtime..."
-FINAL_VERSION="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
+FINAL_VERSION="$( unset LD_PRELOAD; export SSL_CERT_FILE="$CERT"; "$RUNTIME/bin/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
 rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
