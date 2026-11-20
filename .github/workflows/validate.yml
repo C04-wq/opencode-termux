@@ -79,6 +79,23 @@ jobs:
           bash scripts/test-runtime-archive.sh
           node <<'NODE'
           const fs = require('fs');
+          const cp = require('child_process');
+          const installerSource = fs.readFileSync('install.sh', 'utf8');
+          function extractGeneratedScript(openingPrefix, closing) {
+            const lines = installerSource.split(String.fromCharCode(10));
+            const start = lines.findIndex((line) => line.startsWith(openingPrefix));
+            if (start < 0) throw new Error('missing generated script heredoc: ' + openingPrefix);
+            const end = lines.indexOf(closing, start + 1);
+            if (end < 0) throw new Error('unterminated generated script heredoc: ' + openingPrefix);
+            return lines.slice(start + 1, end).join(String.fromCharCode(10)) + String.fromCharCode(10);
+          }
+          const generatedLauncher = '/tmp/opencode-termux-generated-launcher.sh';
+          const generatedUpdater = '/tmp/opencode-termux-generated-updater.sh';
+          fs.writeFileSync(generatedLauncher, extractGeneratedScript('cat > "$STAGE/opencode-launcher"', 'LAUNCHER'));
+          fs.writeFileSync(generatedUpdater, extractGeneratedScript('cat > "$STAGE/opencode-termux-update"', 'UPDATER'));
+          cp.execFileSync('bash', ['-n', generatedLauncher]);
+          cp.execFileSync('bash', ['-n', generatedUpdater]);
+          cp.execFileSync('shellcheck', ['-S', 'error', generatedLauncher, generatedUpdater]);
           const sums = JSON.parse(fs.readFileSync('release-checksums.json', 'utf8'));
           if (!/^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
             throw new Error('invalid OpenCode release version');
@@ -100,11 +117,18 @@ jobs:
           if (!installer.includes('installed runtime failed final test')) {
             throw new Error('installer must verify the runtime after activation');
           }
-          if (!installer.includes('npm uninstall -g --ignore-scripts opencode-termux') || !installer.includes('Found legacy npm installation')) {
+          if (!installer.includes('npm uninstall -g --ignore-scripts opencode-termux') || !installer.includes('LEGACY_NPM_OWNS_COMMAND=1')) {
             throw new Error('installer must replace the known legacy npm package before activating its launcher');
           }
           if (!installer.includes('readlink -f "$LAUNCHER"') || !installer.includes('"$NPM_OPENCODE_PACKAGE"/*')) {
             throw new Error('installer must verify that the known npm package actually owns the command before uninstalling it');
+          }
+          const npmRemovalIndex = installer.indexOf('run_quiet npm uninstall -g --ignore-scripts opencode-termux');
+          const updaterPreflightIndex = installer.indexOf('# Protect the updater path too:');
+          const managerPreflightIndex = installer.indexOf('# Protect the manager path too:');
+          if (npmRemovalIndex < 0 || updaterPreflightIndex < 0 || managerPreflightIndex < 0 ||
+              updaterPreflightIndex > npmRemovalIndex || managerPreflightIndex > npmRemovalIndex) {
+            throw new Error('installer must validate updater and manager collisions before removing a legacy package');
           }
           if (!installer.includes('get_dpkg_package_owner "$LAUNCHER"') ||
               !ownerHelper.includes('dpkg-query -S "$1"') ||
@@ -119,7 +143,7 @@ jobs:
           if (!installer.includes('unrecognized OpenCode command already exists') || !installer.includes('It has been left untouched')) {
             throw new Error('installer must refuse to overwrite an unrecognized command');
           }
-          if (!installer.includes('unrecognized command already exists at $UPDATER') || !installer.includes("grep -Fq 'git -C' \"$UPDATER\"")) {
+          if (!installer.includes('unrecognized command already exists at $UPDATER') || !installer.includes("grep -Fq 'OPENCODE_TERMUX_UPDATER=1' \"$UPDATER\"")) {
             throw new Error('installer must refuse to overwrite an unrecognized updater command');
           }
           const manager = fs.readFileSync('manager.sh', 'utf8');
@@ -140,7 +164,7 @@ jobs:
             throw new Error('installer must install the manager command');
           }
           const uninstaller = fs.readFileSync('uninstall.sh', 'utf8');
-          if (!uninstaller.includes('OPENCODE_TERMUX_MANAGER=1') || !uninstaller.includes('"$MANAGER"')) {
+          if (!uninstaller.includes('OPENCODE_TERMUX_MANAGER=1') || !uninstaller.includes('"$MANAGER"') || !uninstaller.includes('OPENCODE_TERMUX_UPDATER=1')) {
             throw new Error('uninstaller must verify and remove the manager command');
           }
           if (!uninstaller.includes('marker missing') || !uninstaller.includes('Nothing was removed')) {
@@ -164,13 +188,77 @@ jobs:
           if (!installer.includes('find "$HOME" -maxdepth 5') || !installer.includes('status --porcelain --untracked-files=all')) {
             throw new Error('installer must discover existing clones and protect dirty checkouts');
           }
+          const filemodeConfigIndex = installer.indexOf('git -C "$REPO_DIR" config core.filemode false');
+          const checkoutChmodIndex = installer.indexOf('chmod 755 "$REPO_DIR/opencode-termux" "$REPO_DIR/manager.sh"');
+          if (filemodeConfigIndex < 0 || checkoutChmodIndex < 0 || filemodeConfigIndex > checkoutChmodIndex) {
+            throw new Error('installer must make checkout manager entry points executable without creating Git mode-only dirt');
+          }
           if (!installer.includes('mv "$REPO_DIR" "$SOURCE_REPO"')) {
             throw new Error('installer must migrate an existing clean clone to the managed checkout');
           }
-          if (!installer.includes('run_quiet()') || !installer.includes('Preparing OpenCode for Termux...')) {
-            throw new Error('installer must keep successful setup output concise and use English status messages');
+          if (!installer.includes('run_quiet()') || !installer.includes('ui_start') || !installer.includes('OpenCode installed successfully.')) {
+            throw new Error('installer must keep setup output concise and show the terminal UI and English success message');
           }
-          if (!installer.includes('LOG="\\$(mktemp)"')) {
+          if (!installer.includes('ui_animation_start') || !installer.includes('ui_animation_stop') ||
+              !installer.includes('sleep 0.7') || !installer.includes('curl --fail --location --progress-bar')) {
+            throw new Error('installer must animate the logo during the real download progress and stop the animation afterwards');
+          }
+          const installerAnimation = installer.slice(installer.indexOf('ui_animation_start() {'), installer.indexOf('ui_animation_stop() {'));
+          const launcherAnimationStart = installer.indexOf('ui_animation_start() {', installer.indexOf('UPDATE_URL='));
+          const launcherAnimationStop = installer.indexOf('ui_animation_stop() {', launcherAnimationStart);
+          const launcherAnimation = installer.slice(launcherAnimationStart, launcherAnimationStop);
+          const launcherAnimationStopBlock = installer.slice(launcherAnimationStop, installer.indexOf('\n}', launcherAnimationStop) + 2);
+          if (!installerAnimation.includes(String.raw`\033[21A`) ||
+              !launcherAnimation.includes(String.raw`\033[28A`) ||
+              !launcherAnimationStopBlock.includes(String.raw`\033[28A`)) {
+            throw new Error('logo animation cursor offsets must match the installer and update-menu layouts');
+          }
+          const updateLogoIndex = installer.indexOf('ui_draw_logo 241', installer.indexOf('UPDATE_URL='));
+          const updateOptionsIndex = installer.indexOf("printf '○ Install update now");
+          const updateAnimationIndex = installer.indexOf('ui_animation_start', updateOptionsIndex);
+          if (!installer.includes("printf '\\n'") ||
+              !installer.includes("printf '\\033[3A'") ||
+              !installer.includes("printf '\\033[2K\\n'")) {
+            throw new Error('update choices must have a blank line between them and redraw as a three-row menu');
+          }
+          if (!installer.includes('○ Install update now') ||
+              !installer.includes('○ Wait for the next version') ||
+              !installer.includes('●') ||
+              !installer.includes('32m●')) {
+            throw new Error('update menu must show empty circles and green filled circles for selected choices');
+          }
+          const gradientStart = installer.indexOf('      print_gradient_text() {', installer.indexOf('UPDATE_URL='));
+          const gradientEnd = installer.indexOf('      draw_update_menu() {', gradientStart);
+          const gradientHelper = installer.slice(gradientStart, gradientEnd);
+          const gradientMenu = installer.slice(gradientEnd, installer.indexOf('      ui_animation_start', gradientEnd));
+          if (gradientStart < 0 || gradientEnd < 0 ||
+              !gradientHelper.includes('48;2;%d;%d;%dm') ||
+              !gradientHelper.includes('62 + progress * 150 / 100') ||
+              !gradientHelper.includes('1;30m') ||
+              !gradientMenu.includes("print_gradient_text 'Install update now'") ||
+              !gradientMenu.includes("print_gradient_text 'Wait for the next version'")) {
+            throw new Error('the selected update option must use a soft white gradient with readable dark text');
+          }
+          const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J\\n'");
+          const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
+          if (updateLogoIndex < 0 || updateOptionsIndex < 0 || updateAnimationIndex < updateOptionsIndex ||
+              updateClearIndex < 0 || updateCommandIndex < updateClearIndex) {
+            throw new Error('update menu must show the animated logo above its options and clear the options before displaying download progress');
+          }
+          if (!installer.includes("printf '\\033[?25l' >/dev/tty") ||
+              !installer.includes("printf '\\033[?25h' >/dev/tty") ||
+              !installer.includes("trap 'ui_handle_signal 130' INT") ||
+              !installer.includes("trap 'ui_handle_signal 143' TERM") ||
+              !installer.includes("trap 'ui_handle_signal 129' HUP") ||
+              !installer.includes('ui_restore_cursor')) {
+            throw new Error('installer must hide the cursor for the full operation and restore it on exit or signals');
+          }
+          const updateFlow = installer.slice(updateCommandIndex - 350, updateCommandIndex + 500);
+          if (!updateFlow.includes('Keep the cursor hidden through the updater') ||
+              updateFlow.indexOf('restore_cursor') < updateFlow.indexOf('"$PREFIX/bin/opencode-termux-update"')) {
+            throw new Error('interactive update must keep the cursor hidden until the updater and installer finish');
+          }
+          if (!installer.includes('LOG="$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
           }
           if (!builder.includes('OPENCODE_TERMUX_ALPINE_VERSION:-$ALPINE_VERSION')) {

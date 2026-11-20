@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Report the exact failing activation step before the EXIT trap rolls back.
-trap 'status=$?; printf "Error: installer failed at line %s (exit %s): %s\\n" "$LINENO" "$status" "$BASH_COMMAND" >&2' ERR
+trap 'status=$?; printf "\\nError: installer failed at line %s (exit %s): %s\\n" "$LINENO" "$status" "$BASH_COMMAND" >&2' ERR
 
 PREFIX="/data/data/com.termux/files/usr"
 SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
@@ -27,6 +27,101 @@ run_quiet() {
   fi
 }
 
+# Compact terminal UI: show the project mark before the real download meter.
+# When stdout is not a terminal, keep output suitable for scripts and CI.
+UI_ENABLED=0
+UI_STARTED="${OPENCODE_TERMUX_UI_STARTED:-0}"
+if [[ -t 1 ]]; then UI_ENABLED=1; fi
+UI_ANIMATION_PID=""
+ui_draw_logo() {
+  local shade="$1" row col padding=0 columns="${COLUMNS:-0}"
+  if [[ "$columns" =~ ^[0-9]+$ ]] && (( columns > 32 )); then
+    padding=$(( (columns - 32) / 2 ))
+  fi
+  for (( row=0; row<20; row++ )); do
+    printf '%*s' "$padding" ''
+    for (( col=0; col<16; col++ )); do
+      if (( row >= 8 && row < 16 && col >= 4 && col < 12 )); then
+        printf '\033[48;2;75;70;70m  '
+      else
+        printf '\033[48;2;%s;%s;%sm  ' "$shade" "$((shade - 5))" "$((shade - 5))"
+      fi
+    done
+    printf '\033[0m\n'
+  done
+}
+UI_CURSOR_HIDDEN=0
+ui_hide_cursor() {
+  (( UI_ENABLED == 1 )) || return 0
+  [[ "$UI_CURSOR_HIDDEN" == 1 ]] && return 0
+  printf '\033[?25l' >/dev/tty 2>/dev/null || return 0
+  UI_CURSOR_HIDDEN=1
+}
+ui_restore_cursor() {
+  [[ "$UI_CURSOR_HIDDEN" == 1 ]] || return 0
+  printf '\033[?25h' >/dev/tty 2>/dev/null || true
+  UI_CURSOR_HIDDEN=0
+}
+ui_handle_signal() {
+  local status="$1"
+  ui_animation_stop
+  ui_restore_cursor
+  exit "$status"
+}
+trap 'ui_restore_cursor' EXIT
+trap 'ui_handle_signal 130' INT
+trap 'ui_handle_signal 143' TERM
+trap 'ui_handle_signal 129' HUP
+ui_start() {
+  (( UI_ENABLED == 1 )) || return 0
+  ui_hide_cursor
+  [[ "$UI_STARTED" == 1 ]] && return 0
+  printf '\n'
+  ui_draw_logo 241
+  printf '\n'
+  UI_STARTED=1
+  export OPENCODE_TERMUX_UI_STARTED=1
+}
+ui_animation_start() {
+  (( UI_ENABLED == 1 )) || return 0
+  [[ -n "$UI_ANIMATION_PID" ]] && return 0
+  (
+    local shade=241
+    while :; do
+      printf '\033[s\033[21A'
+      ui_draw_logo "$shade"
+      printf '\033[u'
+      if [[ "$shade" == 241 ]]; then shade=255; else shade=241; fi
+      sleep 0.7
+    done
+  ) >/dev/tty 2>/dev/null &
+  UI_ANIMATION_PID=$!
+}
+ui_animation_stop() {
+  [[ -n "$UI_ANIMATION_PID" ]] || return 0
+  kill "$UI_ANIMATION_PID" 2>/dev/null || true
+  wait "$UI_ANIMATION_PID" 2>/dev/null || true
+  UI_ANIMATION_PID=""
+  if (( UI_ENABLED == 1 )); then
+    printf '\033[s\033[21A'
+    ui_draw_logo 241
+    printf '\033[u'
+  fi
+}
+ui_finish() {
+  (( UI_ENABLED == 1 )) || return 0
+  ui_animation_stop
+  printf '\n\n'
+  if [[ "$INSTALL_ACTION" == "updated" ]]; then
+    printf '\033[32mOpenCode updated successfully. The update process completed successfully.\033[0m\n'
+  else
+    printf '\033[32mOpenCode installed successfully.\033[0m\n'
+  fi
+  printf '  Version: %s\n' "$VERSION"
+  printf '  Run: opencode\n\n'
+}
+ui_start
+
 # Support a normal checkout and: curl -fsSL .../install.sh | bash
 # A piped script has no source directory. Adopt an existing clean clone when
 # possible, moving it to the managed location so users do not keep two clones.
@@ -42,7 +137,7 @@ is_project_checkout() {
 }
 
 if ! is_project_checkout "$REPO_DIR"; then
-  echo "Preparing OpenCode for Termux..."
+
   if ! command -v git >/dev/null 2>&1; then
     run_quiet pkg install -y git
   fi
@@ -75,6 +170,10 @@ if ! is_project_checkout "$REPO_DIR"; then
   fi
 
   if [[ -n "$REPO_DIR" ]]; then
+    # Termux may expose executable-bit drift from previous installs as Git
+    # modifications. Ignore mode-only differences before checking for a dirty
+    # checkout, but only after the repository origin has been verified above.
+    run_quiet git -C "$REPO_DIR" config core.filemode false
     if [[ -n "$(git -C "$REPO_DIR" status --porcelain --untracked-files=all)" ]]; then
       echo "Error: an existing OpenCode Termux clone has local changes:" >&2
       echo "  $REPO_DIR" >&2
@@ -82,26 +181,38 @@ if ! is_project_checkout "$REPO_DIR"; then
       echo "The clone and its files have been left untouched." >&2
       exit 1
     fi
-    echo "Found existing clone: $REPO_DIR"
+
     run_quiet git -C "$REPO_DIR" pull --ff-only
     if [[ "$REPO_DIR" != "$SOURCE_REPO" ]]; then
       if mv "$REPO_DIR" "$SOURCE_REPO"; then
-        echo "Migrated existing clone to $SOURCE_REPO"
+
         REPO_DIR="$SOURCE_REPO"
       else
-        echo "Could not move the clone; continuing from its original location." >&2
+        printf 'Warning: could not move the clone; continuing from its original location.\n' >&2
       fi
     fi
   else
     REPO_DIR="$SOURCE_REPO"
+
     run_quiet git clone -- https://github.com/C04-wq/opencode-termux.git "$REPO_DIR"
   fi
   is_project_checkout "$REPO_DIR" || { echo "Error: repository checkout is incomplete." >&2; exit 1; }
+
   exec bash "$REPO_DIR/install.sh" "$@"
 fi
 
+# Keep executable entry points runnable in the managed checkout. Termux may
+# report chmod-only changes as Git modifications, so disable filemode tracking
+# before changing permissions; content changes remain detectable.
+run_quiet git -C "$REPO_DIR" config core.filemode false
+chmod 755 "$REPO_DIR/opencode-termux" "$REPO_DIR/manager.sh"
+
 META="$REPO_DIR/release-checksums.json"
 RUNTIME="$PREFIX/lib/opencode-termux"
+INSTALL_ACTION="installed"
+if [[ -s "$RUNTIME/.opencode-termux-version" ]]; then
+  INSTALL_ACTION="updated"
+fi
 CERT="$PREFIX/etc/tls/cert.pem"
 RESOLVER="$PREFIX/etc/resolv.conf"
 [[ "$(uname -m)" == aarch64 ]] || { echo "Error: ARM64/aarch64 only." >&2; exit 1; }
@@ -138,6 +249,7 @@ LAUNCHERS_TOUCHED=0
 cleanup() {
   local status=$?
   trap - EXIT
+  ui_animation_stop
   rm -rf "$STAGE"
   if [[ -n "$NEW" ]]; then rm -rf "$NEW"; fi
   if (( status != 0 )); then
@@ -176,25 +288,33 @@ cleanup() {
       fi
     fi
   fi
+  ui_restore_cursor
   exit "$status"
 }
 trap cleanup EXIT
 URL="https://github.com/C04-wq/opencode-termux/releases/download/v$VERSION/opencode-termux-aarch64.tar.gz"
-echo "Downloading OpenCode $VERSION..."
-curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
+
+if (( UI_ENABLED == 1 )); then
+  # Pulse the logo while curl renders its real byte-based transfer progress.
+  ui_animation_start
+  curl --fail --location --progress-bar --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
+else
+  curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
+fi
 ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz" | awk '{print $1}')"
 [[ "$ACTUAL" == "$HASH" ]] || { echo "Error: SHA-256 mismatch; refusing to install." >&2; exit 1; }
-echo "Verifying package integrity... OK"
+
 bash "$REPO_DIR/scripts/validate-runtime-archive.sh" "$STAGE/runtime.tar.gz" "$STAGE/files"
+
 FILES="opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime"
 chmod u+x "$STAGE/files/opencode" "$STAGE/files/ld-musl-aarch64.so.1"
 # The packaged ELF has an absolute PT_INTERP pointing at the final runtime
 # directory. It cannot be executed from STAGE before activation. The
 # transactional final smoke test below runs it from RUNTIME and restores the
 # previous runtime automatically if that test fails.
-echo "Runtime package prepared; executable test will run after activation."
 
 mkdir -p "$PREFIX/lib" "$PREFIX/bin"
+
 NEW="$PREFIX/lib/.opencode-termux-new-$$"
 rm -rf "$NEW"; mkdir "$NEW"
 for file in $FILES; do cp -a "$STAGE/files/$file" "$NEW/$file"; done
@@ -221,6 +341,46 @@ export LD_LIBRARY_PATH="$RUNTIME${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
 UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
+ui_draw_logo() {
+  local shade="$1" row col padding=0 columns="${COLUMNS:-0}"
+  if [[ "$columns" =~ ^[0-9]+$ ]] && (( columns > 32 )); then
+    padding=$(( (columns - 32) / 2 ))
+  fi
+  for (( row=0; row<20; row++ )); do
+    printf '%*s' "$padding" ''
+    for (( col=0; col<16; col++ )); do
+      if (( row >= 8 && row < 16 && col >= 4 && col < 12 )); then
+        printf '\033[48;2;75;70;70m  '
+      else
+        printf '\033[48;2;%s;%s;%sm  ' "$shade" "$((shade - 5))" "$((shade - 5))"
+      fi
+    done
+    printf '\033[0m\n'
+  done
+}
+ui_animation_start() {
+  (
+    local shade=241
+    while :; do
+      printf '\033[s\033[28A'
+      ui_draw_logo "$shade"
+      printf '\033[u'
+      if [[ "$shade" == 241 ]]; then shade=255; else shade=241; fi
+      sleep 0.7
+    done
+  ) >/dev/tty 2>/dev/null &
+  UI_ANIMATION_PID=$!
+}
+ui_animation_stop() {
+  [[ -n "${UI_ANIMATION_PID:-}" ]] || return 0
+  kill "$UI_ANIMATION_PID" 2>/dev/null || true
+  wait "$UI_ANIMATION_PID" 2>/dev/null || true
+  UI_ANIMATION_PID=""
+  printf '\033[s\033[28A'
+  ui_draw_logo 241
+  printf '\033[u'
+}
+
 # Check GitHub quietly. A network/API failure must never prevent OpenCode from starting.
 if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
   INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
@@ -229,9 +389,14 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
   if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
     NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
     if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
-      printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
+      printf '\n'
+      ui_draw_logo 241
+      printf '\n'
+      UI_ANIMATION_PID=""
+      printf 'A new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
       CURSOR_HIDDEN=0
       restore_cursor() {
+        ui_animation_stop
         if [[ "$CURSOR_HIDDEN" == 1 ]]; then
           printf '\033[?25h'
           CURSOR_HIDDEN=0
@@ -246,19 +411,41 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       SELECTED=1
       printf 'Use ↑/↓ to choose and Enter to confirm.\n'
       printf '\n'
+      print_gradient_text() {
+        local label="$1" index length progress red green blue char
+        length="${#label}"
+        printf ' '
+        for (( index=0; index<length; index++ )); do
+          progress=$(( index * 100 / (length > 1 ? length - 1 : 1) ))
+          red=$(( 62 + progress * 150 / 100 ))
+          green=$(( 62 + progress * 150 / 100 ))
+          blue=$(( 62 + progress * 150 / 100 ))
+          char="${label:index:1}"
+          printf '\033[48;2;%d;%d;%dm\033[1;30m%s' "$red" "$green" "$blue" "$char"
+        done
+        printf '\033[0m '
+      }
       draw_update_menu() {
-        printf '\033[2A'
+        printf '\033[3A'
         if [[ "$SELECTED" == 1 ]]; then
-          printf '\033[2K\033[32m●\033[0m Install update now\n'
-          printf '\033[2K  Wait for the next version\n'
+          printf '\033[2K\033[32m●\033[0m'
+          print_gradient_text 'Install update now'
+          printf '\n'
+          printf '\033[2K\n'
+          printf '\033[2K○ Wait for the next version\n'
         else
-          printf '\033[2K  Install update now\n'
-          printf '\033[2K\033[32m●\033[0m Wait for the next version\n'
+          printf '\033[2K○ Install update now\n'
+          printf '\033[2K\n'
+          printf '\033[2K\033[32m●\033[0m'
+          print_gradient_text 'Wait for the next version'
+          printf '\n'
         fi
       }
-      printf '  Install update now\n'
-      printf '  Wait for the next version\n'
+      printf '○ Install update now\n'
+      printf '\n'
+      printf '○ Wait for the next version\n'
       draw_update_menu
+      ui_animation_start
       while true; do
         KEY=""
         if ! read -rsn1 KEY </dev/tty; then
@@ -280,15 +467,23 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
           break
         fi
       done
-      restore_cursor
-      trap - EXIT INT TERM HUP
-      printf '\n'
+      ui_animation_stop
       if [[ "$SELECTED" == 1 ]]; then
-        if "$PREFIX/bin/opencode-termux-update"; then
+        # Keep the cursor hidden through the updater and installer hand-off.
+        # Remove the decision menu and leave the cursor directly below the logo.
+        printf '\033[8A\033[J\n'
+        if OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"; then
+          restore_cursor
+          trap - EXIT INT TERM HUP
           exec "$0" "$@"
         else
+          restore_cursor
+          trap - EXIT INT TERM HUP
           printf 'Update failed. Starting the currently installed version.\n' >&2
         fi
+      else
+        restore_cursor
+        trap - EXIT INT TERM HUP
       fi
     fi
   fi
@@ -302,25 +497,52 @@ chmod 755 "$STAGE/opencode-launcher"
 cp "$REPO_DIR/manager.sh" "$STAGE/opencode-termux-manager"
 chmod 755 "$STAGE/opencode-termux-manager"
 
-cat > "$STAGE/opencode-termux-update" <<UPDATER
+cat > "$STAGE/opencode-termux-update" <<'UPDATER'
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
-REPO_DIR="$REPO_DIR"
+# OPENCODE_TERMUX_UPDATER=1
+PREFIX="/data/data/com.termux/files/usr"
+RUNTIME="$PREFIX/lib/opencode-termux"
+REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
+if [[ -z "$REPO_DIR" || ! -f "$REPO_DIR/install.sh" ]]; then
+  echo "Error: managed repository checkout was not found." >&2
+  exit 1
+fi
 # Termux filesystems may report chmod-only changes even when tracked content
 # is untouched. Ignore permission-bit drift, while Git still detects content edits.
-git -C "\$REPO_DIR" config core.filemode false
-LOG="\$(mktemp)"
-if git -C "\$REPO_DIR" pull --ff-only >"\$LOG" 2>&1; then
-  rm -f "\$LOG"
+git -C "$REPO_DIR" config core.filemode false
+LOG="$(mktemp)"
+if git -C "$REPO_DIR" pull --ff-only >"$LOG" 2>&1; then
+  rm -f "$LOG"
 else
-  STATUS=\$?
-  cat "\$LOG" >&2
-  rm -f "\$LOG"
-  exit "\$STATUS"
+  STATUS=$?
+  cat "$LOG" >&2
+  rm -f "$LOG"
+  exit "$STATUS"
 fi
-exec bash "\$REPO_DIR/install.sh"
+exec bash "$REPO_DIR/install.sh"
 UPDATER
 chmod 755 "$STAGE/opencode-termux-update"
+
+# Protect the updater path too: never back up or replace an unrelated file.
+if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
+  if [[ ! -f "$UPDATER" ]] ||
+    ! grep -Fq 'OPENCODE_TERMUX_UPDATER=1' "$UPDATER" ||
+    ! grep -Fq 'install.sh' "$UPDATER"; then
+    echo "Error: an unrecognized command already exists at $UPDATER." >&2
+    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
+    exit 1
+  fi
+fi
+
+# Protect the manager path too: never replace an unrelated command.
+if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
+  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
+    echo "Error: an unrecognized command already exists at $MANAGER." >&2
+    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
+    exit 1
+  fi
+fi
 
 # Migrate only installations whose ownership can be established. Never
 # overwrite an unknown command in PREFIX/bin: it may belong to another tool.
@@ -343,7 +565,7 @@ if [[ -n "$NPM_GLOBAL_ROOT" && -f "$NPM_OPENCODE_PACKAGE/package.json" ]] &&
 fi
 
 if [[ "$LEGACY_NPM_OWNS_COMMAND" == 1 ]]; then
-  echo "Found legacy npm installation (opencode-termux); replacing it..."
+
   run_quiet npm uninstall -g --ignore-scripts opencode-termux
 fi
 
@@ -354,7 +576,7 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]] && command -v dpkg-query >/dev/null 2>
   PACKAGE_OWNER="$(get_dpkg_package_owner "$LAUNCHER")"
   case "$PACKAGE_OWNER" in
     opencode|opencode1|opencode-termux|opencode-wrapper|opencode1-wrapper)
-      echo "Found Termux package installation ($PACKAGE_OWNER); replacing it..."
+
       run_quiet pkg uninstall -y "$PACKAGE_OWNER"
       ;;
   esac
@@ -373,26 +595,6 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   if [[ "$MANAGED_LAUNCHER" != 1 ]]; then
     echo "Error: an unrecognized OpenCode command already exists at $LAUNCHER." >&2
     echo "It has been left untouched. Identify/uninstall its source, then rerun this installer." >&2
-    exit 1
-  fi
-fi
-
-# Protect the updater path too: never back up or replace an unrelated file.
-if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
-  if [[ ! -f "$UPDATER" ]] ||
-    ! grep -Fq 'git -C' "$UPDATER" ||
-    ! grep -Fq 'install.sh' "$UPDATER"; then
-    echo "Error: an unrecognized command already exists at $UPDATER." >&2
-    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
-    exit 1
-  fi
-fi
-
-# Protect the manager path too: never replace an unrelated command.
-if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
-  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
-    echo "Error: an unrecognized command already exists at $MANAGER." >&2
-    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
     exit 1
   fi
 fi
@@ -426,13 +628,16 @@ for executable in "$LAUNCHER" "$UPDATER" "$MANAGER"; do
   }
 done
 
-echo "Checking installed runtime..."
 FINAL_VERSION="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
 rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
-echo "OpenCode $VERSION installed successfully."
-echo "Start: opencode"
-echo "Manage: opencode-termux --help"
-echo "Update: opencode-termux update"
-echo "Uninstall: opencode-termux uninstall"
+ui_finish
+if (( UI_ENABLED == 0 )); then
+  if [[ "$INSTALL_ACTION" == "updated" ]]; then
+    printf 'OpenCode updated successfully. The update process completed successfully.\n'
+  else
+    printf 'OpenCode installed successfully.\n'
+  fi
+  printf 'Version: %s | Start: opencode | Manage: opencode-termux --help\n' "$VERSION"
+fi
