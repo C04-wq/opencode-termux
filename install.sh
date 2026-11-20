@@ -61,7 +61,7 @@ ui_start() {
 ui_finish() {
   (( UI_ENABLED == 1 )) || return 0
   printf '\n\n'
-  printf '\033[32m✓\033[0m OpenCode installed successfully.\n'
+  printf '\033[32mOpenCode installed successfully.\033[0m\n'
   printf '  Version: %s\n' "$VERSION"
   printf '  Run: opencode\n\n'
 }
