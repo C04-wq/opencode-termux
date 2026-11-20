@@ -327,6 +327,70 @@ jobs:
           fi
           echo "PASS: x86_64 OpenTUI ELF and Bionic TLS contract."
 
+      - name: Build full x86_64 OpenCode runtime bundle
+        run: |
+          set -euo pipefail
+          command -v cargo
+          command -v rustup
+          rustup target add x86_64-linux-android
+          TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" LLVM_STRIP="$LLVM_STRIP" \
+            bash scripts/ci/build-opencode-bundle.sh
+          STAGED="artifacts/bundle/$(python3 tools/ocver.py current)-x86_64"
+          test -s "$STAGED/lib/index.js"
+          test -s "$STAGED/lib/librust_pty_x86_64.so"
+          test -s "$STAGED/lib/watcher.node"
+          test -s "$STAGED/lib/libopentui-*.so" || test -s "$STAGED/lib/libopentui.so"
+          python3 tools/analyze-runtime-size.py "$STAGED" --top 25
+
+      - name: Package and smoke-test x86_64 candidate
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 tools/ocver.py current)"
+          STAGED="artifacts/bundle/$VERSION-x86_64"
+          test -s "$STAGED/lib/index.js"
+          mkdir -p dist/bin dist/lib/opencode
+          cp -a "$STAGED/lib/." dist/lib/opencode/
+          sed "s/__OPENCODE_VERSION__/$VERSION/g" packing/launcher/opencode > dist/bin/opencode
+          chmod 0755 dist/bin/opencode
+          ARCHIVE="dist/opencode-$VERSION-android-x86_64-bundle.tar.gz"
+          tar --sort=name --mtime='UTC 2020-01-01' --owner=0 --group=0 --numeric-owner \
+            -C dist -cf - bin lib | gzip -n > "$ARCHIVE"
+          TARGET_ARCH=x86_64 bash scripts/validate-runtime-archive.sh "$ARCHIVE" "$RUNNER_TEMP/x86_64-archive"
+          TARGET_ARCH=x86_64 bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/x86_64-smoke"
+          (cd dist && sha256sum "opencode-$VERSION-android-x86_64-bundle.tar.gz" > SHA256SUMS)
+          cp "$STAGED/report.json" dist/report.json
+          cp tools/supply-chain-lock.json dist/supply-chain-lock.json
+          RELEASE_TAG="$(python3 tools/ocver.py tag)"
+          python3 - "$VERSION" "$ARCHIVE" "$RELEASE_TAG" > dist/release-checksums.json <<'PY'
+          import hashlib, json, sys
+          version, path, release_tag = sys.argv[1:]
+          digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          print(json.dumps({
+              "version": version,
+              "sourceRepo": "C04-wq/opencode-termux",
+              "sourceTag": "v" + version,
+              "releaseTag": release_tag,
+              "archiveSha256": digest,
+              "runtimeId": "android-bionic-bun-v1"
+          }, indent=2))
+          PY
+          (cd dist && sha256sum -c SHA256SUMS)
+          cat dist/release-checksums.json
+
+      - name: Upload x86_64 candidate for physical Termux validation
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: android-x86_64-candidate-${{ github.sha }}
+          path: |
+            dist/opencode-*-android-x86_64-bundle.tar.gz
+            dist/SHA256SUMS
+            dist/report.json
+            dist/release-checksums.json
+            dist/supply-chain-lock.json
+          if-no-files-found: error
+          retention-days: 14
+
   build-native:
     name: Build and verify Android ARM64 runtime
     needs: [static-checks, native-runtime]
