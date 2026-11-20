@@ -170,6 +170,10 @@ if ! is_project_checkout "$REPO_DIR"; then
   fi
 
   if [[ -n "$REPO_DIR" ]]; then
+    # Termux may expose executable-bit drift from previous installs as Git
+    # modifications. Ignore mode-only differences before checking for a dirty
+    # checkout, but only after the repository origin has been verified above.
+    run_quiet git -C "$REPO_DIR" config core.filemode false
     if [[ -n "$(git -C "$REPO_DIR" status --porcelain --untracked-files=all)" ]]; then
       echo "Error: an existing OpenCode Termux clone has local changes:" >&2
       echo "  $REPO_DIR" >&2
