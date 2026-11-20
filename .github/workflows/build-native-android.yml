@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-build-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
@@ -22,8 +22,6 @@ jobs:
     name: Build and verify Android ARM64 runtime
     runs-on: ubuntu-24.04
     timeout-minutes: 120
-    outputs:
-      version: ${{ steps.lock.outputs.version }}
     steps:
       - name: Check out this repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v6.1.0
@@ -216,58 +214,25 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  publish:
-    name: Publish this repository's Android release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    steps:
-      - name: Check out the tagged source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v6.1.0
-        with:
-          persist-credentials: false
-
-      - name: Verify release tag matches the source lock
-        run: |
-          set -euo pipefail
-          EXPECTED="$(python3 tools/ocver.py tag)"
-          test "$GITHUB_REF_NAME" = "$EXPECTED" || {
-            echo "Refusing to publish $GITHUB_REF_NAME; lock expects $EXPECTED" >&2
-            exit 1
-          }
-          echo "VERSION=$(python3 tools/ocver.py current)" >> "$GITHUB_ENV"
-
-      - name: Download verified build artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
-        with:
-          name: opencode-${{ needs.build.outputs.version }}-android-aarch64-candidate
-          path: dist
-
-      - name: Verify release payload before publishing
-        run: |
-          set -euo pipefail
-          cd dist
-          sha256sum -c SHA256SUMS
-          test "$(python3 -c 'import json; print(json.load(open("release-checksums.json"))["version"])')" = "$VERSION"
-          test -s "opencode-$VERSION-android-aarch64-bundle.tar.gz"
-          bash ../scripts/validate-runtime-archive.sh "opencode-$VERSION-android-aarch64-bundle.tar.gz" "$RUNNER_TEMP/release-validation"
-
       - name: Publish immutable GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          EXPECTED="$(python3 tools/ocver.py tag)"
+          test "$GITHUB_REF_NAME" = "$EXPECTED" || {
+            echo "Refusing to publish $GITHUB_REF_NAME; source lock expects $EXPECTED" >&2
+            exit 1
+          }
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $GITHUB_REF_NAME already exists; refusing to overwrite it." >&2
             exit 1
           fi
           gh release create "$GITHUB_REF_NAME" \
-            "dist/opencode-$VERSION-android-aarch64-bundle.tar.gz" \
+            "dist/opencode-$OPENCODE_VERSION-android-aarch64-bundle.tar.gz" \
             dist/SHA256SUMS dist/report.json dist/supply-chain-lock.json dist/release-checksums.json \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "OpenCode $VERSION for Termux (Android/Bionic)" \
+            --title "OpenCode $OPENCODE_VERSION for Termux (Android/Bionic)" \
             --notes "Built from the pinned official OpenCode source commit recorded in supply-chain-lock.json. Android/Bionic native modules were compiled in this repository's GitHub Actions workflow and verified before publication. See report.json and SHA256SUMS for build provenance and integrity."
