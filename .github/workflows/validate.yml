@@ -227,6 +227,17 @@ jobs:
               !installer.includes('32m●')) {
             throw new Error('update menu must show empty circles and green filled circles for selected choices');
           }
+          const gradientStart = installer.indexOf('      print_gradient_text() {', installer.indexOf('UPDATE_URL='));
+          const gradientEnd = installer.indexOf('      draw_update_menu() {', gradientStart);
+          const gradientHelper = installer.slice(gradientStart, gradientEnd);
+          const gradientMenu = installer.slice(gradientEnd, installer.indexOf('      ui_animation_start', gradientEnd));
+          if (gradientStart < 0 || gradientEnd < 0 ||
+              !gradientHelper.includes('48;2;%d;%d;%dm') ||
+              !gradientHelper.includes('index * 100') ||
+              !gradientMenu.includes("print_gradient_text 'Install update now'") ||
+              !gradientMenu.includes("print_gradient_text 'Wait for the next version'")) {
+            throw new Error('the selected update option must use a green terminal background gradient');
+          }
           const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J'");
           const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
           if (updateLogoIndex < 0 || updateOptionsIndex < 0 || updateAnimationIndex < updateOptionsIndex ||
