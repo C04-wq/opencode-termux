@@ -37,7 +37,7 @@ for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
   header="$(readelf -h "$native")"
   grep -q 'Class:.*ELF64' <<<"$header"
   grep -q 'Type:.*DYN' <<<"$header"
-  grep -Fq "Machine: $EXPECTED_ELF_MACHINE" <<<"$header"
+  grep -Eq "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$header"
   if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
