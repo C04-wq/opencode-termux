@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BINARY="\${1:?Usage: validate-android-elf.sh BINARY EXPECTED_INTERPRETER}"
-EXPECTED_INTERPRETER="\${2:?Usage: validate-android-elf.sh BINARY EXPECTED_INTERPRETER}"
+BINARY="${1:?Usage: validate-android-elf.sh BINARY EXPECTED_INTERPRETER}"
+EXPECTED_INTERPRETER="${2:?Usage: validate-android-elf.sh BINARY EXPECTED_INTERPRETER}"
 
 [[ -f "$BINARY" ]] || { echo "Error: Android ELF validation target is missing: $BINARY" >&2; exit 1; }
-READELF="\${READELF:-}"
+READELF="${READELF:-}"
 if [[ -z "$READELF" ]]; then
   if command -v aarch64-linux-gnu-readelf >/dev/null 2>&1; then
     READELF=aarch64-linux-gnu-readelf
