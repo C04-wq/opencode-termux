@@ -79,6 +79,23 @@ jobs:
           bash scripts/test-runtime-archive.sh
           node <<'NODE'
           const fs = require('fs');
+          const cp = require('child_process');
+          const installerSource = fs.readFileSync('install.sh', 'utf8');
+          function extractGeneratedScript(opening, closing) {
+            const lines = installerSource.split('\\n');
+            const start = lines.indexOf(opening);
+            if (start < 0) throw new Error('missing generated script heredoc: ' + opening);
+            const end = lines.indexOf(closing, start + 1);
+            if (end < 0) throw new Error('unterminated generated script heredoc: ' + opening);
+            return lines.slice(start + 1, end).join('\\n') + '\\n';
+          }
+          const generatedLauncher = '/tmp/opencode-termux-generated-launcher.sh';
+          const generatedUpdater = '/tmp/opencode-termux-generated-updater.sh';
+          fs.writeFileSync(generatedLauncher, extractGeneratedScript('cat > "$STAGE/opencode-launcher" <<\\'LAUNCHER\\'', 'LAUNCHER'));
+          fs.writeFileSync(generatedUpdater, extractGeneratedScript('cat > "$STAGE/opencode-termux-update" <<\\'UPDATER\\'', 'UPDATER'));
+          cp.execFileSync('bash', ['-n', generatedLauncher]);
+          cp.execFileSync('bash', ['-n', generatedUpdater]);
+          cp.execFileSync('shellcheck', ['-S', 'error', generatedLauncher, generatedUpdater]);
           const sums = JSON.parse(fs.readFileSync('release-checksums.json', 'utf8'));
           if (!/^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
             throw new Error('invalid OpenCode release version');
