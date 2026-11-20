@@ -38,6 +38,27 @@ run_quiet() {
   fi
 }
 
+# Give actionable guidance when the selected Termux mirror lacks this device's
+# package index (a common 404 on community mirrors for x86_64).
+install_termux_packages() {
+  local log status
+  log="$(mktemp)"
+  if pkg install -y "$@" >"$log" 2>&1; then
+    rm -f "$log"
+  else
+    status=$?
+    cat "$log" >&2
+    if grep -Eiq '404 Not Found|binary-(aarch64|x86_64)/Packages' "$log"; then
+      echo "The selected Termux mirror does not provide the $DEVICE_ARCH package index." >&2
+      echo "Run: termux-change-repo" >&2
+      echo "Select Main repository and choose the official packages.termux.dev mirror (or packages-cf.termux.dev)." >&2
+      echo "Then run: pkg update" >&2
+    fi
+    rm -f "$log"
+    return "$status"
+  fi
+}
+
 # Support a normal checkout and: curl -fsSL .../install.sh | bash
 # A piped script has no source directory. Adopt an existing clean clone when
 # possible, moving it to the managed location so users do not keep two clones.
@@ -55,7 +76,7 @@ is_project_checkout() {
 if ! is_project_checkout "$REPO_DIR"; then
   echo "Preparing OpenCode for Termux..."
   if ! command -v git >/dev/null 2>&1; then
-    run_quiet pkg install -y git
+    install_termux_packages git
   fi
   command -v git >/dev/null 2>&1 || { echo "Error: Git could not be installed." >&2; exit 1; }
 
@@ -149,20 +170,20 @@ fi
 for cmd in git curl tar sha256sum sed find grep awk; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     case "$cmd" in sha256sum) package="coreutils" ;; *) package="$cmd" ;; esac
-    run_quiet pkg install -y "$package"
+    install_termux_packages "$package"
   fi
 done
 # The native bundle runs on Termux Bun and loads Bionic modules at runtime.
 if ! command -v bun >/dev/null 2>&1 || ! command -v rg >/dev/null 2>&1 || [[ ! -s "$PREFIX/lib/libc++_shared.so" ]]; then
   echo "Preparing native runtime dependencies..."
-  run_quiet pkg install -y bun ripgrep libc++
+  install_termux_packages bun ripgrep libc++
 fi
 for cmd in git curl tar sha256sum sed find grep awk bun rg; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "Missing required command: $cmd" >&2; exit 1; }
 done
 [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "Termux libc++ shared library is missing." >&2; exit 1; }
-[[ -f "$CERT" ]] || run_quiet pkg install -y ca-certificates
-[[ -f "$RESOLVER" ]] || run_quiet pkg install -y resolv-conf
+[[ -f "$CERT" ]] || install_termux_packages ca-certificates
+[[ -f "$RESOLVER" ]] || install_termux_packages resolv-conf
 [[ -f "$CERT" && -f "$RESOLVER" ]] || { echo "Termux TLS/resolver files are missing." >&2; exit 1; }
 
 STAGE="$(mktemp -d)"
@@ -284,7 +305,12 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
   REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
   LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
   LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-  LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
+  case "$(uname -m)" in
+    aarch64) UPDATE_HASH_FIELD="archiveSha256" ;;
+    x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64" ;;
+    *) UPDATE_HASH_FIELD="unsupported" ;;
+  esac
+  LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n "s/.*\\"$UPDATE_HASH_FIELD\\"[[:space:]]*:[[:space:]]*\\"\\\\([a-f0-9]*\\\\)\\".*/\\\\1/p" | head -n1)"
   DEFERRED_VERSION="$(cat "$RUNTIME/.opencode-termux-deferred-version" 2>/dev/null || true)"
   DEFERRED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-deferred-runtime-id" 2>/dev/null || true)"
   DEFERRED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-deferred-archive-sha256" 2>/dev/null || true)"
