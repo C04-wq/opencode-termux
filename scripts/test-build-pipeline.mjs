@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 const lock = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
 const version = lock.current;
+assert.ok(lock.package_revision >= 2, "release revision must not collide with the legacy v2.3.2 asset");
 assert.ok(lock.opencode[version], "current OpenCode version must exist in the source lock");
 assert.equal(lock.android_ndk_version, "30.0.16248370", "Android NDK must be pinned");
 assert.match(lock.opencode[version].commit, /^[a-f0-9]{40}$/);
@@ -55,6 +56,8 @@ for (const token of [
   "contents: write",
   "git merge-base --is-ancestor",
   "release-checksums.json?ref=main",
+  "releaseTag",
+  "ocver.py tag",
   "C04-wq/opencode-termux"
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
 
