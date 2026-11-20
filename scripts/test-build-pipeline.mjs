@@ -34,6 +34,11 @@ assert.ok(build.includes('export PATH="$work/host/bun-linux-x64:$PATH"'), "verif
 const pty = fs.readFileSync("scripts/ci/build-rust-pty-android.sh", "utf8");
 assert.ok(pty.includes("EXPECTED_COMMIT"), "bun-pty source commit must be pinned and verified");
 assert.ok(pty.includes("tools/ocver.py bunpty commit"));
+assert.ok(pty.includes("x86_64-linux-android"), "PTY cross-build must map x86_64 to the Android Rust target");
+assert.ok(pty.includes('portable-pty = { version = "=0.9.0"'), "Android PTY dependency must be exact-pinned");
+assert.ok(pty.includes('cargo update --manifest-path "$SRC/rust-pty/Cargo.toml" -p portable-pty --precise "$portable_pty_version"'), "Cargo lock must be updated only to the exact portable-pty pin");
+assert.ok(pty.includes("build --locked --release"), "the PTY build must reject unrecorded dependency resolution");
+assert.equal(lock.bun_pty.portable_pty, "0.9.0", "portable-pty Android compatibility pin must be exact");
 
 const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
 assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must target this repository");
