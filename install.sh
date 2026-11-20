@@ -35,27 +35,43 @@ if [[ -t 1 ]]; then UI_ENABLED=1; fi
 ui_start() {
   (( UI_ENABLED == 1 )) || return 0
   [[ "$UI_STARTED" == 1 ]] && return 0
+
+  # Render the exact geometry and palette of opencode-logo.svg as terminal
+  # color cells. Termux terminals do not render SVG files natively.
+  local row col padding=0
+  if [[ "${COLUMNS:-0}" =~ ^[0-9]+$ ]] && (( COLUMNS > 32 )); then
+    padding=$(( (COLUMNS - 32) / 2 ))
+  fi
   printf '\n'
-  printf '    ┏━━━━┓\n'
-  printf '    ┃    ┃\n'
-  printf '    ┃ ██ ┃\n'
-  printf '    ┃ ██ ┃\n'
-  printf '    ┗━━━━┛\n'
+  for (( row=0; row<10; row++ )); do
+    printf '%*s' "$padding" ''
+    for (( col=0; col<16; col++ )); do
+      if (( row >= 4 && row < 8 && col >= 4 && col < 12 )); then
+        printf '\033[48;2;75;70;70m  '
+      else
+        printf '\033[48;2;241;236;236m  '
+      fi
+    done
+    printf '\033[0m\n'
+  done
   printf '\n'
   UI_STARTED=1
   export OPENCODE_TERMUX_UI_STARTED=1
   ui_step 3
 }
 ui_step() {
-  local percent="$1" width=28 filled empty
+  local percent="$1" width=28 filled empty padding=0
   (( UI_ENABLED == 1 )) || return 0
   filled=$(( width * percent / 100 ))
   empty=$(( width - filled ))
-  printf '\r\033[2K\033[2m  \033[32m'
-  printf '%*s' "$filled" '' | tr ' ' '━'
+  if [[ "${COLUMNS:-0}" =~ ^[0-9]+$ ]] && (( COLUMNS > width )); then
+    padding=$(( (COLUMNS - width) / 2 ))
+  fi
+  printf '\r\033[2K%*s\033[32m' "$padding" ''
+  printf '%*s' "$filled" '' | tr ' ' '─'
   printf '\033[90m'
   printf '%*s' "$empty" '' | tr ' ' '─'
-  printf '\033[0m  %3d%%' "$percent"
+  printf '\033[0m'
 }
 ui_finish() {
   (( UI_ENABLED == 1 )) || return 0
