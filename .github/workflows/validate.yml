@@ -214,18 +214,18 @@ jobs:
             throw new Error('logo animation cursor offsets must match the installer and update-menu layouts');
           }
           const updateLogoIndex = installer.indexOf('ui_draw_logo 241', installer.indexOf('UPDATE_URL='));
-          const updateOptionsIndex = installer.indexOf("printf '  Install update now\\n'");
+          const updateOptionsIndex = installer.indexOf("printf '○ Install update now");
           const updateAnimationIndex = installer.indexOf('ui_animation_start', updateOptionsIndex);
           if (!installer.includes("printf '\\n'") ||
               !installer.includes("printf '\\033[3A'") ||
               !installer.includes("printf '\\033[2K\\n'")) {
             throw new Error('update choices must have a blank line between them and redraw as a three-row menu');
           }
-          if (!installer.includes("printf '○ Install update now\\\\n'") ||
-              !installer.includes("printf '○ Wait for the next version\\\\n'") ||
-              !installer.includes("printf '\\\\033[2K○ Install update now\\\\n'") ||
-              !installer.includes("printf '\\\\033[2K○ Wait for the next version\\\\n'")) {
-            throw new Error('update menu must show empty radio circles for unselected choices');
+          if (!installer.includes('○ Install update now') ||
+              !installer.includes('○ Wait for the next version') ||
+              !installer.includes('●') ||
+              !installer.includes('\\033[32m')) {
+            throw new Error('update menu must show empty circles and green filled circles for selected choices');
           }
           const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J'");
           const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
