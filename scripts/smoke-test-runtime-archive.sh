@@ -32,16 +32,23 @@ cat > "$WORKDIR/prefix/bin/bun" <<'BUN'
 #!/usr/bin/env bash
 set -e
 printf '%s\n' "$OPENCODE_ROOT" > "$BUN_TEST_LOG.root"
+printf '%s\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
 printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
 printf '%s\n' "$OPENCODE_DISABLE_AUTOUPDATE" > "$BUN_TEST_LOG.autoupdate"
 printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
 if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
 BUN
 chmod 755 "$WORKDIR/prefix/bin/bun"
+cat > "$WORKDIR/prefix/bin/opencode" <<'OUTER'
+#!/usr/bin/env sh
+exec "$ROOT/bin/opencode" "$@"
+OUTER
+chmod 755 "$WORKDIR/prefix/bin/opencode"
 export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
-bash "$ROOT/bin/opencode" --version > "$WORKDIR/version.txt"
+"$WORKDIR/prefix/bin/opencode" --version > "$WORKDIR/version.txt"
 grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
+grep -Fxq "$WORKDIR/prefix/bin/opencode" "$BUN_TEST_LOG.launcher"
 grep -Fxq "$ROOT/lib/opencode/librust_pty_arm64.so" "$BUN_TEST_LOG.pty"
 grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
 grep -Fq -- '--smol' "$BUN_TEST_LOG.args"
