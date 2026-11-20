@@ -66,11 +66,11 @@ def main() -> None:
         '    ...(item.os === "linux" ? { libc: item.abi ?? "glibc" } : {}),\n'
         "  })\n",
         "  const opencodePty: Awaited<ReturnType<typeof resolveOpencodePty>> =\n"
-        "    item.os === process.platform && item.arch === process.arch\n"
+        "    item.os === process.platform && item.arch === process.arch && item.abi !== "android"\n"
         "      ? await resolveOpencodePty({\n"
         "          platform: item.os,\n"
         "          arch: item.arch,\n"
-        '          ...(item.os === "linux" ? { libc: item.abi === "musl" ? "musl" : "glibc" } : {}),\n'
+        '          ...(item.os === "linux" ? { libc: item.abi ?? "glibc" } : {}),\n'
         "        })\n"
         "      : undefined\n",
     )
