@@ -339,8 +339,8 @@ jobs:
           test -s "$STAGED/lib/index.js"
           test -s "$STAGED/lib/librust_pty_x86_64.so"
           test -s "$STAGED/lib/watcher.node"
-          test -s "$STAGED/lib/libopentui-*.so" || test -s "$STAGED/lib/libopentui.so"
-          python3 tools/analyze-runtime-size.py "$STAGED" --top 25
+          mapfile -t TUI_ASSETS < <(find "$STAGED/lib" -maxdepth 1 -type f -name 'libopentui*.so')
+          test "${#TUI_ASSETS[@]}" -ge 1
 
       - name: Package and smoke-test x86_64 candidate
         run: |
@@ -374,6 +374,7 @@ jobs:
               "runtimeId": "android-bionic-bun-v1"
           }, indent=2))
           PY
+          python3 tools/analyze-runtime-size.py "$ARCHIVE" --top 25
           (cd dist && sha256sum -c SHA256SUMS)
           cat dist/release-checksums.json
 
