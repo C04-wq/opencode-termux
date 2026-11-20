@@ -185,9 +185,9 @@ fn addTranslatedCImports(
         "    addImageShim(b, module, target, macos_sdk_path);\n",
         "    addMiniaudioShim(b, module, target, macos_sdk_path);\n"
         "    addImageShim(b, module, target, macos_sdk_path);\n"
-        "    // tlsdesc-shim.c: bionic < 11 ignores TLSDESC relocations, and\n"
-        "    // bionic has no libpthread with pthread_tryjoin_np. Must live in the\n"
-        "    // module it fixes (see the file header for the full rationale).\n"
+        "    // tlsdesc-shim.c: bionic < 11 ignores TLSDESC relocations.\n"
+        "    // Android clipboard joining is handled in host.zig without the\n"
+        "    // glibc-only pthread_tryjoin_np symbol.\n"
         '    module.addCSourceFile(.{ .file = b.path("src/tlsdesc-shim.c"), .flags = &.{"-std=c99"} });\n',
     )
 
