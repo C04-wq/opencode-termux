@@ -267,6 +267,11 @@ def main() -> None:
         uninstall.write_text(text, encoding="utf-8")
     replace_once(
         uninstall,
+        '    const shell = method === "curl" ? yield* shellConfigs(global.home) : []\n',
+        '    const shell = isCurlMethod(method) ? yield* shellConfigs(global.home) : []\n',
+    )
+    replace_once(
+        uninstall,
         '    const method = yield* updater.method()\n',
         '    const method = yield* updater.method()\n'
         '    // A bundle install owns a launcher script, not the interpreter bun.\n'
@@ -278,7 +283,7 @@ def main() -> None:
         '    if (method === "curl") log.info(`  Binary (manual removal): ${launcherPath()}`)\n'
         '    if (!method) log.warn("Could not detect the installation method. Remove the installation manually after cleanup.")\n',
         '    if (nativeBinary) log.info(`  Binary: ${launcherPath()}`)\n'
-        '    else if (method === "curl") log.info(`  Binary (manual removal): ${launcherPath()}`)\n'
+        '    else if (isCurlMethod(method)) log.info(`  Binary (manual removal): ${launcherPath()}`)\n'
         '    if (!method && !nativeBinary) log.warn("Could not detect the installation method. Remove the installation manually after cleanup.")\n',
     )
     replace_once(
