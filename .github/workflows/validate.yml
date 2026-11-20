@@ -159,7 +159,7 @@ jobs:
           # Existing 2.3.2 musl installs must be offered the Bionic migration
           # even though the OpenCode version number itself does not change.
           printf 'legacy-musl\n' > "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
-          rm -f "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id"
+          rm -f "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
           printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/migration-prompt.txt"
           grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/migration-prompt.txt"
           grep -Fxq '2.3.2' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version"
