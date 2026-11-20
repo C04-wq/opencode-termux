@@ -19,6 +19,11 @@ fi
 
 HEADER="$("$READELF" -h "$BINARY")"
 ELF_TYPE="$(printf '%s\n' "$HEADER" | awk '/Type:/{print $2; exit}')"
+ENTRY_POINT="$(printf '%s\n' "$HEADER" | awk '/Entry point address:/{print $4; exit}')"
+if [[ -z "$ENTRY_POINT" || "$ENTRY_POINT" =~ ^0x0+$ ]]; then
+  echo "Error: ET_DYN executable has no entry point; it is not an executable PIE." >&2
+  exit 1
+fi
 if [[ "$ELF_TYPE" != "DYN" ]]; then
   echo "Error: OpenCode must be an ELF PIE (ET_DYN) executable for Termux; found '$ELF_TYPE'." >&2
   echo "The Linux release binary is not Android-compatible. Changing PT_INTERP with patchelf does not convert ET_EXEC to PIE." >&2
