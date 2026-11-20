@@ -51,7 +51,7 @@ fi
 if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/opencode" ]; then
   OPENCODE_LAUNCHER="$PREFIX/bin/opencode"
 else
-  OPENCODE_LAUNCHER=$self
+  OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"
 fi
 OPENCODE_ROOT=$root
 export OPENCODE_LAUNCHER OPENCODE_ROOT
