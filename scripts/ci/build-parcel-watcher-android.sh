@@ -98,6 +98,7 @@ for source in "${sources[@]}"; do
   object="$tmp/${source//\//_}.o"
   "$cxx" --sysroot="$sysroot" -std=c++17 -O2 -fPIC \
     -DNAPI_VERSION=4 -DNAPI_DISABLE_CPP_EXCEPTIONS \
+    -DNODE_GYP_MODULE_NAME=watcher -fvisibility=default \
     -DWATCHMAN -DINOTIFY -DBRUTE_FORCE \
     -I"$node_include" -I"$addon_dir" -I"$watcher_dir/src" \
     -c "$watcher_dir/$source" -o "$object"
@@ -105,7 +106,10 @@ for source in "${sources[@]}"; do
 done
 
 mkdir -p "$(dirname "$OUT")"
-"$cxx" --sysroot="$sysroot" -shared -pthread "${objects[@]}" \
+# node-gyp builds this addon with default symbol visibility. Make that
+# explicit for the standalone NDK build so NODE_API_MODULE's registration
+# entry point is exported from the shared object.
+"$cxx" --sysroot="$sysroot" -shared -pthread -Wl,--export-dynamic "${objects[@]}" \
   -Wl,-soname,watcher.node -Wl,-z,relro -Wl,-z,now -o "$tmp/watcher.node"
 
 machine="$(readelf -h "$tmp/watcher.node" | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p')"

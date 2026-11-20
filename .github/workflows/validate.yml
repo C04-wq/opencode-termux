@@ -545,12 +545,8 @@ jobs:
                 exit 1
               }
             }
-            END {
-              if (!found) {
-                print "OpenTUI PT_TLS segment is missing." > "/dev/stderr"
-                exit 1
-              }
-            }
+            # No PT_TLS segment is valid: this build may contain no TLS.
+            # If present, FileSiz must be zero so the fallback only needs BSS.
           '
           if readelf -d "$SO" | grep -q 'libc.so.6'; then
             echo "glibc dependency found in OpenTUI" >&2

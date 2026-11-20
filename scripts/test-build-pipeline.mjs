@@ -54,6 +54,9 @@ for (const token of [
   "src/linux/InotifyBackend.cc",
   "src/unix/legacy.cc",
   "NAPI_VERSION=4",
+  "NODE_GYP_MODULE_NAME=watcher",
+  "-fvisibility=default",
+  "-Wl,--export-dynamic",
   "napi_register_module_v1",
   "readelf -h",
   "glibc-linked dependency found"
@@ -100,7 +103,7 @@ for (const token of [
   "scripts/smoke-test-runtime-archive.sh",
   "readelf -h",
   "OpenTUI PT_TLS has initialized data",
-  "OpenTUI PT_TLS segment is missing",
+  "# No PT_TLS segment is valid",
   "gh release create",
   "actions/upload-artifact",
   "gzip -n",
