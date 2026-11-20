@@ -195,6 +195,24 @@ fn addTranslatedCImports(
             '    module.addCSourceFile(.{ .file = b.path("src/tlsdesc-shim.c"), .flags = &.{"-std=c99"} });\n',
         )
     else:
+        # Also make reapplication safe if a developer previously patched this
+        # same checkout for AArch64 before switching it to x86_64.
+        patched = (
+            "    addMiniaudioShim(b, module, target, macos_sdk_path);\n"
+            "    addImageShim(b, module, target, macos_sdk_path);\n"
+            "    // AArch64 Bionic < 11 ignores TLSDESC relocations.\n"
+            "    // Android clipboard joining is handled in host.zig.\n"
+            '    module.addCSourceFile(.{ .file = b.path("src/tlsdesc-shim.c"), .flags = &.{"-std=c99"} });\n'
+        )
+        original = (
+            "    addMiniaudioShim(b, module, target, macos_sdk_path);\n"
+            "    addImageShim(b, module, target, macos_sdk_path);\n"
+        )
+        build_text = build.read_text(encoding="utf-8")
+        if patched in build_text:
+            build.write_text(build_text.replace(patched, original, 1), encoding="utf-8")
+        if "tlsdesc-shim.c" in build.read_text(encoding="utf-8"):
+            raise SystemExit("patch-opentui: x86_64 build still references the AArch64 TLSDESC shim")
         (src / "tlsdesc-shim.c").unlink(missing_ok=True)
 
     # 2. Optional integer-overflow guards; skipped if upstream already fixed them.
