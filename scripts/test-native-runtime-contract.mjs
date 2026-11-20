@@ -13,7 +13,7 @@ for (const token of [
   "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "Spectra010s/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
   "opencode-$VERSION-android-aarch64-bundle.tar.gz", "$RELEASE_TAG",
   "validate-runtime-archive.sh", "@TERMUX_PREFIX@/lib/opencode",
-  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "DEFERRED_RUNTIME_ID", ".opencode-termux-deferred-version", "A new Termux runtime is available", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
+  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "DEFERRED_RUNTIME_ID", "INSTALLED_ARCHIVE_SHA256", "LATEST_ARCHIVE_SHA256", "DEFERRED_ARCHIVE_SHA256", ".opencode-termux-archive-sha256", ".opencode-termux-deferred-archive-sha256", "A new Termux runtime is available", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
 const newline = String.fromCharCode(10);
