@@ -314,7 +314,9 @@ Le workflow de validation vérifie la syntaxe shell, ShellCheck, la cohérence d
 
 Ces contrôles hébergés ne remplacent pas les essais sur un appareil physique. Avant de considérer une release comme entièrement vérifiée, il faut également tester sur un vrai Termux ARM64 : TUI interactive, commandes PTY, surveillance des fichiers et démarrage du serveur en arrière-plan.
 
-Les changements de version mettent à jour ensemble le tag source et son condensat dans une modification du dépôt soumise à revue. Ce projet ne compile ni ne publie plus l’exécutable Linux/musl incompatible.
+Pour tester un candidat de PR, téléchargez l’artefact GitHub Actions `android-arm64-candidate-*`, puis exécutez `bash scripts/test-termux-device.sh /chemin/vers/opencode-VERSION-android-aarch64-bundle.tar.gz` sur un appareil Termux ARM64 physique. Le script installe le candidat dans un répertoire séparé sous `$PREFIX/opt` sans remplacer l’installation actuelle. Lancez ensuite le candidat et vérifiez la TUI interactive, le PTY, la surveillance des fichiers et le serveur en arrière-plan ; supprimez le répertoire candidat après les essais.
+
+Les métadonnées d’installation ne sont modifiées qu’après validation de la compilation source, des ELF, de l’archive et du SHA-256. Ce projet ne compile ni ne publie plus l’exécutable Linux/musl incompatible.
 ## 🛠️ Dépannage
 
 ### `opencode: command not found`
