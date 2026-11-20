@@ -233,10 +233,11 @@ jobs:
           const gradientMenu = installer.slice(gradientEnd, installer.indexOf('      ui_animation_start', gradientEnd));
           if (gradientStart < 0 || gradientEnd < 0 ||
               !gradientHelper.includes('48;2;%d;%d;%dm') ||
-              !gradientHelper.includes('index * 100') ||
+              !gradientHelper.includes('62 + progress * 150 / 100') ||
+              !gradientHelper.includes('1;30m') ||
               !gradientMenu.includes("print_gradient_text 'Install update now'") ||
               !gradientMenu.includes("print_gradient_text 'Wait for the next version'")) {
-            throw new Error('the selected update option must use a green terminal background gradient');
+            throw new Error('the selected update option must use a soft white gradient with readable dark text');
           }
           const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J'");
           const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
