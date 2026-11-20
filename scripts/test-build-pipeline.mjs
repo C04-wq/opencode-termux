@@ -1,9 +1,13 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 
 const lock = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
 const version = lock.current;
-assert.ok(lock.package_revision >= 2, "release revision must not collide with the legacy v2.3.2 asset");
+const packageTag = spawnSync("python3", ["tools/ocver.py", "tag"], { encoding: "utf8" });
+assert.equal(packageTag.status, 0, "release tag helper must succeed");
+assert.match(packageTag.stdout.trim(), new RegExp("^v" + version.replaceAll(".", "\\.") + "(-[1-9][0-9]*)?$"));
+if (version === "2.3.2") assert.notEqual(packageTag.stdout.trim(), "v2.3.2", "the native rebuild must not collide with the existing legacy v2.3.2 release");
 assert.ok(lock.opencode[version], "current OpenCode version must exist in the source lock");
 assert.equal(lock.android_ndk_version, "30.0.16248370", "Android NDK must be pinned");
 assert.match(lock.opencode[version].commit, /^[a-f0-9]{40}$/);
