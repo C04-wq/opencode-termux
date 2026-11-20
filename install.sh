@@ -38,9 +38,9 @@ ui_start() {
 
   # Render the exact geometry and palette of opencode-logo.svg as terminal
   # color cells. Termux terminals do not render SVG files natively.
-  local row col padding=0
-  if [[ "${COLUMNS:-0}" =~ ^[0-9]+$ ]] && (( COLUMNS > 32 )); then
-    padding=$(( (COLUMNS - 32) / 2 ))
+  local row col padding=0 columns="${COLUMNS:-0}"
+  if [[ "$columns" =~ ^[0-9]+$ ]] && (( columns > 32 )); then
+    padding=$(( (columns - 32) / 2 ))
   fi
   printf '\n'
   for (( row=0; row<10; row++ )); do
@@ -60,12 +60,12 @@ ui_start() {
   ui_step 3
 }
 ui_step() {
-  local percent="$1" width=28 filled empty padding=0
+  local percent="$1" width=28 filled empty padding=0 columns="${COLUMNS:-0}"
   (( UI_ENABLED == 1 )) || return 0
   filled=$(( width * percent / 100 ))
   empty=$(( width - filled ))
-  if [[ "${COLUMNS:-0}" =~ ^[0-9]+$ ]] && (( COLUMNS > width )); then
-    padding=$(( (COLUMNS - width) / 2 ))
+  if [[ "$columns" =~ ^[0-9]+$ ]] && (( columns > width )); then
+    padding=$(( (columns - width) / 2 ))
   fi
   printf '\r\033[2K%*s\033[32m' "$padding" ''
   printf '%*s' "$filled" '' | tr ' ' '─'
