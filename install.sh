@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Report the exact failing activation step before the EXIT trap rolls back.
-trap 'status=$?; printf "Error: installer failed at line %s (exit %s): %s\\n" "$LINENO" "$status" "$BASH_COMMAND" >&2' ERR
+trap 'status=$?; printf "\\nError: installer failed at line %s (exit %s): %s\\n" "$LINENO" "$status" "$BASH_COMMAND" >&2' ERR
 
 PREFIX="/data/data/com.termux/files/usr"
 SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
