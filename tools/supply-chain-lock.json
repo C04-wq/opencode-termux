@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "current": "2.3.2",
-  "package_revision": 1,
+  "package_revision": 2,
   "opencode": {
     "2.0.26": {
       "commit": "9b4ec5714d481559990db0a816d5dec19541a814",
