@@ -27,6 +27,43 @@ run_quiet() {
   fi
 }
 
+# Compact terminal UI: show the project mark and a thin staged progress bar.
+# When stdout is not a terminal, keep output suitable for scripts and CI.
+UI_ENABLED=0
+UI_STARTED="${OPENCODE_TERMUX_UI_STARTED:-0}"
+if [[ -t 1 ]]; then UI_ENABLED=1; fi
+ui_start() {
+  (( UI_ENABLED == 1 )) || return 0
+  [[ "$UI_STARTED" == 1 ]] && return 0
+  printf '\n'
+  printf '    ┏━━━━┓\n'
+  printf '    ┃    ┃\n'
+  printf '    ┃ ██ ┃\n'
+  printf '    ┃ ██ ┃\n'
+  printf '    ┗━━━━┛\n'
+  printf '\n'
+  UI_STARTED=1
+  export OPENCODE_TERMUX_UI_STARTED=1
+  ui_step 3
+}
+ui_step() {
+  local percent="$1" width=28 filled empty
+  (( UI_ENABLED == 1 )) || return 0
+  filled=$(( width * percent / 100 ))
+  empty=$(( width - filled ))
+  printf '\r\033[2K\033[2m  \033[32m'
+  printf '%*s' "$filled" '' | tr ' ' '━'
+  printf '\033[90m'
+  printf '%*s' "$empty" '' | tr ' ' '─'
+  printf '\033[0m  %3d%%' "$percent"
+}
+ui_finish() {
+  (( UI_ENABLED == 1 )) || return 0
+  ui_step 100
+  printf '\n\n'
+}
+ui_start
+
 # Support a normal checkout and: curl -fsSL .../install.sh | bash
 # A piped script has no source directory. Adopt an existing clean clone when
 # possible, moving it to the managed location so users do not keep two clones.
@@ -42,7 +79,7 @@ is_project_checkout() {
 }
 
 if ! is_project_checkout "$REPO_DIR"; then
-  echo "Preparing OpenCode for Termux..."
+  ui_step 8
   if ! command -v git >/dev/null 2>&1; then
     run_quiet pkg install -y git
   fi
@@ -82,21 +119,23 @@ if ! is_project_checkout "$REPO_DIR"; then
       echo "The clone and its files have been left untouched." >&2
       exit 1
     fi
-    echo "Found existing clone: $REPO_DIR"
+    ui_step 12
     run_quiet git -C "$REPO_DIR" pull --ff-only
     if [[ "$REPO_DIR" != "$SOURCE_REPO" ]]; then
       if mv "$REPO_DIR" "$SOURCE_REPO"; then
-        echo "Migrated existing clone to $SOURCE_REPO"
+        ui_step 18
         REPO_DIR="$SOURCE_REPO"
       else
-        echo "Could not move the clone; continuing from its original location." >&2
+        printf "Warning: could not move the clone; continuing from its original location.\\n" >&2
       fi
     fi
   else
     REPO_DIR="$SOURCE_REPO"
+    ui_step 15
     run_quiet git clone -- https://github.com/C04-wq/opencode-termux.git "$REPO_DIR"
   fi
   is_project_checkout "$REPO_DIR" || { echo "Error: repository checkout is incomplete." >&2; exit 1; }
+  ui_step 22
   exec bash "$REPO_DIR/install.sh" "$@"
 fi
 
@@ -121,6 +160,7 @@ done
 for cmd in git curl tar sha256sum; do command -v "$cmd" >/dev/null 2>&1 || { echo "Missing command: $cmd" >&2; exit 1; }; done
 [[ -f "$CERT" && -f "$RESOLVER" ]] || { echo "Termux TLS/resolver files are missing." >&2; exit 1; }
 
+ui_step 25
 STAGE="$(mktemp -d)"
 BACKUP=""
 NEW=""
@@ -180,21 +220,23 @@ cleanup() {
 }
 trap cleanup EXIT
 URL="https://github.com/C04-wq/opencode-termux/releases/download/v$VERSION/opencode-termux-aarch64.tar.gz"
-echo "Downloading OpenCode $VERSION..."
+ui_step 38
 curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
 ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz" | awk '{print $1}')"
 [[ "$ACTUAL" == "$HASH" ]] || { echo "Error: SHA-256 mismatch; refusing to install." >&2; exit 1; }
-echo "Verifying package integrity... OK"
+ui_step 52
 bash "$REPO_DIR/scripts/validate-runtime-archive.sh" "$STAGE/runtime.tar.gz" "$STAGE/files"
+ui_step 65
 FILES="opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime"
 chmod u+x "$STAGE/files/opencode" "$STAGE/files/ld-musl-aarch64.so.1"
 # The packaged ELF has an absolute PT_INTERP pointing at the final runtime
 # directory. It cannot be executed from STAGE before activation. The
 # transactional final smoke test below runs it from RUNTIME and restores the
 # previous runtime automatically if that test fails.
-echo "Runtime package prepared; executable test will run after activation."
+ui_step 76
 
 mkdir -p "$PREFIX/lib" "$PREFIX/bin"
+ui_step 82
 NEW="$PREFIX/lib/.opencode-termux-new-$$"
 rm -rf "$NEW"; mkdir "$NEW"
 for file in $FILES; do cp -a "$STAGE/files/$file" "$NEW/$file"; done
@@ -343,7 +385,7 @@ if [[ -n "$NPM_GLOBAL_ROOT" && -f "$NPM_OPENCODE_PACKAGE/package.json" ]] &&
 fi
 
 if [[ "$LEGACY_NPM_OWNS_COMMAND" == 1 ]]; then
-  echo "Found legacy npm installation (opencode-termux); replacing it..."
+  ui_step 86
   run_quiet npm uninstall -g --ignore-scripts opencode-termux
 fi
 
@@ -354,7 +396,7 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]] && command -v dpkg-query >/dev/null 2>
   PACKAGE_OWNER="$(get_dpkg_package_owner "$LAUNCHER")"
   case "$PACKAGE_OWNER" in
     opencode|opencode1|opencode-termux|opencode-wrapper|opencode1-wrapper)
-      echo "Found Termux package installation ($PACKAGE_OWNER); replacing it..."
+      ui_step 88
       run_quiet pkg uninstall -y "$PACKAGE_OWNER"
       ;;
   esac
@@ -426,13 +468,13 @@ for executable in "$LAUNCHER" "$UPDATER" "$MANAGER"; do
   }
 done
 
-echo "Checking installed runtime..."
+ui_step 94
 FINAL_VERSION="$( unset LD_PRELOAD; export LD_LIBRARY_PATH="$RUNTIME"; export SSL_CERT_FILE="$CERT"; "$RUNTIME/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
 rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
-echo "OpenCode $VERSION installed successfully."
-echo "Start: opencode"
-echo "Manage: opencode-termux --help"
-echo "Update: opencode-termux update"
-echo "Uninstall: opencode-termux uninstall"
+ui_finish
+if (( UI_ENABLED == 0 )); then
+  printf "OpenCode %s installed successfully.\\n" "$VERSION"
+  printf "Start: opencode | Manage: opencode-termux --help\\n"
+fi
