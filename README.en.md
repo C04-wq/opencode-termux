@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?display_name=tag&style=for-the-badge" alt="Latest release"></a>
+  <a href="https://github.com/Spectra010s/opencode-termux/releases/tag/v2.3.2"><img src="https://img.shields.io/badge/Android%20runtime-2.3.2-blue?style=for-the-badge" alt="Pinned Android runtime 2.3.2"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Validation workflow"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="MIT license"></a>
 </p>
@@ -306,7 +306,7 @@ The project manager, updater, interactive update prompt and uninstaller remain s
 - Runtime and launcher activation is transactional, with rollback if the final version check fails.
 - The uninstaller verifies project ownership before removing managed files.
 
-Trust boundary: the bundle is produced by the pinned third-party project Spectra010s/opencode-termux. SHA-256 confirms the downloaded file matches the pinned digest; it is not an independent signature or a substitute for auditing the source and build workflow. Dependencies retain their own licenses.
+Trust boundary: the bundle is produced by the pinned third-party project Spectra010s/opencode-termux. SHA-256 confirms the downloaded file matches the pinned digest; it is not an independent signature or a substitute for auditing the source and build workflow. License notices for the pinned runtime and OpenCode are included in THIRD_PARTY_NOTICES.md; dependencies retain their own licenses.
 
 ## 🤖 Release automation and CI
 
