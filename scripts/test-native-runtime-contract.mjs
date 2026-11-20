@@ -7,7 +7,8 @@ assert.ok(["Spectra010s/opencode-termux", "C04-wq/opencode-termux"].includes(met
 assert.equal(meta.sourceTag, "v" + meta.version);
 assert.match(meta.releaseTag, new RegExp("^v" + meta.version.replaceAll(".", "\\.") + "(-[1-9][0-9]*)?$"));
 assert.equal(meta.runtimeId, "android-bionic-bun-v1");
-assert.match(meta.archiveSha256, /^[a-f0-9]{64}$/);\nif (meta.archiveSha256X86_64 !== undefined) assert.match(meta.archiveSha256X86_64, /^[a-f0-9]{64}$/);
+assert.match(meta.archiveSha256, /^[a-f0-9]{64}$/);
+if (meta.archiveSha256X86_64 !== undefined) assert.match(meta.archiveSha256X86_64, /^[a-f0-9]{64}$/);
 const installer = fs.readFileSync("install.sh", "utf8");
 for (const token of [
   "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "Spectra010s/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
