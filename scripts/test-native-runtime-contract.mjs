@@ -16,10 +16,11 @@ for (const token of [
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
 const newline = String.fromCharCode(10);
-const launcherStart = 'cat > "$STAGE/opencode-launcher" <<\\'LAUNCHER\\'' + newline;
-const launcherEnd = newline + "LAUNCHER";
+const launcherStart = 'cat > "$STAGE/opencode-launcher" <<';
+const launcherOffset = installer.indexOf(launcherStart);
 assert.notEqual(launcherOffset, -1, "installer launcher heredoc is missing");
-const launcherBodyStart = launcherOffset + launcherStart.length;
+const launcherBodyStart = installer.indexOf(newline, launcherOffset) + newline.length;
+const launcherEnd = newline + "LAUNCHER";
 const launcherBodyEnd = installer.indexOf(launcherEnd, launcherBodyStart);
 assert.notEqual(launcherBodyEnd, -1, "installer launcher heredoc is not terminated");
 const launcherSyntax = spawnSync("bash", ["-n"], { input: installer.slice(launcherBodyStart, launcherBodyEnd), encoding: "utf8" });
