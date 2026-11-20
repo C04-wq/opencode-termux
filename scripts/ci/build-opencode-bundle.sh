@@ -27,6 +27,7 @@ TARGET_ARCH="${TARGET_ARCH:-aarch64}"
 case "$TARGET_ARCH" in
   aarch64)
     OPENCODE_ARCH="arm64"
+    PTY_LIB_NAME="librust_pty_arm64.so"
     EXPECTED_TUI_MACHINE="ARM aarch64"
     TUI_ARTIFACT="$ROOT/artifacts/transplant/opentui-bionic/libopentui.so"
     TUI_SLOT="core-linux-arm64-musl"
@@ -34,6 +35,7 @@ case "$TARGET_ARCH" in
     ;;
   x86_64)
     OPENCODE_ARCH="x64"
+    PTY_LIB_NAME="librust_pty_x86_64.so"
     EXPECTED_TUI_MACHINE="x86-64"
     TUI_ARTIFACT="$ROOT/artifacts/transplant/opentui-bionic-x86_64/libopentui.so"
     TUI_SLOT="core-linux-x64-musl"
@@ -288,13 +290,13 @@ fi
 rm -rf "$out"
 mkdir -p "$out/lib"
 cp -a "$lib/." "$out/lib/"
-install -m 0755 "$pty" "$out/lib/librust_pty_$TARGET_ARCH.so"
+install -m 0755 "$pty" "$out/lib/$PTY_LIB_NAME"
 install -m 0644 "$watcher" "$out/lib/watcher.node"
 # Empty bunfig: the wrapper points bun at it so a project's bunfig.toml or
 # .env in the user's cwd never changes how the CLI starts.
 : > "$out/lib/bunfig.toml"
 find "$out/lib" -type f -exec chmod 0644 {} +
-chmod 0755 "$out/lib/librust_pty_$TARGET_ARCH.so"
+chmod 0755 "$out/lib/$PTY_LIB_NAME"
 
 # Every asset the bundle references by absolute path must exist in the tree;
 # a missing one only shows up on device otherwise.
