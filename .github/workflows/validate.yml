@@ -252,11 +252,11 @@ jobs:
       - name: Build Bionic OpenTUI library
         run: |
           set -euo pipefail
-          NDK="${ANDROID_NDK_LATEST_HOME:-}"
-          if [ -z "$NDK" ] || [ ! -d "$NDK" ]; then
-            NDK="$(find "$ANDROID_SDK_ROOT/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
-          fi
+          NDK_VERSION="$(python3 -c 'import json; print(json.load(open("tools/supply-chain-lock.json"))["android_ndk_version"])')"
+          NDK="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
           test -d "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          ACTUAL_NDK_VERSION="$(sed -n 's/^Pkg.Revision = //p' "$NDK/source.properties" | tr -d '\r')"
+          test "$ACTUAL_NDK_VERSION" = "$NDK_VERSION"
           echo "NDK=$NDK" >> "$GITHUB_ENV"
           SYSROOT="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
           LIBDIR="$SYSROOT/usr/lib/aarch64-linux-android/$ANDROID_API"
@@ -328,10 +328,10 @@ jobs:
           chmod 0755 dist/bin/opencode
           ARCHIVE="dist/opencode-$VERSION-android-aarch64-bundle.tar.gz"
           tar --sort=name --mtime='UTC 2020-01-01' --owner=0 --group=0 --numeric-owner \
-            -C dist -czf "$ARCHIVE" bin lib
+            -C dist -cf - bin lib | gzip -n > "$ARCHIVE"
           bash scripts/validate-runtime-archive.sh "$ARCHIVE" "$RUNNER_TEMP/archive-validation"
           bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
-          sha256sum "$ARCHIVE" > dist/SHA256SUMS
+          (cd dist && sha256sum "opencode-$VERSION-android-aarch64-bundle.tar.gz" > SHA256SUMS)
           cp "$STAGED/report.json" dist/report.json
           cp tools/supply-chain-lock.json dist/supply-chain-lock.json
           python3 - "$VERSION" "$ARCHIVE" > dist/release-checksums.json <<'PY'

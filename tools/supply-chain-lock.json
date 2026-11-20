@@ -93,5 +93,6 @@
   },
   "source_build_bun_1_4_4": {
     "linux_x64_archive_sha256": "bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c"
-  }
+  },
+  "android_ndk_version": "30.0.16248370"
 }

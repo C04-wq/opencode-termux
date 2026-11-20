@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 const lock = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
 const version = lock.current;
 assert.ok(lock.opencode[version], "current OpenCode version must exist in the source lock");
+assert.equal(lock.android_ndk_version, "30.0.16248370", "Android NDK must be pinned");
 assert.match(lock.opencode[version].commit, /^[a-f0-9]{40}$/);
 assert.ok(lock.opencode[version].bun_version);
 assert.ok(lock.opencode[version].opentui_version);
@@ -43,6 +44,7 @@ for (const token of [
   "scripts/smoke-test-runtime-archive.sh",
   "readelf -h",
   "gh release create",
+  "gzip -n",
   '"v*"',
   "C04-wq/opencode-termux"
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
