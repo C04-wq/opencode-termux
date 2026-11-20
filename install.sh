@@ -32,34 +32,62 @@ run_quiet() {
 UI_ENABLED=0
 UI_STARTED="${OPENCODE_TERMUX_UI_STARTED:-0}"
 if [[ -t 1 ]]; then UI_ENABLED=1; fi
-ui_start() {
-  (( UI_ENABLED == 1 )) || return 0
-  [[ "$UI_STARTED" == 1 ]] && return 0
-
-  # Render the exact geometry and palette of opencode-logo.svg as terminal
-  # color cells. Termux terminals do not render SVG files natively.
-  local row col padding=0 columns="${COLUMNS:-0}"
+UI_ANIMATION_PID=""
+ui_draw_logo() {
+  local shade="$1" row col padding=0 columns="${COLUMNS:-0}"
   if [[ "$columns" =~ ^[0-9]+$ ]] && (( columns > 32 )); then
     padding=$(( (columns - 32) / 2 ))
   fi
-  printf '\n'
   for (( row=0; row<20; row++ )); do
     printf '%*s' "$padding" ''
     for (( col=0; col<16; col++ )); do
       if (( row >= 8 && row < 16 && col >= 4 && col < 12 )); then
         printf '\033[48;2;75;70;70m  '
       else
-        printf '\033[48;2;241;236;236m  '
+        printf '\033[48;2;%s;%s;%sm  ' "$shade" "$((shade - 5))" "$((shade - 5))"
       fi
     done
     printf '\033[0m\n'
   done
+}
+ui_start() {
+  (( UI_ENABLED == 1 )) || return 0
+  [[ "$UI_STARTED" == 1 ]] && return 0
+  printf '\n'
+  ui_draw_logo 241
   printf '\n'
   UI_STARTED=1
   export OPENCODE_TERMUX_UI_STARTED=1
 }
+ui_animation_start() {
+  (( UI_ENABLED == 1 )) || return 0
+  [[ -n "$UI_ANIMATION_PID" ]] && return 0
+  (
+    local shade=241
+    while :; do
+      printf '\033[s\033[21A'
+      ui_draw_logo "$shade"
+      printf '\033[u'
+      if [[ "$shade" == 241 ]]; then shade=255; else shade=241; fi
+      sleep 0.7
+    done
+  ) >/dev/tty 2>/dev/null &
+  UI_ANIMATION_PID=$!
+}
+ui_animation_stop() {
+  [[ -n "$UI_ANIMATION_PID" ]] || return 0
+  kill "$UI_ANIMATION_PID" 2>/dev/null || true
+  wait "$UI_ANIMATION_PID" 2>/dev/null || true
+  UI_ANIMATION_PID=""
+  if (( UI_ENABLED == 1 )); then
+    printf '\033[s\033[21A'
+    ui_draw_logo 241
+    printf '\033[u'
+  fi
+}
 ui_finish() {
   (( UI_ENABLED == 1 )) || return 0
+  ui_animation_stop
   printf '\n\n'
   if [[ "$INSTALL_ACTION" == "updated" ]]; then
     printf '\033[32mOpenCode updated successfully. The update process completed successfully.\033[0m\n'
@@ -194,6 +222,7 @@ LAUNCHERS_TOUCHED=0
 cleanup() {
   local status=$?
   trap - EXIT
+  ui_animation_stop
   rm -rf "$STAGE"
   if [[ -n "$NEW" ]]; then rm -rf "$NEW"; fi
   if (( status != 0 )); then
@@ -238,8 +267,10 @@ trap cleanup EXIT
 URL="https://github.com/C04-wq/opencode-termux/releases/download/v$VERSION/opencode-termux-aarch64.tar.gz"
 
 if (( UI_ENABLED == 1 )); then
-  # Let curl render its real transfer progress; it advances only as bytes arrive.
+  # Pulse the logo while curl renders its real byte-based transfer progress.
+  ui_animation_start
   curl --fail --location --progress-bar --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
+  ui_animation_stop
 else
   curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
 fi
