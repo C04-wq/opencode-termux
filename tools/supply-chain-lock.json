@@ -49,7 +49,7 @@
   "bun_pty": {
     "ref": "v0.4.11",
     "commit": "a582ae17cc6c41cb890b142c48669936541339c7",
-    "portable_pty": "0.9"
+    "portable_pty": "0.9.0"
   },
   "android_bun": {
     "1.4.0": {
