@@ -55,7 +55,7 @@ The existing GitHub Actions pipeline must be made reproducible through Termux's 
 
 ### 4. Native dependency portability
 
-The current scripts are not architecture-generic. In particular, `scripts/ci/build-rust-pty-android.sh`, `scripts/ci/build-opencode-bundle.sh`, and the OpenTUI build workflow assume AArch64. The FFF and watcher packages are selected as Android ARM64 dependencies. These need genuine per-architecture builds; a matching CPU label alone is not sufficient.
+The current bundle pipeline is still AArch64-only. `scripts/ci/build-rust-pty-android.sh` now accepts an explicit `TARGET_ARCH` for Android NDK cross-builds of the PTY library (`aarch64` or `x86_64`) and validates the resulting ELF machine. This is an isolated native-dependency improvement, not end-to-end x86_64 support: `scripts/ci/build-opencode-bundle.sh`, the OpenTUI build workflow, FFF selection, watcher selection, archive naming/validation, release metadata and installer remain AArch64-specific. Those components need genuine per-architecture builds and tests; a matching CPU label alone is not sufficient.
 
 ## Implementation sequence
 
