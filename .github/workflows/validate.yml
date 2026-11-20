@@ -50,8 +50,9 @@ jobs:
       - name: Validate native runtime contract
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/ocver.py tools/patch-opencode-source.py tools/patch-opencode-bundle.py tools/patch-opentui-ffi.py tools/patch-opentui-loader.py tools/patch-fff-android.py tools/patch-opentui-android.py tools/remap-binary-prefix.py tools/transplant/swap_tui.py
+          python3 -m py_compile tools/ocver.py tools/upstream_tags.py tools/test_upstream_tags.py tools/patch-opencode-source.py tools/patch-opencode-bundle.py tools/patch-opentui-ffi.py tools/patch-opentui-loader.py tools/patch-fff-android.py tools/patch-opentui-android.py tools/remap-binary-prefix.py tools/transplant/swap_tui.py
           python3 -m json.tool tools/supply-chain-lock.json >/dev/null
+          python3 tools/test_upstream_tags.py
           python3 -m json.tool tools/transplant/config/bun-bind.json >/dev/null
           node --check scripts/test-native-runtime-contract.mjs
           node scripts/test-native-runtime-contract.mjs
