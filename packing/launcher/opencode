@@ -1,0 +1,81 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# OpenCode launcher for Android/Termux.
+#
+# 2.2.7 ships the module graph as JavaScript and runs it on Termux's `bun`
+# instead of compiling one ELF per release. This wrapper is the executable the
+# package owns; it locates the bundle next to itself and execs the runtime.
+#
+# Layout (identical for `pkg`/`apt` and the curl installer):
+#   <base>/bin/opencode          this script
+#   <base>/lib/opencode/         index.js, hashed assets, native libraries
+set -eu
+
+# Resolve $0 through symlinks so a link in $PREFIX/bin still finds its bundle.
+resolve_link() {
+  target=$1
+  while [ -L "$target" ]; do
+    link=$(readlink "$target") || break
+    case $link in
+      /*) target=$link ;;
+      *) target=$(dirname "$target")/$link ;;
+    esac
+  done
+  printf '%s\n' "$target"
+}
+
+self=$(resolve_link "$0")
+case $self in
+  */*) self_dir=$(cd "$(dirname "$self")" && pwd) ;;
+  *) self_dir=$(pwd) ;;
+esac
+base=$(cd "$self_dir/.." && pwd)
+root=${OPENCODE_ROOT:-$base/lib/opencode}
+
+if [ -z "${OPENCODE_BUN:-}" ]; then
+  if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/bun" ]; then
+    OPENCODE_BUN=$PREFIX/bin/bun
+  else
+    OPENCODE_BUN=$(command -v bun || true)
+  fi
+fi
+if [ -z "$OPENCODE_BUN" ]; then
+  echo "opencode: bun is not installed. Install it with: pkg install bun" >&2
+  exit 1
+fi
+if [ ! -f "$root/index.js" ]; then
+  echo "opencode: bundle missing at $root/index.js; reinstall opencode" >&2
+  exit 1
+fi
+
+# Under bun, process.execPath is the interpreter; these name the install.
+OPENCODE_LAUNCHER=$self
+OPENCODE_ROOT=$root
+export OPENCODE_LAUNCHER OPENCODE_ROOT
+export OPENCODE_DISABLE_AUTOUPDATE=1
+
+# bun-pty dlopens this at import time; the npm package only ships glibc/musl.
+BUN_PTY_LIB=${BUN_PTY_LIB:-$root/librust_pty_arm64.so}
+export BUN_PTY_LIB
+
+# @parcel/watcher needs an OpenCode-owned bionic build; upstream resolves the
+# package name from process.platform, which is "android" here.
+if [ -f "$root/watcher.node" ]; then
+  OPENCODE_PARCEL_WATCHER_PATH=$root/watcher.node
+  export OPENCODE_PARCEL_WATCHER_PATH
+fi
+
+if [ -n "${PREFIX:-}" ]; then
+  LD_LIBRARY_PATH=$PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+  export LD_LIBRARY_PATH
+fi
+
+version=__OPENCODE_VERSION__
+exec "$OPENCODE_BUN" \
+  --smol \
+  --no-install \
+  --no-env-file \
+  --no-warnings \
+  --use-system-ca \
+  --config="$root/bunfig.toml" \
+  --user-agent="opencode/latest/$version/cli" \
+  "$root/index.js" "$@"

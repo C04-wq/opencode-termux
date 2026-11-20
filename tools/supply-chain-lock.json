@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "current": "2.3.2",
+  "package_revision": 1,
+  "opencode": {
+    "2.0.26": {
+      "commit": "9b4ec5714d481559990db0a816d5dec19541a814",
+      "source_sha256": "3c8373973985b7691843faf7d5603cb11d8eb1b9c66b73d5f92e999b93236d35",
+      "cli_linux_arm64_sha256": "1d7117dbb31968456f89537b562fb5e20e48d9e9ef0325fc8845abdda6ef4842",
+      "bun_version": "1.4.2"
+    },
+    "2.0.28": {
+      "commit": "026b106bc5d41b679ffc413264229c340871e4d3",
+      "source_sha256": "92db4b1c94902153ea1d9ea4c7e53df97b60471e563ef22a84fce9e8cb795c6a",
+      "bun_version": "1.4.2",
+      "opentui_version": "0.5.17"
+    },
+    "2.2.5": {
+      "commit": "9bbb8ce18c80f099e0e448775f59d965ead40a21",
+      "source_sha256": "04621edf6c47c2c7a36982ef39914d482c16977708fbd7b779f49f928bdc4fba",
+      "bun_version": "1.4.4",
+      "opentui_version": "0.8.0"
+    },
+    "2.2.6": {
+      "commit": "dc2ffcf8bf26f9e669b6aa22b95f50e12be15e06",
+      "source_sha256": "4dec545d50bfbce8952360b50e6b9487f4c92d822bb5dab14ac698e8bb933e12",
+      "bun_version": "1.4.4",
+      "opentui_version": "0.8.1"
+    },
+    "2.2.7": {
+      "commit": "fedc6f208aa2bd54c1019227214568083f6380ad",
+      "source_sha256": "493e29d872f1cd9604ef3de609f0278e093c0f8066719e4166efc6544d16f34d",
+      "bun_version": "1.4.4",
+      "opentui_version": "0.8.1"
+    },
+    "2.3.0": {
+      "commit": "a6b15d33daf6ab7d35569f6d711fdb630b9f04e7",
+      "source_sha256": "61b96281d3604596829788a9e433ba61898fa4b56d3f70bd5704e48cb84f0209",
+      "bun_version": "1.4.4",
+      "opentui_version": "0.8.4"
+    },
+    "2.3.2": {
+      "commit": "c0ad18b402eb2827fc1ee71c171b1177b3fc02d1",
+      "source_sha256": "cb6486bf0e8a5fb49b5367beca7685e45f311bfe2a38b2ad15c6a3e3bdcf8bc9",
+      "bun_version": "1.4.4",
+      "opentui_version": "0.8.4"
+    }
+  },
+  "bun_pty": {
+    "ref": "v0.4.11",
+    "commit": "a582ae17cc6c41cb890b142c48669936541339c7",
+    "portable_pty": "0.9"
+  },
+  "android_bun": {
+    "1.4.0": {
+      "archive_sha256": "42544d7438bb92c7e7df7d30b9a5858cb7a834636608e5b850f59138283567fc",
+      "elf_sha256": "44a83a9b716a2df09c7c62cfee94f99b4d0b389f9326c6318c4831d888e2a250"
+    },
+    "1.4.2": {
+      "archive_sha256": "a1c7e2983f1bb65146beb256a4d72449f23042412bc2cf278aa6397ba27e0274",
+      "elf_sha256": "f2970336bfccf36e4e8a408b25c627122f210e941672f184198c31f4dbd377a0"
+    },
+    "1.4.4": {
+      "archive_sha256": "d72e42c60e895ccbc16144bb1e0e0ad7ee384841c35b5501a7ec28b4d6d759c9",
+      "elf_sha256": "461fda703381e03e8856791cd57093cd79b8f05f2ee262bc69f16c27d2c5575e"
+    }
+  },
+  "source_build_bun_1_4_0": {
+    "linux_x64_archive_sha256": "2d03fb5fb83ac8b567aca0a281b2ce1a1a19d488f56c2968d88c3f25e92fe452",
+    "linux_aarch64_archive_sha256": "4b1a332ee861983eb93bcfe6f770fff94e3e31b2c388bdaea3c8ed35e58eed0e"
+  },
+  "opentui": {
+    "0.5.17": {
+      "commit": "6f0efd3330978d696b42db3d7d95d2042008312b",
+      "zig_version": "0.16.0",
+      "zig_x86_64_linux_sha256": "70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00"
+    },
+    "0.8.0": {
+      "commit": "738067f47e940dcec3f5aab74868908574335c6c",
+      "zig_version": "0.16.0",
+      "zig_x86_64_linux_sha256": "70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00"
+    },
+    "0.8.1": {
+      "commit": "9a09079c0c7ad0fb2d55404f66a5c453204328dd",
+      "zig_version": "0.17.0",
+      "zig_x86_64_linux_sha256": "1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026"
+    },
+    "0.8.4": {
+      "commit": "d4a2af24ba50636da5f222367f91746a1bf89644",
+      "zig_version": "0.17.0",
+      "zig_x86_64_linux_sha256": "1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026"
+    }
+  },
+  "source_build_bun_1_4_4": {
+    "linux_x64_archive_sha256": "bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c"
+  }
+}

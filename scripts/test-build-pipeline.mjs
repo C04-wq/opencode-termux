@@ -1,0 +1,60 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+
+const lock = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
+const version = lock.current;
+assert.ok(lock.opencode[version], "current OpenCode version must exist in the source lock");
+assert.match(lock.opencode[version].commit, /^[a-f0-9]{40}$/);
+assert.ok(lock.opencode[version].bun_version);
+assert.ok(lock.opencode[version].opentui_version);
+assert.match(lock.bun_pty.commit, /^[a-f0-9]{40}$/);
+assert.ok(lock.opentui[lock.opencode[version].opentui_version]);
+
+const build = fs.readFileSync("scripts/ci/build-opencode-bundle.sh", "utf8");
+for (const token of [
+  "https://github.com/anomalyco/opencode.git",
+  "tools/supply-chain-lock.json",
+  "tools/patch-opencode-source.py",
+  "tools/patch-opencode-bundle.py",
+  "tools/patch-opentui-ffi.py",
+  "tools/patch-opentui-loader.py",
+  "tools/patch-fff-android.py",
+  "scripts/ci/build-rust-pty-android.sh",
+  "artifacts/bundle/"
+]) assert.ok(build.includes(token), "native build script missing " + token);
+
+const pty = fs.readFileSync("scripts/ci/build-rust-pty-android.sh", "utf8");
+assert.ok(pty.includes("EXPECTED_COMMIT"), "bun-pty source commit must be pinned and verified");
+assert.ok(pty.includes("tools/ocver.py bunpty commit"));
+
+const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
+assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must target this repository");
+assert.ok(sourcePatch.includes("raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh"), "native updater must use the current installer");
+assert.ok(!sourcePatch.includes("Spectra010s/opencode-termux"), "native updater must not depend on Spectra releases");
+assert.ok(sourcePatch.includes('exec(["sh", installer], "4 hours")'), "native updater must invoke the installer without unsupported arguments");
+assert.ok(!sourcePatch.includes('exec(["sh", installer, "--version", version]'), "unsupported installer version argument must not be generated");
+
+const workflow = fs.readFileSync(".github/workflows/build-native-android.yml", "utf8");
+for (const token of [
+  "https://github.com/anomalyco/opentui.git",
+  "tools/supply-chain-lock.json",
+  "scripts/ci/build-opencode-bundle.sh",
+  "scripts/validate-runtime-archive.sh",
+  "scripts/smoke-test-runtime-archive.sh",
+  "readelf -h",
+  "gh release create",
+  'tags: ["v*"]',
+  "C04-wq/opencode-termux"
+]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
+
+const watcher = fs.readFileSync(".github/workflows/check-upstream.yml", "utf8");
+assert.ok(watcher.includes("anomalyco/opencode/releases/latest"));
+assert.ok(watcher.includes("tools/ocver.py current"));
+assert.ok(watcher.includes("gh issue create"));
+
+const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
+for (const token of ["OPENCODE_ROOT", "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
+  assert.ok(launcher.includes(token), "Termux Bun launcher missing " + token);
+}
+
+console.log("Independent Android/Bionic source-build pipeline contract passed.");

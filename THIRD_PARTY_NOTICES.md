@@ -56,6 +56,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Other runtime dependencies retain their own licenses and notices. The
-third-party project is responsible for its dependency bundle and build
-metadata; consult its source repository for the complete dependency inventory.
+Other runtime dependencies retain their own licenses and notices.
+
+The Android/Bionic build pipeline in this repository includes build and compatibility
+scripts derived from [Spectra010s/opencode-termux](https://github.com/Spectra010s/opencode-termux),
+which is also distributed under the MIT License. Those scripts are maintained and
+executed by this repository's own GitHub Actions workflows; no prebuilt runtime
+release from that project is required by the build pipeline.
+
+The build fetches OpenCode source from
+[anomalyco/opencode](https://github.com/anomalyco/opencode) at the exact commit
+recorded in `tools/supply-chain-lock.json`. OpenTUI and bun-pty sources are also
+pinned to immutable commits in that lock file. Their original licenses and
+notices remain applicable. The published runtime report and source lock accompany
+each release for provenance.

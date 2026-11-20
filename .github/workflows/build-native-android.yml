@@ -1,0 +1,273 @@
+name: Build OpenCode for Termux (Android/Bionic)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+env:
+  ANDROID_API: "28"
+
+jobs:
+  build:
+    name: Build and verify Android ARM64 runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      version: ${{ steps.lock.outputs.version }}
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --yes \
+            binutils build-essential clang file git libssl-dev llvm patch python3 \
+            unzip zip curl xz-utils
+          command -v cargo
+          command -v rustup
+
+      - name: Resolve locked source versions
+        id: lock
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
+          version = lock["current"]
+          opencode = lock["opencode"][version]
+          opentui_version = opencode["opentui_version"]
+          opentui = lock["opentui"][opentui_version]
+          print(f"OPENCODE_VERSION={version}")
+          print(f"OPENCODE_COMMIT={opencode['commit']}")
+          print(f"BUN_VERSION={opencode['bun_version']}")
+          print(f"OPENTUI_VERSION={opentui_version}")
+          print(f"OPENTUI_COMMIT={opentui['commit']}")
+          print(f"ZIG_VERSION={opentui['zig_version']}")
+          PY
+          VERSION="$(python3 tools/ocver.py current)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          test "$VERSION" = "$OPENCODE_VERSION"
+
+      - name: Fetch pinned OpenTUI source
+        run: |
+          set -euo pipefail
+          mkdir -p work/opentui
+          git -C work/opentui init .
+          git -C work/opentui remote add origin https://github.com/anomalyco/opentui.git
+          git -C work/opentui fetch --depth=1 origin "$OPENTUI_COMMIT"
+          git -C work/opentui checkout --detach FETCH_HEAD
+          test "$(git -C work/opentui rev-parse HEAD)" = "$OPENTUI_COMMIT"
+
+      - name: Install hash-verified Zig
+        run: |
+          set -euo pipefail
+          SHA="$(python3 -c 'import json,os; print(json.load(open("tools/supply-chain-lock.json"))["opentui"][os.environ["OPENTUI_VERSION"]]["zig_x86_64_linux_sha256"])')"
+          URL="https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz"
+          mkdir -p work
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o work/zig.tar.xz
+          echo "$SHA  work/zig.tar.xz" | sha256sum -c -
+          tar -xJf work/zig.tar.xz -C work
+          echo "$GITHUB_WORKSPACE/work/zig-x86_64-linux-$ZIG_VERSION" >> "$GITHUB_PATH"
+
+      - name: Verify locked Android toolchain metadata
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
+          bind = json.load(open("tools/transplant/config/bun-bind.json", encoding="utf-8"))
+          bun_version = lock["opencode"][os.environ["OPENCODE_VERSION"]]["bun_version"]
+          bun = lock["android_bun"][bun_version]
+          opentui = lock["opentui"][os.environ["OPENTUI_VERSION"]]
+          assert bind["target"] == bun_version
+          assert bind["archive_sha256"] == bun["archive_sha256"]
+          assert bind["elf_sha256"] == bun["elf_sha256"]
+          assert opentui["commit"] == os.environ["OPENTUI_COMMIT"]
+          assert opentui["zig_version"] == os.environ["ZIG_VERSION"]
+          PY
+          test "$(zig version)" = "$ZIG_VERSION"
+
+      - name: Apply Android/Bionic OpenTUI compatibility patches
+        run: |
+          set -euo pipefail
+          python3 tools/patch-opentui-android.py work/opentui
+          git -C work/opentui diff --check
+
+      - name: Build Bionic OpenTUI library
+        run: |
+          set -euo pipefail
+          NDK="${ANDROID_NDK_LATEST_HOME:-}"
+          if [ -z "$NDK" ] || [ ! -d "$NDK" ]; then
+            NDK="$(find "$ANDROID_SDK_ROOT/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          fi
+          test -d "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          echo "NDK=$NDK" >> "$GITHUB_ENV"
+          SYSROOT="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          LIBDIR="$SYSROOT/usr/lib/aarch64-linux-android/$ANDROID_API"
+          test -d "$LIBDIR"
+          LLVM_STRIP="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          test -x "$LLVM_STRIP"
+          echo "LLVM_STRIP=$LLVM_STRIP" >> "$GITHUB_ENV"
+          mkdir -p artifacts/transplant/opentui-bionic
+          {
+            echo "include_dir=$SYSROOT/usr/include/aarch64-linux-android"
+            echo "sys_include_dir=$SYSROOT/usr/include"
+            echo "crt_dir=$LIBDIR"
+            echo "msvc_lib_dir="
+            echo "kernel32_lib_dir="
+            echo "gcc_dir=$LIBDIR"
+            echo "darwin_sdk_dir="
+          } > work/android-libc.txt
+          sh work/opentui/packages/native/scripts/prepare-zig-deps.sh
+          (
+            cd work/opentui/packages/native
+            OPENTUI_C_REMAP="-ffile-prefix-map=$GITHUB_WORKSPACE=/usr/src -D__ANDROID_MIN_SDK_VERSION__=28 -D__ANDROID_API__=28" \
+            BIONIC_ARCH_INCLUDE="$SYSROOT/usr/include/aarch64-linux-android" \
+            BIONIC_SYS_INCLUDE="$SYSROOT/usr/include" \
+            BIONIC_LIB_DIR="$LIBDIR" \
+              zig build -Dlibrary-target=aarch64-linux-android.28 \
+                -Doptimize=ReleaseSafe --libc "$GITHUB_WORKSPACE/work/android-libc.txt"
+          )
+          SO="work/opentui/packages/native/lib/aarch64-linux-android.28/libopentui.so"
+          test -s "$SO"
+          python3 tools/remap-binary-prefix.py "$SO" "$GITHUB_WORKSPACE" /usr/src
+          cp "$SO" artifacts/transplant/opentui-bionic/libopentui.so
+
+      - name: Verify Bionic OpenTUI
+        run: |
+          set -euo pipefail
+          SO=artifacts/transplant/opentui-bionic/libopentui.so
+          file "$SO" | grep -q 'ARM aarch64'
+          readelf -h "$SO" | grep -q 'Type:.*DYN'
+          readelf -d "$SO" | grep -q 'NEEDED.*libc.so'
+          if readelf -d "$SO" | grep -q 'libc.so.6'; then
+            echo "glibc dependency found in OpenTUI" >&2
+            exit 1
+          fi
+          if readelf -Ws "$SO" | grep -E 'UND[[:space:]]+pthread_tryjoin_np' >/dev/null; then
+            echo "glibc-only pthread_tryjoin_np import found" >&2
+            exit 1
+          fi
+          python3 -c 'import sys; sys.path.insert(0,"tools/transplant"); from swap_tui import has_ffi_guard; assert has_ffi_guard(open(sys.argv[1],"rb").read())' "$SO"
+          if grep -aFq "$GITHUB_WORKSPACE" "$SO"; then
+            echo "build workspace path leaked into OpenTUI" >&2
+            exit 1
+          fi
+
+      - name: Build OpenCode source bundle and Android native modules
+        run: |
+          set -euo pipefail
+          rustup target add aarch64-linux-android
+          bash scripts/ci/build-opencode-bundle.sh
+
+      - name: Package and verify the Termux runtime archive
+        run: |
+          set -euo pipefail
+          VERSION="$OPENCODE_VERSION"
+          STAGED="artifacts/bundle/$VERSION"
+          test -s "$STAGED/lib/index.js"
+          mkdir -p dist/bin dist/lib/opencode
+          cp -a "$STAGED/lib/." dist/lib/opencode/
+          sed "s/__OPENCODE_VERSION__/$VERSION/g" packing/launcher/opencode > dist/bin/opencode
+          chmod 0755 dist/bin/opencode
+          ARCHIVE="dist/opencode-$VERSION-android-aarch64-bundle.tar.gz"
+          tar --sort=name --mtime='UTC 2020-01-01' --owner=0 --group=0 --numeric-owner \
+            -C dist -czf "$ARCHIVE" bin lib
+          bash scripts/validate-runtime-archive.sh "$ARCHIVE" "$RUNNER_TEMP/archive-validation"
+          bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
+          sha256sum "$ARCHIVE" > dist/SHA256SUMS
+          cp "$STAGED/report.json" dist/report.json
+          cp tools/supply-chain-lock.json dist/supply-chain-lock.json
+          python3 - "$VERSION" "$ARCHIVE" > dist/release-checksums.json <<'PY'
+          import hashlib, json, sys
+          version, path = sys.argv[1:]
+          digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          print(json.dumps({
+              "version": version,
+              "sourceRepo": "C04-wq/opencode-termux",
+              "sourceTag": "v" + version,
+              "archiveSha256": digest,
+              "runtimeId": "android-bionic-bun-v1"
+          }, indent=2))
+          PY
+          cat dist/release-checksums.json
+          (cd dist && sha256sum -c SHA256SUMS)
+
+      - name: Upload verified release candidate
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: opencode-${{ steps.lock.outputs.version }}-android-aarch64-candidate
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish this repository's Android release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Verify release tag matches the source lock
+        run: |
+          set -euo pipefail
+          EXPECTED="$(python3 tools/ocver.py tag)"
+          test "$GITHUB_REF_NAME" = "$EXPECTED" || {
+            echo "Refusing to publish $GITHUB_REF_NAME; lock expects $EXPECTED" >&2
+            exit 1
+          }
+          echo "VERSION=$(python3 tools/ocver.py current)" >> "$GITHUB_ENV"
+
+      - name: Download verified build artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: opencode-${{ needs.build.outputs.version }}-android-aarch64-candidate
+          path: dist
+
+      - name: Verify release payload before publishing
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum -c SHA256SUMS
+          test "$(python3 -c 'import json; print(json.load(open("release-checksums.json"))["version"])')" = "$VERSION"
+          test -s "opencode-$VERSION-android-aarch64-bundle.tar.gz"
+          bash ../scripts/validate-runtime-archive.sh "opencode-$VERSION-android-aarch64-bundle.tar.gz" "$RUNNER_TEMP/release-validation"
+
+      - name: Publish immutable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; refusing to overwrite it." >&2
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            "opencode-$VERSION-android-aarch64-bundle.tar.gz" \
+            SHA256SUMS report.json supply-chain-lock.json release-checksums.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "OpenCode $VERSION for Termux (Android/Bionic)" \
+            --notes "Built from the pinned official OpenCode source commit recorded in supply-chain-lock.json. Android/Bionic native modules were compiled in this repository's GitHub Actions workflow and verified before publication. See report.json and SHA256SUMS for build provenance and integrity."
