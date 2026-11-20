@@ -21,7 +21,6 @@
 <p align="center">
   <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?display_name=tag&style=for-the-badge" alt="Dernière version"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Workflow de validation"></a>
-  <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/release.yml?branch=main&label=Release%20build&style=for-the-badge" alt="Workflow de release"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="Licence MIT"></a>
 </p>
 
@@ -116,8 +115,8 @@ opencode --help
 6. **Télécharge la release.** Il récupère `opencode-termux-aarch64.tar.gz` depuis les GitHub Releases de ce dépôt via HTTPS.
 7. **Vérifie le téléchargement.** Il calcule SHA-256 et refuse de continuer si le condensat ne correspond pas aux métadonnées épinglées.
 8. **Valide le contenu de l’archive.** Il rejette les fichiers inattendus, entrées en double, traversées de chemins, liens dangereux et types de fichiers incorrects avant extraction.
-9. **Prépare l’environnement.** Il place l’exécutable, le chargeur musl et les bibliothèques dans un emplacement temporaire.
-10. **Active et teste.** Il remplace l’environnement géré, installe les lanceurs et vérifie que le binaire installé indique la version attendue.
+9. **Prépare le bundle natif.** Il place le lanceur Bun, les modules JavaScript et les bibliothèques Android dans un emplacement temporaire.
+10. **Active et teste.** Il installe le bundle natif et les lanceurs du projet, puis vérifie la version avec le Bun de Termux.
 11. **Protège l’installation précédente.** L’ancien environnement et les anciens lanceurs sont conservés pendant l’activation et restaurés si l’activation ou le contrôle final échoue.
 
 Les commandes réussies restent silencieuses afin de rendre la sortie lisible. En cas d’échec, leur sortie capturée est affichée pour faciliter le diagnostic.
@@ -254,9 +253,10 @@ opencode-termux doctor
 Le diagnostic vérifie :
 
 - Que l’architecture de l’appareil est `aarch64`.
-- Que les commandes requises (`git`, `curl`, `tar` et `sha256sum`) sont disponibles.
-- Que tous les fichiers attendus de l’environnement existent et ne sont pas vides.
-- Que l’exécutable OpenCode et le chargeur musl possèdent les permissions d’exécution.
+- Que les commandes requises (`git`, `curl`, `tar`, `sha256sum`, `bun` et `rg`) sont disponibles.
+- Que la bibliothèque partagée libc++ de Termux est installée.
+- Que le lanceur natif, le point d’entrée JavaScript, la bibliothèque PTY et le module watcher existent.
+- Que le lanceur natif possède les permissions d’exécution.
 - Que le marqueur de version existe et respecte un format valide.
 - Que le lanceur OpenCode est bien celui géré par le projet.
 - Que la commande de gestion existe, est exécutable et contient le marqueur de propriété du projet.
@@ -453,14 +453,11 @@ Depuis une copie du dépôt, exécutez les contrôles pertinents :
 ```bash
 # Syntaxe shell
 bash -n install.sh uninstall.sh manager.sh opencode-termux
-bash -n scripts/build-android-release.sh scripts/setup-alpine-chroot.sh
 bash -n scripts/validate-runtime-archive.sh scripts/smoke-test-runtime-archive.sh
 
 # Syntaxe et tests JavaScript
-node --check scripts/resolve-opencode-release.mjs
-node --check scripts/check-toolchain-updates.mjs
-node scripts/test-opencode-release-resolver.mjs
-node scripts/test-toolchain-updates.mjs
+node --check scripts/test-native-runtime-contract.mjs
+node scripts/test-native-runtime-contract.mjs
 
 # Tests de régression shell
 bash scripts/test-package-owner.sh
@@ -470,7 +467,7 @@ bash scripts/test-runtime-archive.sh
 shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux scripts/*.sh
 ```
 
-Le workflow de validation GitHub Actions exécute ces contrôles, ainsi que la validation YAML et le test runtime ARM64 sous QEMU.
+Le workflow GitHub Actions télécharge également le bundle Android épinglé, vérifie son condensat, inspecte les modules ELF et teste le contrat du lanceur.
 
 ### Directives de contribution
 
