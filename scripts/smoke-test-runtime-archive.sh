@@ -12,7 +12,7 @@ bash "$(dirname "$0")/validate-runtime-archive.sh" "$ARCHIVE" "$STAGED"
 ROOT="$WORKDIR/runtime"
 mkdir -p "$ROOT/bin" "$ROOT/lib"
 mv "$STAGED/bin/opencode" "$ROOT/bin/opencode"
-mv "$STAGED/lib" "$ROOT/lib/opencode"
+mv "$STAGED/lib/opencode" "$ROOT/lib/opencode"
 chmod 755 "$ROOT/bin/opencode"
 sh -n "$ROOT/bin/opencode"
 for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
