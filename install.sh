@@ -110,9 +110,10 @@ VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$M
 HASH="$(sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
 [[ "$HASH" =~ ^[a-f0-9]{64}$ ]] || { echo "Error: invalid checksum." >&2; exit 1; }
-[[ "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" && "$SOURCE_TAG" == "v$VERSION" ]] || {
+[[ "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" && "$SOURCE_TAG" == "v$VERSION" && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
   echo "Error: native runtime source is not an approved, version-matched release." >&2
   exit 1
 }
@@ -222,6 +223,8 @@ printf '%s\n' "$VERSION" > "$NEW/.opencode-termux-version"
 chmod 600 "$NEW/.opencode-termux-version"
 printf '%s\n' "$REPO_DIR" > "$NEW/.opencode-termux-repo-dir"
 chmod 600 "$NEW/.opencode-termux-repo-dir"
+printf '%s\n' "$RUNTIME_ID" > "$NEW/.opencode-termux-runtime-id"
+chmod 600 "$NEW/.opencode-termux-runtime-id"
 cp "$REPO_DIR/THIRD_PARTY_NOTICES.md" "$NEW/THIRD_PARTY_NOTICES.md"
 if [[ -e "$RUNTIME" ]]; then BACKUP="$PREFIX/lib/.opencode-termux-backup-$$"; mv "$RUNTIME" "$BACKUP"; fi
 if ! mv "$NEW" "$RUNTIME"; then
@@ -244,11 +247,14 @@ UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/releas
 # Check GitHub quietly. A network/API failure must never prevent OpenCode from starting.
 if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
   INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
+  INSTALLED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)"
   REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
   LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
   if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
     NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
-    if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
+    if { [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]] ||
+         [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && -n "$LATEST_RUNTIME_ID" && "$LATEST_RUNTIME_ID" != "$INSTALLED_RUNTIME_ID" ]]; }; then
       printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
       CURSOR_HIDDEN=0
       restore_cursor() {
