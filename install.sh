@@ -314,6 +314,42 @@ export LD_LIBRARY_PATH="$RUNTIME${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
 UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
+ui_draw_logo() {
+  local shade="$1" row col
+  for (( row=0; row<20; row++ )); do
+    for (( col=0; col<16; col++ )); do
+      if (( row >= 8 && row < 16 && col >= 4 && col < 12 )); then
+        printf '\033[48;2;75;70;70m  '
+      else
+        printf '\033[48;2;%s;%s;%sm  ' "$shade" "$((shade - 5))" "$((shade - 5))"
+      fi
+    done
+    printf '\033[0m\n'
+  done
+}
+ui_animation_start() {
+  (
+    local shade=241
+    while :; do
+      printf '\033[s\033[21A'
+      ui_draw_logo "$shade"
+      printf '\033[u'
+      if [[ "$shade" == 241 ]]; then shade=255; else shade=241; fi
+      sleep 0.7
+    done
+  ) >/dev/tty 2>/dev/null &
+  UI_ANIMATION_PID=$!
+}
+ui_animation_stop() {
+  [[ -n "${UI_ANIMATION_PID:-}" ]] || return 0
+  kill "$UI_ANIMATION_PID" 2>/dev/null || true
+  wait "$UI_ANIMATION_PID" 2>/dev/null || true
+  UI_ANIMATION_PID=""
+  printf '\033[s\033[21A'
+  ui_draw_logo 241
+  printf '\033[u'
+}
+
 # Check GitHub quietly. A network/API failure must never prevent OpenCode from starting.
 if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
   INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
@@ -322,7 +358,12 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
   if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
     NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
     if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
-      printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
+      printf '\n'
+      ui_draw_logo 241
+      printf '\n'
+      UI_ANIMATION_PID=""
+      ui_animation_start
+      printf 'A new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
       CURSOR_HIDDEN=0
       restore_cursor() {
         if [[ "$CURSOR_HIDDEN" == 1 ]]; then
@@ -375,9 +416,11 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       done
       restore_cursor
       trap - EXIT INT TERM HUP
-      printf '\n'
+      ui_animation_stop
       if [[ "$SELECTED" == 1 ]]; then
-        if "$PREFIX/bin/opencode-termux-update"; then
+        # Remove the decision menu and leave the cursor directly below the logo.
+        printf '\033[6A\033[J'
+        if OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"; then
           exec "$0" "$@"
         else
           printf 'Update failed. Starting the currently installed version.\n' >&2
