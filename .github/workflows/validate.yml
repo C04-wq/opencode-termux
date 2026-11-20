@@ -322,6 +322,23 @@ jobs:
           file "$SO" | grep -q 'ARM aarch64'
           readelf -h "$SO" | grep -q 'Type:.*DYN'
           readelf -d "$SO" | grep -q 'NEEDED.*libc.so'
+          # The API-28 TLSDESC fallback allocates zero-filled per-thread blocks.
+          # Fail closed if OpenTUI starts shipping initialized (.tdata) TLS.
+          readelf -l "$SO" | awk '
+            $1 == "TLS" {
+              found = 1
+              if ($5 !~ /^0x0+$/) {
+                print "OpenTUI PT_TLS has initialized data; TLSDESC fallback cannot copy it." > "/dev/stderr"
+                exit 1
+              }
+            }
+            END {
+              if (!found) {
+                print "OpenTUI PT_TLS segment is missing." > "/dev/stderr"
+                exit 1
+              }
+            }
+          '
           if readelf -d "$SO" | grep -q 'libc.so.6'; then
             echo "glibc dependency found in OpenTUI" >&2
             exit 1
