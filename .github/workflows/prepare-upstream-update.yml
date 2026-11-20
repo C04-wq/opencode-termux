@@ -49,7 +49,7 @@ jobs:
           fi
 
           VERSION="$(python3 -c 'import json,re,sys; v=json.load(sys.stdin)["version"]; assert re.fullmatch(r"[0-9]+[.][0-9]+[.][0-9]+",v), f"Unsupported upstream version: {v!r}"; print(v)' <<<"$PACKAGE_JSON")"
-          python3 - "$CURRENT" "$VERSION" <<'PY'
+          if ! python3 - "$CURRENT" "$VERSION" <<'PY'
           import re, sys
           current, candidate = sys.argv[1:]
           pattern = re.compile(r"[0-9]+[.][0-9]+[.][0-9]+")
@@ -57,8 +57,18 @@ jobs:
               if not pattern.fullmatch(value):
                   raise SystemExit(f"Invalid semantic version: {value!r}")
           if tuple(map(int, candidate.split("."))) <= tuple(map(int, current.split("."))):
-              raise SystemExit(f"No newer upstream version: locked={current}, candidate={candidate}")
+              raise SystemExit(1)
           PY
+          then
+            echo "update_available=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## No newer upstream version"
+              echo
+              echo "The upstream default branch currently declares OpenCode $VERSION; this repository is locked to $CURRENT."
+              echo "No candidate artifact was generated and no repository files were changed."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           ARCHIVE="$RUNNER_TEMP/opencode-source-$VERSION.tar.gz"
           curl --fail --location --silent --show-error \
@@ -100,12 +110,14 @@ jobs:
           )
           PY
 
+          echo "update_available=true" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "commit=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
           echo "sha256=$SOURCE_SHA256" >> "$GITHUB_OUTPUT"
           echo "Prepared candidate OpenCode $VERSION at $UPSTREAM_SHA (SHA-256 $SOURCE_SHA256)."
 
       - name: Upload review-only candidate metadata
+        if: steps.candidate.outputs.update_available == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: opencode-upstream-candidate-${{ steps.candidate.outputs.version }}
@@ -114,6 +126,7 @@ jobs:
           retention-days: 14
 
       - name: Summarize the required next steps
+        if: steps.candidate.outputs.update_available == 'true'
         run: |
           {
             echo "## Upstream candidate prepared"
