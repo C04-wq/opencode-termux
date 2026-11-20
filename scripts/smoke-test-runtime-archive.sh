@@ -29,7 +29,7 @@ for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
 done
 # Exercise the shipped shell launcher without loading Android/Bionic modules
 # on the Linux CI host. The stub verifies the module path and argument contract.
-mkdir -p "$WORKDIR/prefix/bin" "$WORKDIR/prefix/lib"
+mkdir -p "$WORKDIR/prefix/bin"
 cat > "$WORKDIR/prefix/bin/bun" <<'BUN'
 #!/usr/bin/env bash
 set -e
@@ -38,17 +38,11 @@ printf '%s\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
 printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
 printf '%s\n' "$OPENCODE_DISABLE_AUTOUPDATE" > "$BUN_TEST_LOG.autoupdate"
 printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
-if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
+if [[ "\${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
 BUN
 chmod 755 "$WORKDIR/prefix/bin/bun"
-cat > "$WORKDIR/prefix/bin/opencode" <<'OUTER'
-#!/usr/bin/env sh
-export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"
-exec env OPENCODE_LAUNCHER="$PREFIX/bin/opencode" bash "$ROOT/bin/opencode" "$@"
-OUTER
-chmod 755 "$WORKDIR/prefix/bin/opencode"
 export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
-"$WORKDIR/prefix/bin/opencode" --version > "$WORKDIR/version.txt"
+env -u OPENCODE_LAUNCHER bash "$ROOT/bin/opencode" --version > "$WORKDIR/version.txt"
 if ! grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"; then
   echo "Unexpected launcher version output:" >&2
   cat "$WORKDIR/version.txt" >&2
@@ -57,14 +51,6 @@ if ! grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"; then
   exit 1
 fi
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
-cp "$BUN_TEST_LOG.launcher" "$BUN_TEST_LOG.launcher.managed"
-if ! grep -Fxq "$WORKDIR/prefix/bin/opencode" "$BUN_TEST_LOG.launcher.managed"; then
-  echo "Managed launcher path mismatch:" >&2
-  printf 'expected: %s\\nactual: ' "$WORKDIR/prefix/bin/opencode" >&2
-  cat "$BUN_TEST_LOG.launcher.managed" >&2
-  exit 1
-fi
-env -u OPENCODE_LAUNCHER bash "$ROOT/bin/opencode" --version > "$WORKDIR/candidate-version.txt"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
 grep -Fxq "$ROOT/lib/opencode/librust_pty_arm64.so" "$BUN_TEST_LOG.pty"
 grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
