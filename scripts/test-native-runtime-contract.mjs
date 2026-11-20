@@ -10,6 +10,9 @@ assert.equal(meta.runtimeId, "android-bionic-bun-v1");
 assert.match(meta.archiveSha256, /^[a-f0-9]{64}$/);
 if (meta.archiveSha256X86_64 !== undefined) assert.match(meta.archiveSha256X86_64, /^[a-f0-9]{64}$/);
 const installer = fs.readFileSync("install.sh", "utf8");
+assert.ok(installer.includes('x86_64) TARGET_ARCH="x86_64"; HASH_FIELD="archiveSha256X86_64"'), "installer must select the x86_64 release checksum");
+assert.ok(installer.includes('aarch64) TARGET_ARCH="aarch64"; HASH_FIELD="archiveSha256"'), "installer must preserve the ARM64 release checksum");
+assert.ok(installer.includes('unsupported architecture'), "unsupported architectures must be rejected before package installation");
 for (const token of [
   "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "Spectra010s/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
   "opencode-$VERSION-android-$TARGET_ARCH-bundle.tar.gz", "$RELEASE_TAG", "archiveSha256X86_64", "TARGET_ARCH=\"$TARGET_ARCH\"",
