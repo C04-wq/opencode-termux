@@ -322,9 +322,13 @@ jobs:
           file "$SO" | grep -q 'ARM aarch64'
           readelf -h "$SO" | grep -q 'Type:.*DYN'
           readelf -d "$SO" | grep -q 'NEEDED.*libc.so'
+          # Inspect PT_TLS using wide output: the default readelf layout wraps
+          # the program-header columns and is not safe for positional awk fields.
+          readelf -lW "$SO"
+          readelf -rW "$SO" | grep -E 'TLS|TLSDESC' || true
           # The API-28 TLSDESC fallback allocates zero-filled per-thread blocks.
           # Fail closed if OpenTUI starts shipping initialized (.tdata) TLS.
-          readelf -l "$SO" | awk '
+          readelf -lW "$SO" | awk '
             $1 == "TLS" {
               found = 1
               if ($5 !~ /^0x0+$/) {
