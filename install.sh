@@ -62,9 +62,9 @@ ui_finish() {
   (( UI_ENABLED == 1 )) || return 0
   printf '\n\n'
   if [[ "$INSTALL_ACTION" == "updated" ]]; then
-    printf '\033[32mOpenCode updated successfully. The update process completed successfully.\033[0m\n'
+    printf 'OpenCode updated successfully. The update process completed successfully.\n'
   else
-    printf '\033[32mOpenCode installed successfully.\033[0m\n'
+    printf 'OpenCode installed successfully.\n'
   fi
   printf '  Version: %s\n' "$VERSION"
   printf '  Run: opencode\n\n'
@@ -133,7 +133,7 @@ if ! is_project_checkout "$REPO_DIR"; then
 
         REPO_DIR="$SOURCE_REPO"
       else
-        printf "Warning: could not move the clone; continuing from its original location.\\n" >&2
+        printf 'Warning: could not move the clone; continuing from its original location.\n' >&2
       fi
     fi
   else
@@ -500,5 +500,5 @@ if (( UI_ENABLED == 0 )); then
   else
     printf "OpenCode installed successfully.\\n"
   fi
-  printf "Version: %s | Start: opencode | Manage: opencode-termux --help\\n" "$VERSION"
+  printf 'Version: %s | Start: opencode | Manage: opencode-termux --help\n' "$VERSION"
 fi
