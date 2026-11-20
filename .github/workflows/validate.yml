@@ -381,7 +381,7 @@ jobs:
           cat dist/release-checksums.json
 
       - name: Upload x86_64 candidate for physical Termux validation
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: android-x86_64-candidate-${{ github.sha }}
@@ -396,8 +396,9 @@ jobs:
 
   build-native:
     name: Build and verify Android ARM64 runtime
-    needs: [static-checks, native-runtime]
+    needs: [static-checks, native-runtime, build-x86_64-native]
     permissions:
+      actions: read
       contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -630,6 +631,33 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Add verified x86_64 archive to the dual-architecture release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/x86_64
+          gh run download "$GITHUB_RUN_ID" --name "android-x86_64-candidate-$GITHUB_SHA" --dir dist/x86_64
+          X86_ARCHIVE="opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz"
+          test -s "dist/x86_64/$X86_ARCHIVE"
+          cp "dist/x86_64/$X86_ARCHIVE" "dist/$X86_ARCHIVE"
+          python3 - "$OPENCODE_VERSION" "dist/$X86_ARCHIVE" "dist/release-checksums.json" <<'PY'
+          import hashlib, json, sys
+          version, archive, metadata = sys.argv[1:]
+          data = json.load(open(metadata, encoding="utf-8"))
+          if data.get("version") != version:
+              raise SystemExit("x86_64 candidate version does not match ARM64 release")
+          digest = hashlib.sha256(open(archive, "rb").read()).hexdigest()
+          data["archiveSha256X86_64"] = digest
+          data["archiveNameX86_64"] = archive.rsplit("/", 1)[-1]
+          with open(metadata, "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2)
+              f.write("\\n")
+          PY
+          (cd dist && sha256sum "opencode-$OPENCODE_VERSION-android-aarch64-bundle.tar.gz" "$X86_ARCHIVE" > SHA256SUMS)
+          sha256sum -c dist/SHA256SUMS --ignore-missing
+
       - name: Publish immutable GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -653,6 +681,7 @@ jobs:
           fi
           gh release create "$RELEASE_TAG" \
             "dist/opencode-$OPENCODE_VERSION-android-aarch64-bundle.tar.gz" \
+            "dist/opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz" \
             dist/SHA256SUMS dist/report.json dist/supply-chain-lock.json dist/release-checksums.json \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
