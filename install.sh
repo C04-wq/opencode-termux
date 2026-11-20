@@ -348,7 +348,7 @@ ui_animation_stop() {
   kill "$UI_ANIMATION_PID" 2>/dev/null || true
   wait "$UI_ANIMATION_PID" 2>/dev/null || true
   UI_ANIMATION_PID=""
-  printf '\033[s\033[27A'
+  printf '\033[s\033[28A'
   ui_draw_logo 241
   printf '\033[u'
 }
