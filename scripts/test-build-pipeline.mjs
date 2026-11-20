@@ -81,6 +81,8 @@ for (const token of [
   "scripts/validate-runtime-archive.sh",
   "scripts/smoke-test-runtime-archive.sh",
   "readelf -h",
+  "OpenTUI PT_TLS has initialized data",
+  "OpenTUI PT_TLS segment is missing",
   "gh release create",
   "actions/upload-artifact",
   "gzip -n",
