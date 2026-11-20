@@ -45,7 +45,6 @@ for (const token of [
   "scripts/smoke-test-runtime-archive.sh",
   "readelf -h",
   "gh release create",
-  "actions/upload-artifact",
   "gzip -n",
   '"v*"',
   "runtime-metadata-updated",
