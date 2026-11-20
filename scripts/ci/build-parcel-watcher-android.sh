@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# Cross-compile @parcel/watcher's N-API module for Android/Bionic.
+# This is a build-only helper; it does not advertise x86_64 runtime support.
+set -Eeuo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+SRC_ROOT="${1:?usage: build-parcel-watcher-android.sh OPENCODE_SOURCE_ROOT OUTPUT_NODE}"
+OUT="${2:?usage: build-parcel-watcher-android.sh OPENCODE_SOURCE_ROOT OUTPUT_NODE}"
+TARGET_ARCH="${TARGET_ARCH:-x86_64}"
+ANDROID_API="${ANDROID_API:-28}"
+NDK="${NDK:-}"
+
+[[ -d "$SRC_ROOT/node_modules/.bun" ]] || {
+  echo "watcher: OpenCode Bun dependencies not found under $SRC_ROOT/node_modules/.bun" >&2
+  exit 1
+}
+[[ -n "$NDK" && -d "$NDK/toolchains/llvm/prebuilt" ]] || {
+  echo "watcher: NDK is required for Android cross-compilation" >&2
+  exit 1
+}
+[[ "$ANDROID_API" =~ ^[0-9]+$ ]] || {
+  echo "watcher: ANDROID_API must be numeric" >&2
+  exit 1
+}
+
+case "$TARGET_ARCH" in
+  x86_64)
+    triple="x86_64-linux-android"
+    expected_machine="Advanced Micro Devices X86-64"
+    ;;
+  aarch64)
+    triple="aarch64-linux-android"
+    expected_machine="AArch64"
+    ;;
+  *)
+    echo "watcher: unsupported TARGET_ARCH '$TARGET_ARCH' (supported: aarch64, x86_64)" >&2
+    exit 2
+    ;;
+esac
+
+host_tag="${ANDROID_NDK_HOST_TAG:-linux-x86_64}"
+toolchain="$NDK/toolchains/llvm/prebuilt/$host_tag/bin"
+sysroot="$NDK/toolchains/llvm/prebuilt/$host_tag/sysroot"
+cxx="$toolchain/${triple}${ANDROID_API}-clang++"
+[[ -x "$cxx" ]] || { echo "watcher: missing NDK C++ compiler $cxx" >&2; exit 1; }
+
+for cmd in find readelf install realpath; do
+  command -v "$cmd" >/dev/null 2>&1 || { echo "watcher: missing command $cmd" >&2; exit 1; }
+done
+
+mapfile -t watcher_manifests < <(find "$SRC_ROOT/node_modules/.bun" -path '*/@parcel/watcher/package.json' -type f -print)
+[[ "${#watcher_manifests[@]}" -eq 1 ]] || {
+  echo "watcher: expected exactly one @parcel/watcher source package, found ${#watcher_manifests[@]}" >&2
+  printf '%s\n' "${watcher_manifests[@]}" >&2
+  exit 1
+}
+watcher_dir="$(dirname "${watcher_manifests[0]}")"
+addon_dir="$watcher_dir/node_modules/node-addon-api"
+[[ -f "$addon_dir/napi.h" ]] || {
+  echo "watcher: node-addon-api headers missing at $addon_dir" >&2
+  exit 1
+}
+
+node_include="${NODE_INCLUDE_DIR:-/usr/include/node}"
+[[ -f "$node_include/node_api.h" ]] || {
+  echo "watcher: Node-API headers missing at $node_include (install libnode-dev or set NODE_INCLUDE_DIR)" >&2
+  exit 1
+}
+
+sources=(
+  src/binding.cc
+  src/Watcher.cc
+  src/Backend.cc
+  src/DirTree.cc
+  src/Glob.cc
+  src/Debounce.cc
+  src/watchman/BSER.cc
+  src/watchman/WatchmanBackend.cc
+  src/shared/BruteForceBackend.cc
+  src/linux/InotifyBackend.cc
+  src/unix/legacy.cc
+)
+for source in "${sources[@]}"; do
+  [[ -f "$watcher_dir/$source" ]] || {
+    echo "watcher: required upstream source missing: $source" >&2
+    exit 1
+  }
+done
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+objects=()
+for source in "${sources[@]}"; do
+  object="$tmp/${source//\//_}.o"
+  "$cxx" --sysroot="$sysroot" -std=c++17 -O2 -fPIC \
+    -DNAPI_VERSION=3 -DNAPI_DISABLE_CPP_EXCEPTIONS \
+    -DWATCHMAN -DINOTIFY -DBRUTE_FORCE \
+    -I"$node_include" -I"$addon_dir" -I"$watcher_dir/src" \
+    -c "$watcher_dir/$source" -o "$object"
+  objects+=("$object")
+done
+
+mkdir -p "$(dirname "$OUT")"
+"$cxx" --sysroot="$sysroot" -shared -pthread "${objects[@]}" \
+  -Wl,-soname,watcher.node -Wl,-z,relro -Wl,-z,now -o "$tmp/watcher.node"
+
+machine="$(readelf -h "$tmp/watcher.node" | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p')"
+[[ "$machine" == "$expected_machine" ]] || {
+  echo "watcher: expected ELF machine '$expected_machine', got '${machine:-unknown}'" >&2
+  exit 1
+}
+needed="$(readelf -d "$tmp/watcher.node" | awk '/NEEDED/{print $NF}')"
+if printf '%s\n' "$needed" | grep -Eq 'lib(c|m|dl|pthread|rt)\.so\.[0-9]'; then
+  echo "watcher: glibc-linked dependency found: $needed" >&2
+  exit 1
+fi
+readelf --dyn-syms "$tmp/watcher.node" | grep -q 'napi_register_module_v1' || {
+  echo "watcher: N-API registration export is missing" >&2
+  exit 1
+}
+
+install -m 0644 "$tmp/watcher.node" "$OUT"
+echo "watcher: built $TARGET_ARCH Android/Bionic N-API module -> $OUT ($(stat -c%s "$OUT") bytes)"
+echo "watcher: ELF $machine; NEEDED $(printf '%s ' $needed)"
