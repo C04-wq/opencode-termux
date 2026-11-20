@@ -48,11 +48,11 @@ jobs:
               "https://raw.githubusercontent.com/anomalyco/opencode/$UPSTREAM_SHA/packages/opencode/package.json")"
           fi
 
-          VERSION="$(python3 -c 'import json,re,sys; v=json.load(sys.stdin)["version"]; assert re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+",v), f"Unsupported upstream version: {v!r}"; print(v)' <<<"$PACKAGE_JSON")"
+          VERSION="$(python3 -c 'import json,re,sys; v=json.load(sys.stdin)["version"]; assert re.fullmatch(r"[0-9]+[.][0-9]+[.][0-9]+",v), f"Unsupported upstream version: {v!r}"; print(v)' <<<"$PACKAGE_JSON")"
           python3 - "$CURRENT" "$VERSION" <<'PY'
           import re, sys
           current, candidate = sys.argv[1:]
-          pattern = re.compile(r"\\d+\\.\\d+\\.\\d+")
+          pattern = re.compile(r"[0-9]+[.][0-9]+[.][0-9]+")
           for value in (current, candidate):
               if not pattern.fullmatch(value):
                   raise SystemExit(f"Invalid semantic version: {value!r}")
