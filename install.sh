@@ -310,7 +310,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
     x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64" ;;
     *) UPDATE_HASH_FIELD="unsupported" ;;
   esac
-  LATEST_ARCHIVE_SHA256="$(printf '%s\\n' "$REMOTE_METADATA" | sed -n 's/.*"'$UPDATE_HASH_FIELD'"[[:space:]]*:[[:space:]]*"'\\([a-f0-9]*\\)".*/\\1/p' | head -n1)"
+  LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"'$UPDATE_HASH_FIELD'"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
   DEFERRED_VERSION="$(cat "$RUNTIME/.opencode-termux-deferred-version" 2>/dev/null || true)"
   DEFERRED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-deferred-runtime-id" 2>/dev/null || true)"
   DEFERRED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-deferred-archive-sha256" 2>/dev/null || true)"
