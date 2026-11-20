@@ -114,8 +114,7 @@ def main() -> None:
         '      const owner = yield* exec(["dpkg-query", "-S", executable]).pipe(Effect.orElseSucceed(() => undefined))\n'
         '      if (owner?.code === 0 && owner.stdout.split("\\n").includes(`opencode: ${executable}`)) return "apt"\n'
         '    }\n'
-        '    if (nativeTermux) return "curl"\n'
-        '    if (prefix) return\n',
+        '    if (nativeTermux) return "curl"\n',
     )
     replace_once(
         updater,
