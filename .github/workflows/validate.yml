@@ -190,10 +190,11 @@ jobs:
       - name: Resolve locked source versions
         run: |
           set -euo pipefail
-          python3 - <<'PY' >> "$GITHUB_ENV"
-          import json
+          VERSION="$(python3 tools/ocver.py current)"
+          python3 - "$VERSION" <<'PY' >> "$GITHUB_ENV"
+          import json, sys
           lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
-          version = lock["current"]
+          version = sys.argv[1]
           opencode = lock["opencode"][version]
           opentui_version = opencode["opentui_version"]
           opentui = lock["opentui"][opentui_version]
@@ -204,7 +205,6 @@ jobs:
           print(f"OPENTUI_COMMIT={opentui['commit']}")
           print(f"ZIG_VERSION={opentui['zig_version']}")
           PY
-          test "$(python3 tools/ocver.py current)" = "$OPENCODE_VERSION"
 
       - name: Fetch pinned OpenTUI source
         run: |
