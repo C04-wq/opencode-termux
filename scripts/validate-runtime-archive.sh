@@ -77,6 +77,15 @@ if ! tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE" -C "$DESTINATION"
   exit 1
 fi
 
+# Termux rejects ET_EXEC before the bundled musl interpreter can run.
+ELF_TYPE="$(od -An -tu2 -j16 -N2 "$DESTINATION/opencode" | tr -d '[:space:]')"
+if [[ "$ELF_TYPE" != "3" ]]; then
+  rm -rf "$DESTINATION"
+  echo "Error: OpenCode must be position-independent (ET_DYN=3); found ${ELF_TYPE:-unknown}." >&2
+  echo "This package cannot run natively in Termux; refusing to activate it." >&2
+  exit 1
+fi
+
 for file in "${EXPECTED_FILES[@]}"; do
   if [[ "$file" == "libstdc++.so.6" ]]; then
     if [[ ! -L "$DESTINATION/$file" || "$(readlink "$DESTINATION/$file")" != "libstdc++.so.6.runtime" ]]; then
