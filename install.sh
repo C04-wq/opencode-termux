@@ -222,6 +222,7 @@ printf '%s\n' "$VERSION" > "$NEW/.opencode-termux-version"
 chmod 600 "$NEW/.opencode-termux-version"
 printf '%s\n' "$REPO_DIR" > "$NEW/.opencode-termux-repo-dir"
 chmod 600 "$NEW/.opencode-termux-repo-dir"
+cp "$REPO_DIR/THIRD_PARTY_NOTICES.md" "$NEW/THIRD_PARTY_NOTICES.md"
 if [[ -e "$RUNTIME" ]]; then BACKUP="$PREFIX/lib/.opencode-termux-backup-$$"; mv "$RUNTIME" "$BACKUP"; fi
 if ! mv "$NEW" "$RUNTIME"; then
   [[ -n "$BACKUP" && -d "$BACKUP" ]] && mv "$BACKUP" "$RUNTIME"
