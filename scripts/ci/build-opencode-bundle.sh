@@ -118,6 +118,10 @@ python3 "$ROOT/tools/patch-opentui-ffi.py" "$src"
 python3 "$ROOT/tools/patch-opentui-loader.py" "$src"
 python3 "$ROOT/tools/patch-fff-android.py" "$src"
 
+# Typecheck the patched CLI so updater/launcher integration errors fail CI
+# before the JavaScript bundle is emitted.
+"$host_bun" run --filter '@opencode/cli' typecheck
+
 # ---- natives ---------------------------------------------------------------
 tui="$ROOT/artifacts/transplant/opentui-bionic/libopentui.so"
 test -f "$tui" || {
