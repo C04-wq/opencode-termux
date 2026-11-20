@@ -55,7 +55,7 @@ done
 if [ ! -d "$SRC/.git" ]; then
   mkdir -p "$SRC"
   git -C "$SRC" init -q .
-  git -C "$SRC" remote add origin https://github.com/sursaone/bun-pty.git
+  git -C "$SRC" remote add origin https://github.com/sursatech/bun-pty.git
 fi
 git -C "$SRC" fetch -q --depth=1 origin "$REF"
 git -C "$SRC" checkout -q --detach FETCH_HEAD
