@@ -50,6 +50,8 @@ for (const token of [
   "runtime-metadata-updated",
   "gh api --method POST",
   "needs: [static-checks, native-runtime]",
+  "contents: read",
+  "contents: write",
   "git merge-base --is-ancestor",
   "release-checksums.json?ref=main",
   '"release/**"',

@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: validate-native-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
@@ -167,6 +167,8 @@ jobs:
   build-native:
     name: Build and verify Android ARM64 runtime
     needs: [static-checks, native-runtime]
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
