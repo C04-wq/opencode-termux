@@ -81,18 +81,18 @@ jobs:
           const fs = require('fs');
           const cp = require('child_process');
           const installerSource = fs.readFileSync('install.sh', 'utf8');
-          function extractGeneratedScript(opening, closing) {
-            const lines = installerSource.split('\\n');
-            const start = lines.indexOf(opening);
-            if (start < 0) throw new Error('missing generated script heredoc: ' + opening);
+          function extractGeneratedScript(openingPrefix, closing) {
+            const lines = installerSource.split(String.fromCharCode(10));
+            const start = lines.findIndex((line) => line.startsWith(openingPrefix));
+            if (start < 0) throw new Error('missing generated script heredoc: ' + openingPrefix);
             const end = lines.indexOf(closing, start + 1);
-            if (end < 0) throw new Error('unterminated generated script heredoc: ' + opening);
-            return lines.slice(start + 1, end).join('\\n') + '\\n';
+            if (end < 0) throw new Error('unterminated generated script heredoc: ' + openingPrefix);
+            return lines.slice(start + 1, end).join(String.fromCharCode(10)) + String.fromCharCode(10);
           }
           const generatedLauncher = '/tmp/opencode-termux-generated-launcher.sh';
           const generatedUpdater = '/tmp/opencode-termux-generated-updater.sh';
-          fs.writeFileSync(generatedLauncher, extractGeneratedScript('cat > "$STAGE/opencode-launcher" <<\\'LAUNCHER\\'', 'LAUNCHER'));
-          fs.writeFileSync(generatedUpdater, extractGeneratedScript('cat > "$STAGE/opencode-termux-update" <<\\'UPDATER\\'', 'UPDATER'));
+          fs.writeFileSync(generatedLauncher, extractGeneratedScript('cat > "$STAGE/opencode-launcher"', 'LAUNCHER'));
+          fs.writeFileSync(generatedUpdater, extractGeneratedScript('cat > "$STAGE/opencode-termux-update"', 'UPDATER'));
           cp.execFileSync('bash', ['-n', generatedLauncher]);
           cp.execFileSync('bash', ['-n', generatedUpdater]);
           cp.execFileSync('shellcheck', ['-S', 'error', generatedLauncher, generatedUpdater]);
