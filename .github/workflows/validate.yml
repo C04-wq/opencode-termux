@@ -82,7 +82,7 @@ jobs:
         env:
           PREFIX: ${{ runner.temp }}/termux-prefix
           OPENCODE_TEST_ARCHIVE: ${{ runner.temp }}/opencode-native.tar.gz
-          OPENCODE_TEST_VERSION: ${{ fromJSON('{"v":"2.3.2"}').v }}
+          OPENCODE_TEST_VERSION: "2.3.2"
         run: |
           set -euo pipefail
           mkdir -p "$PREFIX/etc/tls" "$PREFIX/etc" "$RUNNER_TEMP/termux-stubs"
