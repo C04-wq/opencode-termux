@@ -145,6 +145,7 @@ L’installateur ne supprime pas non plus les paramètres, sessions, projets ou 
 | CLI de gestion | `$PREFIX/bin/opencode-termux` |
 | Programme de mise à jour interne | `$PREFIX/bin/opencode-termux-update` |
 | Marqueur de version installée | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
+| SHA-256 du bundle installé | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Marqueur du chemin du dépôt | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
 
 Dans Termux, `$PREFIX` correspond généralement à `/data/data/com.termux/files/usr`. L’installateur définit les permissions d’exécution sur les trois commandes installées et vérifie qu’elles sont exécutables avant d’annoncer le succès.
@@ -290,9 +291,9 @@ Le bundle comprend un lanceur shell, les modules JavaScript, le moteur de rendu 
 6. Préparer le bundle et conserver l’ancien runtime et les lanceurs jusqu’à l’activation du nouveau.
 7. Exécuter --version et restaurer l’installation précédente en cas d’échec.
 
-Le choix **Wait for the next version** mémorise la cible de runtime/version en attente afin de ne pas répéter le même message à chaque lancement ; une release plus récente déclenche un nouvel avis.
+Le choix **Wait for the next version** mémorise la version, la génération du runtime et le SHA-256 exact du bundle. Le même bundle ne déclenche plus l’avis, mais une reconstruction avec la même version et la même génération et un condensat différent le déclenchera.
 
-Le lanceur compare également un identifiant épinglé de génération du runtime, et pas seulement la version d’OpenCode. Les installations musl existantes d’OpenCode 2.3.2 reçoivent ainsi la proposition de migration même si le numéro de version reste 2.3.2.
+Le lanceur compare la version d’OpenCode, l’identifiant de génération du runtime et le SHA-256 du bundle installé. Cela détecte la migration musl vers Bionic ainsi qu’une reconstruction du bundle conservant la même version et la même génération.
 
 Le gestionnaire, le programme de mise à jour, le menu interactif et le désinstallateur restent distincts du bundle runtime.
 
