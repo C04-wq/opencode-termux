@@ -334,7 +334,7 @@ ui_animation_start() {
   (
     local shade=241
     while :; do
-      printf '\033[s\033[27A'
+      printf '\033[s\033[28A'
       ui_draw_logo "$shade"
       printf '\033[u'
       if [[ "$shade" == 241 ]]; then shade=255; else shade=241; fi
@@ -423,7 +423,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       ui_animation_stop
       if [[ "$SELECTED" == 1 ]]; then
         # Remove the decision menu and leave the cursor directly below the logo.
-        printf '\033[6A\033[J'
+        printf '\033[7A\033[J'
         if OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"; then
           exec "$0" "$@"
         else
