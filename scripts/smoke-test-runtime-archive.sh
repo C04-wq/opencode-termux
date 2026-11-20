@@ -38,7 +38,7 @@ printf '%s\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
 printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
 printf '%s\n' "$OPENCODE_DISABLE_AUTOUPDATE" > "$BUN_TEST_LOG.autoupdate"
 printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
-if [[ "\${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
+if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
 BUN
 chmod 755 "$WORKDIR/prefix/bin/bun"
 export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
