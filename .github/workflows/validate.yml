@@ -653,10 +653,10 @@ jobs:
           data["archiveNameX86_64"] = archive.rsplit("/", 1)[-1]
           with open(metadata, "w", encoding="utf-8") as f:
               json.dump(data, f, indent=2)
-              f.write("\\n")
+              f.write("\n")
           PY
           (cd dist && sha256sum "opencode-$OPENCODE_VERSION-android-aarch64-bundle.tar.gz" "$X86_ARCHIVE" > SHA256SUMS)
-          sha256sum -c dist/SHA256SUMS --ignore-missing
+          (cd dist && sha256sum -c SHA256SUMS)
 
       - name: Publish immutable GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
