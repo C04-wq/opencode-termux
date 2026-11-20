@@ -20,8 +20,8 @@ make_fixture() {
   printf 'native\n' > "$dir/lib/opencode/watcher.node"
 }
 expect_rejected() {
-  local archive="$1" name="$2" dest="$TMP/out-$2"
-  if bash "$VALIDATOR" "$archive" "$dest" >/dev/null 2>&1; then
+  local archive="$1" name="$2" target_arch="${3:-aarch64}" dest="$TMP/out-$2"
+  if TARGET_ARCH="$target_arch" bash "$VALIDATOR" "$archive" "$dest" >/dev/null 2>&1; then
     echo "FAIL: $name archive was accepted" >&2; exit 1
   fi
   [[ ! -e "$dest" && ! -L "$dest" ]] || { echo "FAIL: $name left extraction behind" >&2; exit 1; }
@@ -41,7 +41,7 @@ echo "PASS: accepted valid x86_64 native bundle"
 mkdir -p "$TMP/mixed"; cp -a "$TMP/good-x86_64/." "$TMP/mixed/"
 printf 'wrong arch\n' > "$TMP/mixed/lib/opencode/librust_pty_arm64.so"
 tar -czf "$TMP/mixed.tar.gz" -C "$TMP/mixed" bin lib
-expect_rejected "$TMP/mixed.tar.gz" mixed-architecture
+expect_rejected "$TMP/mixed.tar.gz" mixed-architecture x86_64
 mkdir -p "$TMP/extra"; cp -a "$TMP/good/." "$TMP/extra/"; printf bad > "$TMP/extra/outside"
 tar -czf "$TMP/extra.tar.gz" -C "$TMP/extra" bin lib outside
 expect_rejected "$TMP/extra.tar.gz" extra
