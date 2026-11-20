@@ -10,6 +10,7 @@ trap 'rm -rf "$WORKDIR"' EXIT
 STAGED="$WORKDIR/staged"
 bash "$(dirname "$0")/validate-runtime-archive.sh" "$ARCHIVE" "$STAGED"
 ROOT="$WORKDIR/runtime"
+export ROOT
 mkdir -p "$ROOT/bin" "$ROOT/lib"
 mv "$STAGED/bin/opencode" "$ROOT/bin/opencode"
 mv "$STAGED/lib/opencode" "$ROOT/lib/opencode"
