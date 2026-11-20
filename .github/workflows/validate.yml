@@ -170,7 +170,7 @@ jobs:
           if (!installer.includes('run_quiet()') || !installer.includes('ui_start') || !installer.includes('OpenCode installed successfully.')) {
             throw new Error('installer must keep setup output concise and show the terminal UI and English success message');
           }
-          if (!installer.includes('LOG="\\$(mktemp)"')) {
+          if (!installer.includes('LOG="$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
           }
           if (!builder.includes('OPENCODE_TERMUX_ALPINE_VERSION:-$ALPINE_VERSION')) {
