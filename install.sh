@@ -385,6 +385,26 @@ exec bash "$REPO_DIR/install.sh"
 UPDATER
 chmod 755 "$STAGE/opencode-termux-update"
 
+# Protect the updater path too: never back up or replace an unrelated file.
+if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
+  if [[ ! -f "$UPDATER" ]] ||
+    ! grep -Fq 'OPENCODE_TERMUX_UPDATER=1' "$UPDATER" ||
+    ! grep -Fq 'install.sh' "$UPDATER"; then
+    echo "Error: an unrecognized command already exists at $UPDATER." >&2
+    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
+    exit 1
+  fi
+fi
+
+# Protect the manager path too: never replace an unrelated command.
+if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
+  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
+    echo "Error: an unrecognized command already exists at $MANAGER." >&2
+    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
+    exit 1
+  fi
+fi
+
 # Migrate only installations whose ownership can be established. Never
 # overwrite an unknown command in PREFIX/bin: it may belong to another tool.
 NPM_GLOBAL_ROOT=""
@@ -436,26 +456,6 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   if [[ "$MANAGED_LAUNCHER" != 1 ]]; then
     echo "Error: an unrecognized OpenCode command already exists at $LAUNCHER." >&2
     echo "It has been left untouched. Identify/uninstall its source, then rerun this installer." >&2
-    exit 1
-  fi
-fi
-
-# Protect the updater path too: never back up or replace an unrelated file.
-if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
-  if [[ ! -f "$UPDATER" ]] ||
-    ! grep -Fq 'OPENCODE_TERMUX_UPDATER=1' "$UPDATER" ||
-    ! grep -Fq 'install.sh' "$UPDATER"; then
-    echo "Error: an unrecognized command already exists at $UPDATER." >&2
-    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
-    exit 1
-  fi
-fi
-
-# Protect the manager path too: never replace an unrelated command.
-if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
-  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
-    echo "Error: an unrecognized command already exists at $MANAGER." >&2
-    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
     exit 1
   fi
 fi
