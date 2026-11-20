@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 # OPENCODE_TERMUX_MANAGER=1
-PREFIX="/data/data/com.termux/files/usr"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 RUNTIME="$PREFIX/lib/opencode-termux"
 MANAGER_VERSION="1"
 REPO_DIR=""
