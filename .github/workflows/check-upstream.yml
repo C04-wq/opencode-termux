@@ -49,10 +49,6 @@ jobs:
             if gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE" --json title --jq 'length' | grep -qx 0; then
               gh issue create --repo "$GITHUB_REPOSITORY" \
                 --title "$TITLE" \
-                --body "The official [anomalyco/opencode](https://github.com/anomalyco/opencode) repository has published **$LATEST**, while `tools/supply-chain-lock.json` still pins **$CURRENT**.
-
-Update the pinned OpenCode commit, Bun/OpenTUI/bun-pty versions and verified hashes in the supply-chain lock; run the Android/Bionic build workflow and device smoke tests; then publish the matching `v$LATEST` release from this repository.
-
-Do not change the installer metadata until the new Android runtime archive has passed all build and validation jobs."
+                --body "The official anomalyco/opencode repository has published $LATEST, while the source lock still pins $CURRENT. Update the pinned OpenCode commit, Bun/OpenTUI/bun-pty versions and verified hashes, run the Android/Bionic build and device smoke tests, then publish v$LATEST from this repository. Do not change installer metadata until the new archive passes all build and validation jobs."
             fi
           fi
