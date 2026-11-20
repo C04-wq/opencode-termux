@@ -471,7 +471,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       if [[ "$SELECTED" == 1 ]]; then
         # Keep the cursor hidden through the updater and installer hand-off.
         # Remove the decision menu and leave the cursor directly below the logo.
-        printf '\033[8A\033[J'
+        printf '\033[8A\033[J\n'
         if OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"; then
           restore_cursor
           trap - EXIT INT TERM HUP
