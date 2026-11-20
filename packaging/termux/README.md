@@ -38,7 +38,7 @@ The current shipped runtime is ARM64-only. The intended Termux target matrix is:
 
 Although Termux itself supports 32-bit architectures, those targets are not in OpenCode's official release matrix. This project will not build or advertise `arm` or `i686`; they are explicitly excluded.
 
-The first practical expansion target is `x86_64`, while retaining `aarch64`. The official Termux Bun recipe supports x86_64, so the JavaScript runtime itself is available there. The remaining native chain is not ready: the current OpenCode lock contains only `@parcel/watcher-android-arm64` and `@ff-labs/fff-bin-android-arm64`; OpenTUI is built only for AArch64; and the bundle/installer are AArch64-specific. FFF is an optimization and may be disabled on x86_64 to retain the ripgrep fallback, but the watcher must be built from source for Android x86_64 (or replaced with a compatible implementation). The PTY build helper now has an x86_64 cross-build path, and CI has successfully produced and ELF-verified the x86_64 Bionic shared library. This validates only that one component, not the complete runtime. No x86_64 support claim is valid until all of these pieces are integrated and the resulting runtime is launched on a real x86_64 Termux device.
+The first practical expansion target is `x86_64`, while retaining `aarch64`. The official Termux Bun recipe supports x86_64, so the JavaScript runtime itself is available there. The OpenCode lock currently provides Android prebuilt packages only for ARM64 (`@parcel/watcher-android-arm64` and `@ff-labs/fff-bin-android-arm64`). This branch now adds an x86_64 Bionic OpenTUI build, a source-built x86_64 Parcel watcher, architecture-specific PTY and bundle paths, and a ripgrep fallback instead of the ARM64-only FFF binary. CI is being extended to build and smoke-test a complete x86_64 candidate archive. These additions are not yet a verified release: no x86_64 support claim is valid until the full candidate passes CI and launches on a real x86_64 Termux device.
 
 ### 3. Termux build-system integration
 
@@ -53,7 +53,7 @@ The existing GitHub Actions pipeline must be made reproducible through Termux's 
 
 ### 4. Native dependency portability
 
-The current bundle pipeline is still AArch64-only. `scripts/ci/build-rust-pty-android.sh` now accepts an explicit `TARGET_ARCH` for Android NDK cross-builds of the PTY library (`aarch64` or `x86_64`) and validates the resulting ELF machine. This is an isolated native-dependency improvement, not end-to-end x86_64 support: `scripts/ci/build-opencode-bundle.sh`, the OpenTUI build workflow, FFF selection, watcher selection, archive naming/validation, release metadata and installer remain AArch64-specific. Those components need genuine per-architecture builds and tests; a matching CPU label alone is not sufficient.
+The production release asset and curl installer remain AArch64-only. This branch now parameterizes `scripts/ci/build-opencode-bundle.sh` for `aarch64` and `x86_64`, builds the matching PTY and watcher, selects the matching OpenTUI library, and emits architecture-specific PTY filenames. The launcher, archive validator, smoke test and physical-device test also recognize both 64-bit architectures. A separate CI job is being added to build, package and upload an x86_64 candidate for physical Termux validation. Until that candidate passes and the installer/release metadata are extended safely, the published runtime remains ARM64-only.
 
 ## Implementation sequence
 
