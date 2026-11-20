@@ -167,8 +167,8 @@ jobs:
           if (!installer.includes('mv "$REPO_DIR" "$SOURCE_REPO"')) {
             throw new Error('installer must migrate an existing clean clone to the managed checkout');
           }
-          if (!installer.includes('run_quiet()') || !installer.includes('Preparing OpenCode for Termux...')) {
-            throw new Error('installer must keep successful setup output concise and use English status messages');
+          if (!installer.includes('run_quiet()') || !installer.includes('ui_start') || !installer.includes('OpenCode installed successfully.')) {
+            throw new Error('installer must keep setup output concise and show the terminal UI and English success message');
           }
           if (!installer.includes('LOG="\\$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
