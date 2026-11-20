@@ -17,7 +17,7 @@ printf '%s\n' "$LISTING" | awk '
     if (name == "" || name ~ /^\// || name ~ /(^|\/)\.\.(\/|$)/ ||
         name ~ /(^|\/)\.($|\/)/ ||
         !(name == "bin" || name == "bin/opencode" ||
-          name == "lib" || name == "lib/opencode" ||
+          name == "lib" || name == "lib" ||
           name ~ /^lib\/opencode\//)) {
       printf "Error: unsafe or unexpected archive path: %s\n", $0 > "/dev/stderr"
       ok=0
@@ -43,11 +43,11 @@ printf '%s\n' "$VERBOSE" | awk '
 ' || exit 1
 
 printf '%s\n' "$LISTING" | grep -Fxq 'bin/opencode' || { echo "Error: launcher is missing." >&2; exit 1; }
-printf '%s\n' "$LISTING" | grep -Fxq 'lib/opencode/index.js' || { echo "Error: JavaScript entry point is missing." >&2; exit 1; }
-printf '%s\n' "$LISTING" | grep -Fxq 'lib/opencode/bunfig.toml' || { echo "Error: Bun configuration is missing." >&2; exit 1; }
+printf '%s\n' "$LISTING" | grep -Fxq 'lib/index.js' || { echo "Error: JavaScript entry point is missing." >&2; exit 1; }
+printf '%s\n' "$LISTING" | grep -Fxq 'lib/bunfig.toml' || { echo "Error: Bun configuration is missing." >&2; exit 1; }
 printf '%s\n' "$LISTING" | grep -Eq '^lib/opencode/.*\.so$' || { echo "Error: native Android libraries are missing." >&2; exit 1; }
-printf '%s\n' "$LISTING" | grep -Fxq 'lib/opencode/librust_pty_arm64.so' || { echo "Error: Android PTY library is missing." >&2; exit 1; }
-printf '%s\n' "$LISTING" | grep -Fxq 'lib/opencode/watcher.node' || { echo "Error: Android file-watcher module is missing." >&2; exit 1; }
+printf '%s\n' "$LISTING" | grep -Fxq 'lib/librust_pty_arm64.so' || { echo "Error: Android PTY library is missing." >&2; exit 1; }
+printf '%s\n' "$LISTING" | grep -Fxq 'lib/watcher.node' || { echo "Error: Android file-watcher module is missing." >&2; exit 1; }
 
 mkdir -p "$DESTINATION"
 if ! tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE" -C "$DESTINATION"; then
