@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - "release/**"
     tags:
       - "v*"
   pull_request:
@@ -355,16 +354,12 @@ jobs:
           (cd dist && sha256sum -c SHA256SUMS)
 
       - name: Publish immutable GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/')
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" == refs/heads/release/* ]]; then
-            RELEASE_TAG="${GITHUB_REF_NAME#release/}"
-          else
-            RELEASE_TAG="$GITHUB_REF_NAME"
-          fi
+          RELEASE_TAG="$GITHUB_REF_NAME"
           EXPECTED="$(python3 tools/ocver.py tag)"
           test "$RELEASE_TAG" = "$EXPECTED" || {
             echo "Refusing to publish $RELEASE_TAG; source lock expects $EXPECTED" >&2
