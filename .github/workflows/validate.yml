@@ -166,6 +166,7 @@ jobs:
 
   build-native:
     name: Build and verify Android ARM64 runtime
+    needs: [static-checks, native-runtime]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -373,3 +374,10 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "OpenCode $OPENCODE_VERSION for Termux (Android/Bionic)" \
             --notes "Built from the pinned official OpenCode source commit recorded in supply-chain-lock.json. Android/Bionic native modules were compiled in this repository's GitHub Actions workflow and verified before publication. See report.json and SHA256SUMS for build provenance and integrity."
+          META_SHA="$(gh api "repos/$GITHUB_REPOSITORY/contents/release-checksums.json?ref=main" --jq .sha)"
+          CONTENT="$(base64 -w0 dist/release-checksums.json)"
+          gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/release-checksums.json" \
+            -f message="Switch installer to self-built Android runtime $OPENCODE_VERSION" \
+            -f content="$CONTENT" \
+            -f sha="$META_SHA" \
+            -f branch=main

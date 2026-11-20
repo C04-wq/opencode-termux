@@ -48,7 +48,7 @@ for (const token of [
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
 
 const watcher = fs.readFileSync(".github/workflows/check-upstream.yml", "utf8");
-assert.ok(watcher.includes("anomalyco/opencode/releases/latest"));
+assert.ok(watcher.includes("anomalyco/opencode/contents/package.json"));
 assert.ok(watcher.includes("tools/ocver.py current"));
 assert.ok(watcher.includes("gh issue create"));
 
