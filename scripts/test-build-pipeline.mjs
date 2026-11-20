@@ -34,7 +34,7 @@ assert.ok(!sourcePatch.includes("Spectra010s/opencode-termux"), "native updater 
 assert.ok(sourcePatch.includes('exec(["sh", installer], "4 hours")'), "native updater must invoke the installer without unsupported arguments");
 assert.ok(!sourcePatch.includes('exec(["sh", installer, "--version", version]'), "unsupported installer version argument must not be generated");
 
-const workflow = fs.readFileSync(".github/workflows/build-native-android.yml", "utf8");
+const workflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
 for (const token of [
   "https://github.com/anomalyco/opentui.git",
   "tools/supply-chain-lock.json",
