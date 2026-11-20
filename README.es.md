@@ -146,6 +146,7 @@ El instalador tampoco elimina la configuración, las sesiones, los proyectos ni 
 | CLI de administración | `$PREFIX/bin/opencode-termux` |
 | Actualizador interno | `$PREFIX/bin/opencode-termux-update` |
 | Marcador de versión instalada | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
+| SHA-256 del bundle instalado | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Marcador de ruta del repositorio | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
 
 En Termux, `$PREFIX` normalmente corresponde a `/data/data/com.termux/files/usr`. El instalador asigna permisos de ejecución a los tres comandos instalados y comprueba que sean ejecutables antes de confirmar el éxito.
@@ -291,9 +292,9 @@ El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador B
 6. Prepara el bundle y conserva el runtime y los lanzadores anteriores hasta activar el nuevo.
 7. Ejecuta --version y restaura la instalación anterior si falla.
 
-Al elegir **Wait for the next version**, se guarda el runtime y la versión pendientes para no repetir el mismo aviso en cada inicio; una release posterior sí vuelve a mostrar el aviso.
+Al elegir **Wait for the next version**, se guarda la versión, la generación del runtime y el SHA-256 exacto del bundle pendiente. El mismo bundle no vuelve a generar el aviso, pero una reconstrucción con el mismo número de versión y un hash diferente sí lo hará.
 
-El lanzador también compara un identificador fijado de generación del runtime, no solo la versión de OpenCode. Así, las instalaciones musl existentes de OpenCode 2.3.2 reciben el aviso de migración aunque el número de versión siga siendo 2.3.2.
+El lanzador compara la versión de OpenCode, el identificador de generación del runtime y el SHA-256 del bundle instalado. Así detecta tanto la migración desde musl como una reconstrucción del bundle que conserve la misma versión y generación.
 
 El gestor, el actualizador, el menú interactivo y el desinstalador siguen separados del bundle de runtime.
 

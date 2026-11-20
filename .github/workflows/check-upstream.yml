@@ -19,40 +19,36 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Compare the latest official release with our source lock
+      - name: Compare the latest official OpenCode 2.x tag with our source lock
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           CURRENT="$(python3 tools/ocver.py current)"
-          UPSTREAM_BRANCH="$(curl --fail --location --silent --show-error \
-            --retry 3 --retry-all-errors \
-            https://api.github.com/repos/anomalyco/opencode |
-            python3 -c 'import json,sys; print(json.load(sys.stdin)["default_branch"])')"
-          LATEST="$(curl --fail --location --silent --show-error \
-            --retry 3 --retry-all-errors \
-            "https://api.github.com/repos/anomalyco/opencode/contents/package.json?ref=$UPSTREAM_BRANCH" |
-            python3 -c 'import base64,json,sys; print(json.loads(base64.b64decode(json.load(sys.stdin)["content"]))["version"])')"
-          python3 - "$CURRENT" "$LATEST" <<'PY'
-          import re, subprocess, sys
+          TAGS="$(curl --fail --location --silent --show-error \
+            --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
+            "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v2.")"
+          read -r LATEST_TAG LATEST LATEST_SHA < <(printf '%s' "$TAGS" | python3 tools/upstream_tags.py)
+          [[ "$LATEST_TAG" == "v$LATEST" && "$LATEST_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          UPDATE_AVAILABLE="$(python3 - "$CURRENT" "$LATEST" <<'PY'
+          import re, sys
           current, latest = sys.argv[1:]
-          pattern = re.compile(r"^\d+\.\d+\.\d+$")
+          pattern = re.compile(r"[0-9]+[.][0-9]+[.][0-9]+")
           if not pattern.fullmatch(current) or not pattern.fullmatch(latest):
-              raise SystemExit(f"Invalid version from lock/release: {current!r}, {latest!r}")
-          newer = subprocess.run(
-              ["bash", "-lc", f"printf '%s\\n%s\\n' '{current}' '{latest}' | sort -V | tail -n1"],
-              check=True, text=True, capture_output=True
-          ).stdout.strip()
-          if newer != latest or current == latest:
-              print(f"OpenCode source lock is current ({current}); upstream latest is {latest}.")
-              raise SystemExit(0)
-          print(f"New official OpenCode source version detected: {latest} (locked: {current}).")
+              raise SystemExit(f"Invalid version from lock/tag: {current!r}, {latest!r}")
+          print("true" if tuple(map(int, latest.split("."))) > tuple(map(int, current.split("."))) else "false")
           PY
-          if [ "$LATEST" != "$CURRENT" ] && [ "$(printf '%s\n%s\n' "$CURRENT" "$LATEST" | sort -V | tail -n1)" = "$LATEST" ]; then
+          )"
+
+          if [[ "$UPDATE_AVAILABLE" == "true" ]]; then
             TITLE="Update Android/Termux build for OpenCode $LATEST"
             if gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE" --json title --jq 'length' | grep -qx 0; then
               gh issue create --repo "$GITHUB_REPOSITORY" \
                 --title "$TITLE" \
-                --body "The official anomalyco/opencode default branch ($UPSTREAM_BRANCH) now declares source version $LATEST, while the source lock still pins $CURRENT. Update the pinned OpenCode commit, Bun/OpenTUI/bun-pty versions and verified hashes, run the Android/Bionic build and device smoke tests, then publish v$LATEST from this repository. Do not change installer metadata until the new archive passes all build and validation jobs."
+                --body "The official anomalyco/opencode repository published source tag $LATEST_TAG at commit $LATEST_SHA, while the source lock still pins $CURRENT. Review that exact tag and commit, update the pinned OpenCode commit, Bun/OpenTUI/bun-pty versions and verified hashes, run the Android/Bionic build and device smoke tests, then publish the new Termux runtime. Do not change installer metadata until the new archive passes all build and validation jobs."
             fi
+            echo "New official OpenCode 2.x tag detected: $LATEST_TAG ($LATEST_SHA); locked version: $CURRENT."
+          else
+            echo "OpenCode source lock is current ($CURRENT); latest official v2.x tag is $LATEST_TAG."
           fi

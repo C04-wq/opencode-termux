@@ -149,6 +149,7 @@ The default managed layout is:
 | Management CLI | `$PREFIX/bin/opencode-termux` |
 | Internal updater | `$PREFIX/bin/opencode-termux-update` |
 | Installed version marker | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
+| Installed bundle SHA-256 | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Checkout path marker | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
 
 In Termux, `$PREFIX` normally resolves to `/data/data/com.termux/files/usr`. The installer sets executable permissions on all three installed commands and checks that they are executable before reporting success.
@@ -294,9 +295,9 @@ The bundle contains a shell launcher, the JavaScript module graph, a Bionic Open
 6. Stage the bundle and preserve the previous runtime and launchers until activation.
 7. Run the installed launcher's --version check and roll back if it fails.
 
-Choosing **Wait for the next version** records the exact pending runtime/version target, so the same prompt is not repeated on every launch; a newer release still triggers a new prompt.
+Choosing **Wait for the next version** records the exact version, runtime generation and bundle SHA-256. The same bundle will not prompt again, while a rebuild with the same version and runtime generation but a different digest will.
 
-The launcher also compares a pinned runtime-generation marker, not just the OpenCode version. This makes existing 2.3.2 musl installations receive the migration prompt even though the OpenCode version number remains 2.3.2.
+The launcher compares the OpenCode version, runtime-generation marker and installed bundle SHA-256. This detects both the musl-to-Bionic migration and a rebuilt bundle that keeps the same version and runtime generation.
 
 The project manager, updater, interactive update prompt and uninstaller remain separate from the upstream runtime bundle.
 

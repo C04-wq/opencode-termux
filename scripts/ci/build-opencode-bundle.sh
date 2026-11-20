@@ -60,6 +60,11 @@ test "$("$host_bun" --version)" = "$BUN_VERSION" || {
   exit 1
 }
 
+# Bun lifecycle scripts invoke `bun` from PATH even when the initial install
+# was started via an absolute executable path. Expose the hash-verified host
+# binary to every subprocess in this build step.
+export PATH="$work/host/bun-linux-x64:$PATH"
+
 # ---- pinned source ---------------------------------------------------------
 src="$work/opencode"
 if [ ! -d "$src/.git" ]; then
@@ -108,7 +113,7 @@ python3 tools/patch-opencode-bundle.py "$src"
 cd "$src"
 "$host_bun" install \
   --ignore-scripts \
-  --filter '@opencode/cli' --filter '@opencode/app' \
+  --filter 'opencode' --filter '@opencode/cli' --filter '@opencode/app' \
   --os='*' --cpu='*' --libc='*'
 
 # The TUI shim must hand Bionic's tagged pointers to the FFI unchanged, and

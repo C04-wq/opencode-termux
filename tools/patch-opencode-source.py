@@ -66,7 +66,7 @@ def main() -> None:
         '    ...(item.os === "linux" ? { libc: item.abi ?? "glibc" } : {}),\n'
         "  })\n",
         "  const opencodePty: Awaited<ReturnType<typeof resolveOpencodePty>> =\n"
-        "    item.os === process.platform && item.arch === process.arch\n"
+        '    item.os === process.platform && item.arch === process.arch && item.abi !== "android"\n'
         "      ? await resolveOpencodePty({\n"
         "          platform: item.os,\n"
         "          arch: item.arch,\n"
@@ -114,8 +114,7 @@ def main() -> None:
         '      const owner = yield* exec(["dpkg-query", "-S", executable]).pipe(Effect.orElseSucceed(() => undefined))\n'
         '      if (owner?.code === 0 && owner.stdout.split("\\n").includes(`opencode: ${executable}`)) return "apt"\n'
         '    }\n'
-        '    if (nativeTermux) return "curl"\n'
-        '    if (prefix) return\n',
+        '    if (nativeTermux) return "curl"\n',
     )
     replace_once(
         updater,
@@ -260,24 +259,30 @@ def main() -> None:
         text = text.replace(
             anchor,
             anchor
-            + "\nconst launcherPath = () => process.env.OPENCODE_LAUNCHER ?? process.execPath\n",
+            + "\nconst launcherPath = () => process.env.OPENCODE_LAUNCHER ?? process.execPath\n"
+            + 'const isCurlMethod = (method: unknown): boolean => method === "curl"\n',
             1,
         )
         uninstall.write_text(text, encoding="utf-8")
+    replace_once(
+        uninstall,
+        '    const shell = method === "curl" ? yield* shellConfigs(global.home) : []\n',
+        '    const shell = isCurlMethod(method) ? yield* shellConfigs(global.home) : []\n',
+    )
     replace_once(
         uninstall,
         '    const method = yield* updater.method()\n',
         '    const method = yield* updater.method()\n'
         '    // A bundle install owns a launcher script, not the interpreter bun.\n'
         '    const nativeBinary =\n'
-        '      launcherPath() === path.join(global.home, ".local", "bin", "opencode") || method === "curl"\n',
+        '      launcherPath() === path.join(global.home, ".local", "bin", "opencode") || isCurlMethod(method)\n',
     )
     replace_once(
         uninstall,
         '    if (method === "curl") log.info(`  Binary (manual removal): ${launcherPath()}`)\n'
         '    if (!method) log.warn("Could not detect the installation method. Remove the installation manually after cleanup.")\n',
         '    if (nativeBinary) log.info(`  Binary: ${launcherPath()}`)\n'
-        '    else if (method === "curl") log.info(`  Binary (manual removal): ${launcherPath()}`)\n'
+        '    else if (isCurlMethod(method)) log.info(`  Binary (manual removal): ${launcherPath()}`)\n'
         '    if (!method && !nativeBinary) log.warn("Could not detect the installation method. Remove the installation manually after cleanup.")\n',
     )
     replace_once(
@@ -296,7 +301,7 @@ def main() -> None:
         '        )\n'
         '      }\n'
         '    }\n'
-        '    if (!nativeBinary && method === "curl") {\n      log.message("To finish removing the binary, run:")\n',
+        '    if (!nativeBinary && isCurlMethod(method)) {\n      log.message("To finish removing the binary, run:")\n',
     )
 
 

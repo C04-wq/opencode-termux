@@ -110,11 +110,23 @@ VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$M
 HASH="$(sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+RELEASE_TAG="$(sed -n 's/.*"releaseTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
 [[ "$HASH" =~ ^[a-f0-9]{64}$ ]] || { echo "Error: invalid checksum." >&2; exit 1; }
-[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$SOURCE_TAG" == "v$VERSION" && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
-  echo "Error: native runtime source is not an approved, version-matched release." >&2
+[[ "$SOURCE_TAG" == "v$VERSION" ]] || {
+  echo "Error: native runtime source tag does not match the pinned version." >&2
+  exit 1
+}
+if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
+  RELEASE_REVISION="${RELEASE_TAG#v$VERSION-}"
+  [[ "$RELEASE_TAG" == "v$VERSION-"* && "$RELEASE_REVISION" =~ ^[1-9][0-9]*$ ]] || {
+    echo "Error: package release tag does not match the pinned version." >&2
+    exit 1
+  }
+fi
+[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
+  echo "Error: native runtime source is not an approved release." >&2
   exit 1
 }
 for cmd in git curl tar sha256sum sed find grep awk; do
@@ -195,7 +207,7 @@ cleanup() {
 }
 trap cleanup EXIT
 ARCHIVE="opencode-$VERSION-android-aarch64-bundle.tar.gz"
-URL="https://github.com/$SOURCE_REPO_PIN/releases/download/$SOURCE_TAG/$ARCHIVE"
+URL="https://github.com/$SOURCE_REPO_PIN/releases/download/$RELEASE_TAG/$ARCHIVE"
 echo "Downloading OpenCode $VERSION..."
 curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
 ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz" | awk '{print $1}')"
@@ -225,6 +237,8 @@ printf '%s\n' "$REPO_DIR" > "$NEW/.opencode-termux-repo-dir"
 chmod 600 "$NEW/.opencode-termux-repo-dir"
 printf '%s\n' "$RUNTIME_ID" > "$NEW/.opencode-termux-runtime-id"
 chmod 600 "$NEW/.opencode-termux-runtime-id"
+printf '%s\n' "$HASH" > "$NEW/.opencode-termux-archive-sha256"
+chmod 600 "$NEW/.opencode-termux-archive-sha256"
 cp "$REPO_DIR/THIRD_PARTY_NOTICES.md" "$NEW/THIRD_PARTY_NOTICES.md"
 if [[ -e "$RUNTIME" ]]; then BACKUP="$PREFIX/lib/.opencode-termux-backup-$$"; mv "$RUNTIME" "$BACKUP"; fi
 if ! mv "$NEW" "$RUNTIME"; then
@@ -249,11 +263,14 @@ UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/releas
 if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
   INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
   INSTALLED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)"
+  INSTALLED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-archive-sha256" 2>/dev/null || true)"
   REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
   LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
   LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
   DEFERRED_VERSION="$(cat "$RUNTIME/.opencode-termux-deferred-version" 2>/dev/null || true)"
   DEFERRED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-deferred-runtime-id" 2>/dev/null || true)"
+  DEFERRED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-deferred-archive-sha256" 2>/dev/null || true)"
   if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
     NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
     UPDATE_AVAILABLE=0
@@ -261,9 +278,13 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       UPDATE_AVAILABLE=1
     elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && -n "$LATEST_RUNTIME_ID" && "$LATEST_RUNTIME_ID" != "$INSTALLED_RUNTIME_ID" ]]; then
       UPDATE_AVAILABLE=1
+    elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && "$LATEST_RUNTIME_ID" == "$INSTALLED_RUNTIME_ID" && "$LATEST_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ && "$LATEST_ARCHIVE_SHA256" != "$INSTALLED_ARCHIVE_SHA256" ]]; then
+      # A rebuilt package can keep the same OpenCode version and runtime ABI.
+      # The archive digest identifies the exact installed bundle in that case.
+      UPDATE_AVAILABLE=1
     fi
-    # "Wait for the next version" suppresses this exact target, not later releases.
-    if [[ "$LATEST_VERSION" == "$DEFERRED_VERSION" && "$LATEST_RUNTIME_ID" == "$DEFERRED_RUNTIME_ID" ]]; then
+    # Deferral applies only to the exact version, runtime generation and archive.
+    if [[ "$LATEST_VERSION" == "$DEFERRED_VERSION" && "$LATEST_RUNTIME_ID" == "$DEFERRED_RUNTIME_ID" && "$LATEST_ARCHIVE_SHA256" == "$DEFERRED_ARCHIVE_SHA256" ]]; then
       UPDATE_AVAILABLE=0
     fi
     if [[ "$UPDATE_AVAILABLE" == 1 ]]; then
@@ -335,7 +356,8 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
         if ! {
           printf '%s\n' "$LATEST_VERSION" > "$RUNTIME/.opencode-termux-deferred-version" &&
           printf '%s\n' "$LATEST_RUNTIME_ID" > "$RUNTIME/.opencode-termux-deferred-runtime-id" &&
-          chmod 600 "$RUNTIME/.opencode-termux-deferred-version" "$RUNTIME/.opencode-termux-deferred-runtime-id"
+          printf '%s\n' "$LATEST_ARCHIVE_SHA256" > "$RUNTIME/.opencode-termux-deferred-archive-sha256" &&
+          chmod 600 "$RUNTIME/.opencode-termux-deferred-version" "$RUNTIME/.opencode-termux-deferred-runtime-id" "$RUNTIME/.opencode-termux-deferred-archive-sha256"
         }; then
           printf 'Could not save the update deferral; this prompt may appear again.\n' >&2
         fi

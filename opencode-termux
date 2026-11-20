@@ -53,6 +53,7 @@ case "${1:---help}" in
     for cmd in git curl tar sha256sum bun rg; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done
     [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "FAIL: Termux libc++ shared library missing"; failed=1; }
     [[ "$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)" == "android-bionic-bun-v1" ]] || { echo "FAIL: native runtime generation marker missing or invalid"; failed=1; }
+    [[ "$(cat "$RUNTIME/.opencode-termux-archive-sha256" 2>/dev/null || true)" =~ ^[a-f0-9]{64}$ ]] || { echo "FAIL: runtime archive checksum marker missing or invalid"; failed=1; }
     for file in bin/opencode lib/opencode/index.js lib/opencode/librust_pty_arm64.so lib/opencode/watcher.node THIRD_PARTY_NOTICES.md; do
       [[ -s "$RUNTIME/$file" ]] || { echo "FAIL: runtime file missing: $file"; failed=1; }
     done
