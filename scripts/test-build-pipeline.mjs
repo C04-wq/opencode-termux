@@ -63,6 +63,13 @@ assert.ok(sourcePatch.includes("isCurlMethod(method)"), "curl installation detec
 assert.ok(!sourcePatch.includes("'    if (prefix) return\\n'"), "Termux must not suppress detection of legacy package-managed installations");
 assert.ok(!sourcePatch.includes('exec(["sh", installer]'), "Bash installer must never be invoked through sh");
 
+const opentuiPatch = fs.readFileSync("tools/patch-opentui-android.py", "utf8");
+assert.ok(opentuiPatch.includes("builtin.abi == .android"), "Android OpenTUI must avoid glibc-only pthread_tryjoin_np");
+assert.ok(opentuiPatch.includes("thread.join();"), "Android clipboard worker must be joined only after its completion flag is observed");
+assert.ok(opentuiPatch.includes("wayland_conversion_started"), "Android blocking join safety must remain tied to the worker completion flag");
+const tlsShim = fs.readFileSync("patches/opentui/tlsdesc-shim.c", "utf8");
+assert.ok(!tlsShim.includes("int pthread_tryjoin_np("), "unsafe pthread_tryjoin_np emulation must not be shipped");
+
 const workflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
 assert.ok(workflow.includes("group: validate-native-${{ github.event.pull_request.number || github.ref }}"), "validation runs for the same PR must share one concurrency group");
 assert.ok(workflow.includes("cancel-in-progress: true"), "new PR validation must cancel superseded runs");
