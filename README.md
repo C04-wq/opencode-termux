@@ -291,6 +291,8 @@ El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador B
 6. Prepara el bundle y conserva el runtime y los lanzadores anteriores hasta activar el nuevo.
 7. Ejecuta --version y restaura la instalación anterior si falla.
 
+Al elegir **Wait for the next version**, se guarda el runtime y la versión pendientes para no repetir el mismo aviso en cada inicio; una release posterior sí vuelve a mostrar el aviso.
+
 El lanzador también compara un identificador fijado de generación del runtime, no solo la versión de OpenCode. Así, las instalaciones musl existentes de OpenCode 2.3.2 reciben el aviso de migración aunque el número de versión siga siendo 2.3.2.
 
 El gestor, el actualizador, el menú interactivo y el desinstalador siguen separados del bundle de runtime.
