@@ -4,11 +4,16 @@ if [[ $# -ne 3 ]]; then echo "Usage: $0 <native-bundle.tar.gz> <version> <new-wo
 ARCHIVE=$1 VERSION=$2 WORKDIR=$3
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 64; }
 [[ ! -e "$WORKDIR" && "$WORKDIR" != / ]] || { echo "Work directory must be new" >&2; exit 64; }
-for cmd in bash sh readelf timeout sha256sum; do command -v "$cmd" >/dev/null || { echo "Missing command: $cmd" >&2; exit 1; }; done
+for cmd in bash sh readelf sha256sum; do command -v "$cmd" >/dev/null || { echo "Missing command: $cmd" >&2; exit 1; }; done
 mkdir -p "$(dirname "$WORKDIR")"; mkdir "$WORKDIR"
 trap 'rm -rf "$WORKDIR"' EXIT
-ROOT="$WORKDIR/root"
-bash "$(dirname "$0")/validate-runtime-archive.sh" "$ARCHIVE" "$ROOT"
+STAGED="$WORKDIR/staged"
+bash "$(dirname "$0")/validate-runtime-archive.sh" "$ARCHIVE" "$STAGED"
+ROOT="$WORKDIR/runtime"
+mkdir -p "$ROOT/bin" "$ROOT/lib"
+mv "$STAGED/bin/opencode" "$ROOT/bin/opencode"
+mv "$STAGED/lib" "$ROOT/lib/opencode"
+chmod 755 "$ROOT/bin/opencode"
 sh -n "$ROOT/bin/opencode"
 for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
   [[ -f "$native" ]] || continue
@@ -20,8 +25,8 @@ for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
 done
-# Exercise the shipped shell launcher and its argument/environment contract
-# without trying to load Android/Bionic modules on the Linux CI host.
+# Exercise the shipped shell launcher without loading Android/Bionic modules
+# on the Linux CI host. The stub verifies the module path and argument contract.
 mkdir -p "$WORKDIR/prefix/bin" "$WORKDIR/prefix/lib"
 cat > "$WORKDIR/prefix/bin/bun" <<'BUN'
 #!/usr/bin/env bash
@@ -41,7 +46,7 @@ grep -Fxq "$ROOT/lib/opencode/librust_pty_arm64.so" "$BUN_TEST_LOG.pty"
 grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
 grep -Fq -- '--smol' "$BUN_TEST_LOG.args"
 grep -Fq -- "$ROOT/lib/opencode/index.js --version" "$BUN_TEST_LOG.args"
-echo "PASS: Android ELF modules are AArch64 PIE shared libraries without glibc dependencies."
-echo "PASS: native launcher resolves the bundle, selects Bun, and forwards arguments."
+echo "PASS: Android ELF modules are AArch64 shared libraries without glibc dependencies."
+echo "PASS: native launcher resolves the installed bundle, selects Bun and forwards arguments."
 cat "$WORKDIR/version.txt"
 sha256sum "$ARCHIVE"
