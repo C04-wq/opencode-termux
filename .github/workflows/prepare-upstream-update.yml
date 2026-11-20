@@ -53,17 +53,17 @@ jobs:
             echo "Upstream tag $UPSTREAM_TAG points to a manifest declaring $VERSION, not $TAG_VERSION." >&2
             exit 1
           }
-          if ! python3 - "$CURRENT" "$VERSION" <<'PY'
+          UPDATE_AVAILABLE="$(python3 - "$CURRENT" "$VERSION" <<'PY'
           import re, sys
           current, candidate = sys.argv[1:]
           pattern = re.compile(r"[0-9]+[.][0-9]+[.][0-9]+")
           for value in (current, candidate):
               if not pattern.fullmatch(value):
                   raise SystemExit(f"Invalid semantic version: {value!r}")
-          if tuple(map(int, candidate.split("."))) <= tuple(map(int, current.split("."))):
-              raise SystemExit(1)
+          print("true" if tuple(map(int, candidate.split("."))) > tuple(map(int, current.split("."))) else "false")
           PY
-          then
+          )"
+          if [[ "$UPDATE_AVAILABLE" != "true" ]]; then
             echo "update_available=false" >> "$GITHUB_OUTPUT"
             {
               echo "## No newer upstream version"
