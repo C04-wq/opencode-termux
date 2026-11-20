@@ -28,7 +28,7 @@ const launcherSyntax = spawnSync("bash", ["-n"], { input: installer.slice(launch
 assert.equal(launcherSyntax.status, 0, "generated OpenCode launcher has invalid Bash syntax: " + launcherSyntax.stderr);
 const manager = fs.readFileSync("manager.sh", "utf8");
 assert.equal(fs.readFileSync("opencode-termux", "utf8"), manager, "manager entry point must match manager.sh");
-for (const token of ["bun rg", "libc++_shared.so", ".opencode-termux-runtime-id", "bin/opencode", "lib/opencode/index.js", "lib/opencode/librust_pty_arm64.so", "lib/opencode/watcher.node"]) {
+for (const token of ["bun rg", "libc++_shared.so", ".opencode-termux-runtime-id", ".opencode-termux-archive-sha256", "bin/opencode", "lib/opencode/index.js", "lib/opencode/librust_pty_arm64.so", "lib/opencode/watcher.node"]) {
   assert.ok(manager.includes(token), "doctor missing native dependency: " + token);
 }
 assert.ok(manager.includes('"$RUNTIME/bin/opencode" --version'), "doctor must execute the native launcher");
