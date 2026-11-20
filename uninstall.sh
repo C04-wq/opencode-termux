@@ -25,7 +25,7 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
 fi
 if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
   if [[ ! -f "$UPDATER" ]] ||
-    ! grep -Fq 'OPENCODE_TERMUX_UPDATER=1' "$UPDATER" ||
+    ! grep -Fq 'git -C' "$UPDATER" ||
     ! grep -Fq 'install.sh' "$UPDATER"; then
     echo "Error: $UPDATER is not a recognized OpenCode Termux updater." >&2
     echo "Nothing was removed; inspect the file before retrying." >&2

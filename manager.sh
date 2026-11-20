@@ -69,7 +69,7 @@ case "${1:---help}" in
     if [[ -x "$PREFIX/bin/opencode-termux" ]] && grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$PREFIX/bin/opencode-termux"; then
       echo "OK: managed CLI (executable)"
     else echo "FAIL: managed CLI missing, non-executable or unrecognized"; failed=1; fi
-    if [[ -f "$PREFIX/bin/opencode-termux-update" ]] && grep -Fq 'OPENCODE_TERMUX_UPDATER=1' "$PREFIX/bin/opencode-termux-update"; then
+    if [[ -f "$PREFIX/bin/opencode-termux-update" ]] && grep -Fq 'git -C' "$PREFIX/bin/opencode-termux-update" && grep -Fq 'install.sh' "$PREFIX/bin/opencode-termux-update"; then
       echo "OK: managed updater"
     else echo "FAIL: managed updater missing or unrecognized"; failed=1; fi
     [[ -s "$PREFIX/etc/tls/cert.pem" ]] || { echo "FAIL: CA bundle missing"; failed=1; }
