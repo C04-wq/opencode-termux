@@ -412,16 +412,16 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
         if [[ "$SELECTED" == 1 ]]; then
           printf '\033[2K\033[32m●\033[0m Install update now\n'
           printf '\033[2K\n'
-          printf '\033[2K  Wait for the next version\n'
+          printf '\033[2K○ Wait for the next version\n'
         else
-          printf '\033[2K  Install update now\n'
+          printf '\033[2K○ Install update now\n'
           printf '\033[2K\n'
           printf '\033[2K\033[32m●\033[0m Wait for the next version\n'
         fi
       }
-      printf '  Install update now\n'
+      printf '○ Install update now\n'
       printf '\n'
-      printf '  Wait for the next version\n'
+      printf '○ Wait for the next version\n'
       draw_update_menu
       ui_animation_start
       while true; do
