@@ -26,7 +26,7 @@ def main() -> None:
         with tarfile.open(archive_path, "w:gz") as archive:
             archive.add(payload / "small.txt", arcname="lib/small.txt")
             archive.add(payload / "large.bin", arcname="lib/large.bin")
-            archive.add(payload, arcname="lib")
+            archive.add(payload, arcname="lib", recursive=False)
 
         result = subprocess.run(
             [sys.executable, str(REPORTER), str(archive_path), "--top", "1"],
