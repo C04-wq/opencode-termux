@@ -59,6 +59,8 @@ for (const token of [
   "glibc-linked dependency found"
 ]) assert.ok(watcherBuild.includes(token), "Android watcher cross-build missing " + token);
 assert.ok(watcherBuild.includes("unsupported TARGET_ARCH"), "watcher builder must reject unsupported targets");
+const smoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
+assert.ok(smoke.includes("export TARGET_ARCH"), "archive smoke test must pass the selected architecture to the validator");
 
 const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
 assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must target this repository");
