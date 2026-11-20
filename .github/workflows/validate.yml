@@ -121,9 +121,9 @@ jobs:
             fi
             shift
           done
-          printf '{"version":"%s","runtimeId":"%s","archiveSha256":"%s"}\n' \\
-            "${OPENCODE_TEST_REMOTE_VERSION:-$OPENCODE_TEST_VERSION}" \\
-            "${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}" \\
+          printf '{"version":"%s","runtimeId":"%s","archiveSha256":"%s"}\n' \
+            "${OPENCODE_TEST_REMOTE_VERSION:-$OPENCODE_TEST_VERSION}" \
+            "${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}" \
             "${OPENCODE_TEST_REMOTE_SHA256:-$OPENCODE_TEST_SHA256}"
           STUB
           cat > "$RUNNER_TEMP/termux-stubs/pkg" <<'STUB'
@@ -173,7 +173,7 @@ jobs:
           # A same-version rebuild with the same runtime ID must prompt when its archive hash changes.
           OPENCODE_TEST_REMOTE_SHA256="$(printf 'a%.0s' {1..64})"
           export OPENCODE_TEST_REMOTE_SHA256
-          printf '\\033[B\\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
+          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
           grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
           grep -Fxq "$OPENCODE_TEST_REMOTE_SHA256" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
           OPENCODE_TEST_REMOTE_VERSION=2.3.3
