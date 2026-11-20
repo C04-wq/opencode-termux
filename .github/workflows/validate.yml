@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n install.sh uninstall.sh manager.sh opencode-termux
-          bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh
+          bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/test-termux-device.sh
           bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
           bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh
           bash scripts/test-package-owner.sh
@@ -352,6 +352,20 @@ jobs:
           PY
           cat dist/release-checksums.json
           (cd dist && sha256sum -c SHA256SUMS)
+
+      - name: Upload candidate for physical Termux validation
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: android-arm64-candidate-${{ github.sha }}
+          path: |
+            dist/opencode-*-android-aarch64-bundle.tar.gz
+            dist/SHA256SUMS
+            dist/report.json
+            dist/release-checksums.json
+            dist/supply-chain-lock.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Publish immutable GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')

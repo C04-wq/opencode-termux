@@ -44,6 +44,7 @@ for (const token of [
   "scripts/smoke-test-runtime-archive.sh",
   "readelf -h",
   "gh release create",
+  "actions/upload-artifact",
   "gzip -n",
   '"v*"',
   "runtime-metadata-updated",
@@ -64,6 +65,11 @@ assert.ok(watcher.includes("gh issue create"));
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
 for (const token of ["OPENCODE_ROOT", "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
   assert.ok(launcher.includes(token), "Termux Bun launcher missing " + token);
+}
+
+const deviceTest = fs.readFileSync("scripts/test-termux-device.sh", "utf8");
+for (const token of ["uname -m", "librust_pty_arm64.so", "watcher.node", "--version", "--help", "existing OpenCode installation was not modified"]) {
+  assert.ok(deviceTest.includes(token), "physical Termux smoke test missing " + token);
 }
 
 console.log("Independent Android/Bionic source-build pipeline contract passed.");
