@@ -56,7 +56,15 @@ printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
 if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
 BUN
 chmod 755 "$WORKDIR/prefix/bin/bun"
+mkdir -p "$WORKDIR/stubs"
+cat > "$WORKDIR/stubs/uname" <<'UNAME'
+#!/usr/bin/env sh
+printf '%s\\n' "$BUN_TEST_ARCH"
+UNAME
+chmod 755 "$WORKDIR/stubs/uname"
 export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
+export BUN_TEST_ARCH="$TARGET_ARCH"
+export PATH="$WORKDIR/stubs:$PATH"
 env -u OPENCODE_LAUNCHER bash "$ROOT/bin/opencode" --version > "$WORKDIR/version.txt"
 if ! grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"; then
   echo "Unexpected launcher version output:" >&2
