@@ -114,8 +114,19 @@ RELEASE_TAG="$(sed -n 's/.*"releaseTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1
 RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
 [[ "$HASH" =~ ^[a-f0-9]{64}$ ]] || { echo "Error: invalid checksum." >&2; exit 1; }
-[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$SOURCE_TAG" == "v$VERSION" && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[1-9][0-9]*)?$ && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
-  echo "Error: native runtime source is not an approved, version-matched release." >&2
+[[ "$SOURCE_TAG" == "v$VERSION" ]] || {
+  echo "Error: native runtime source tag does not match the pinned version." >&2
+  exit 1
+}
+if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
+  RELEASE_REVISION="${RELEASE_TAG#v$VERSION-}"
+  [[ "$RELEASE_TAG" == "v$VERSION-"* && "$RELEASE_REVISION" =~ ^[1-9][0-9]*$ ]] || {
+    echo "Error: package release tag does not match the pinned version." >&2
+    exit 1
+  }
+fi
+[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
+  echo "Error: native runtime source is not an approved release." >&2
   exit 1
 }
 for cmd in git curl tar sha256sum sed find grep awk; do
