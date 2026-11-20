@@ -190,7 +190,10 @@ jobs:
           const launcherAnimationStart = installer.indexOf('ui_animation_start() {', installer.indexOf('UPDATE_URL='));
           const launcherAnimationStop = installer.indexOf('ui_animation_stop() {', launcherAnimationStart);
           const launcherAnimation = installer.slice(launcherAnimationStart, launcherAnimationStop);
-          if (!installerAnimation.includes('\\\\033[21A') || !launcherAnimation.includes('\\\\033[28A')) {
+          const launcherAnimationStopBlock = installer.slice(launcherAnimationStop, installer.indexOf('\n}', launcherAnimationStop) + 2);
+          if (!installerAnimation.includes(String.raw`\033[21A`) ||
+              !launcherAnimation.includes(String.raw`\033[28A`) ||
+              !launcherAnimationStopBlock.includes(String.raw`\033[28A`)) {
             throw new Error('logo animation cursor offsets must match the installer and update-menu layouts');
           }
           const updateLogoIndex = installer.indexOf('ui_draw_logo 241', installer.indexOf('UPDATE_URL='));
