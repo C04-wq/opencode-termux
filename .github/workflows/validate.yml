@@ -686,10 +686,10 @@ jobs:
           fi
           RELEASE_ASSETS=(
             "dist/opencode-$OPENCODE_VERSION-android-aarch64-bundle.tar.gz"
-            dist/SHA256SUMS dist/report.json dist/report-x86_64.json dist/supply-chain-lock.json dist/release-checksums.json
+            dist/SHA256SUMS dist/report.json dist/supply-chain-lock.json dist/release-checksums.json
           )
           if [[ -f "dist/opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz" ]]; then
-            RELEASE_ASSETS+=("dist/opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz")
+            RELEASE_ASSETS+=("dist/opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz" dist/report-x86_64.json)
           fi
           gh release create "$RELEASE_TAG" "${RELEASE_ASSETS[@]}" \
             --repo "$GITHUB_REPOSITORY" \
