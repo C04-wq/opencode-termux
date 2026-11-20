@@ -113,10 +113,11 @@ SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p
 RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
 [[ "$HASH" =~ ^[a-f0-9]{64}$ ]] || { echo "Error: invalid checksum." >&2; exit 1; }
-[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$SOURCE_TAG" == "v$VERSION" && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
-  echo "Error: native runtime source is not an approved, version-matched release." >&2
-  exit 1
-}
+case "$SOURCE_REPO_PIN:$RUNTIME_ID" in
+  Spectra010s/opencode-termux:android-bionic-bun-v1|C04-wq/opencode-termux:android-bionic-bun-v2) ;;
+  *) echo "Error: native runtime source/generation is not approved." >&2; exit 1 ;;
+esac
+[[ "$SOURCE_TAG" == "v$VERSION" ]] || { echo "Error: runtime tag does not match the pinned version." >&2; exit 1; }
 for cmd in git curl tar sha256sum sed find grep awk; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     case "$cmd" in sha256sum) package="coreutils" ;; *) package="$cmd" ;; esac

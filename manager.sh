@@ -52,7 +52,12 @@ case "${1:---help}" in
     [[ "$(uname -m)" == aarch64 ]] || { echo "FAIL: architecture must be aarch64"; failed=1; }
     for cmd in git curl tar sha256sum bun rg; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done
     [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "FAIL: Termux libc++ shared library missing"; failed=1; }
-    [[ "$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)" == "android-bionic-bun-v1" ]] || { echo "FAIL: native runtime generation marker missing or invalid"; failed=1; }
+    RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)"
+    case "$RUNTIME_ID" in
+      android-bionic-bun-v1) echo "WARN: legacy Android/Bionic runtime generation; update when the repository-built release is validated" ;;
+      android-bionic-bun-v2) echo "OK: repository-built Android/Bionic runtime generation" ;;
+      *) echo "FAIL: native runtime generation marker missing or invalid"; failed=1 ;;
+    esac
     for file in bin/opencode lib/opencode/index.js lib/opencode/librust_pty_arm64.so lib/opencode/watcher.node THIRD_PARTY_NOTICES.md; do
       [[ -s "$RUNTIME/$file" ]] || { echo "FAIL: runtime file missing: $file"; failed=1; }
     done

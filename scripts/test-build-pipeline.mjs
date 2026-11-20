@@ -32,6 +32,8 @@ const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
 assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must target this repository");
 assert.ok(sourcePatch.includes("raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh"), "native updater must use the current installer");
 assert.ok(sourcePatch.includes("release-checksums.json"), "native updater must use the installer's pinned metadata");
+assert.ok(sourcePatch.includes('data.sourceRepo === "C04-wq/opencode-termux" ? "android-bionic-bun-v2" : data.sourceRepo === "Spectra010s/opencode-termux" ? "android-bionic-bun-v1"'), "native updater must accept both legacy and repository-built metadata generations");
+assert.ok(sourcePatch.includes("data.runtimeId !== expectedRuntimeId"), "native updater must validate the runtime generation");
 assert.ok(sourcePatch.includes('exec(["bash", installer], "4 hours")'), "native updater must invoke the Bash installer with Bash");
 assert.ok(sourcePatch.includes("actualVersion !== version"), "native and APT update paths must verify the installed version");
 assert.ok(!sourcePatch.includes('exec(["sh", installer]'), "Bash installer must never be invoked through sh");
@@ -55,7 +57,8 @@ for (const token of [
   "contents: write",
   "git merge-base --is-ancestor",
   "release-checksums.json?ref=main",
-  "C04-wq/opencode-termux"
+  "C04-wq/opencode-termux",
+  '"runtimeId": "android-bionic-bun-v2"'
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
 
 const watcher = fs.readFileSync(".github/workflows/check-upstream.yml", "utf8");
@@ -65,13 +68,14 @@ assert.ok(watcher.includes("gh issue create"));
 
 const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
+assert.ok(installer.includes("C04-wq/opencode-termux:android-bionic-bun-v2") && installer.includes("Spectra010s/opencode-termux:android-bionic-bun-v1"), "installer must accept both approved runtime generations");
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
-for (const token of ["OPENCODE_ROOT", 'OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"', "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
+for (const token of ["OPENCODE_ROOT", 'if [ -n "${OPENCODE_LAUNCHER:-}" ]; then', "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
   assert.ok(launcher.includes(token), "Termux Bun launcher missing " + token);
 }
 
 const deviceTest = fs.readFileSync("scripts/test-termux-device.sh", "utf8");
-for (const token of ["uname -m", "librust_pty_arm64.so", "watcher.node", "--version", "--help", "existing OpenCode installation was not modified"]) {
+for (const token of ["uname -m", "librust_pty_arm64.so", "watcher.node", "OPENCODE_LAUNCHER", "--version", "--help", "existing OpenCode installation was not modified"]) {
   assert.ok(deviceTest.includes(token), "physical Termux smoke test missing " + token);
 }
 

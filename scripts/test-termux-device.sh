@@ -88,6 +88,7 @@ else
   echo "Note: readelf is not installed; device-side ELF inspection was skipped."
 fi
 
+export OPENCODE_LAUNCHER="$CANDIDATE/bin/opencode"
 echo "Testing OpenCode $VERSION with the real Termux Bun runtime..."
 VERSION_OUTPUT="$("$CANDIDATE/bin/opencode" --version 2>&1)"
 printf '%s\n' "$VERSION_OUTPUT"
