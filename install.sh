@@ -331,9 +331,13 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
           printf 'Update failed. Starting the currently installed version.\n' >&2
         fi
       else
-        printf '%s\n' "$LATEST_VERSION" > "$RUNTIME/.opencode-termux-deferred-version"
-        printf '%s\n' "$LATEST_RUNTIME_ID" > "$RUNTIME/.opencode-termux-deferred-runtime-id"
-        chmod 600 "$RUNTIME/.opencode-termux-deferred-version" "$RUNTIME/.opencode-termux-deferred-runtime-id"
+        if ! {
+          printf '%s\n' "$LATEST_VERSION" > "$RUNTIME/.opencode-termux-deferred-version" &&
+          printf '%s\n' "$LATEST_RUNTIME_ID" > "$RUNTIME/.opencode-termux-deferred-runtime-id" &&
+          chmod 600 "$RUNTIME/.opencode-termux-deferred-version" "$RUNTIME/.opencode-termux-deferred-runtime-id"
+        }; then
+          printf 'Could not save the update deferral; this prompt may appear again.\n' >&2
+        fi
       fi
     fi
   fi
