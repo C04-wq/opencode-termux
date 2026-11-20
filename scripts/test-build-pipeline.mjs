@@ -63,8 +63,10 @@ assert.ok(watcher.includes("anomalyco/opencode/contents/package.json"));
 assert.ok(watcher.includes("tools/ocver.py current"));
 assert.ok(watcher.includes("gh issue create"));
 
+const installer = fs.readFileSync("install.sh", "utf8");
+assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
-for (const token of ["OPENCODE_ROOT", "OPENCODE_LAUNCHER", 'OPENCODE_LAUNCHER="$PREFIX/bin/opencode"', "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
+for (const token of ["OPENCODE_ROOT", 'OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"', "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
   assert.ok(launcher.includes(token), "Termux Bun launcher missing " + token);
 }
 
