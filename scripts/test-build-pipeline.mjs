@@ -40,6 +40,18 @@ assert.ok(pty.includes('cargo update --manifest-path "$SRC/rust-pty/Cargo.toml" 
 assert.ok(pty.includes("build --locked --release"), "the PTY build must reject unrecorded dependency resolution");
 assert.equal(lock.bun_pty.portable_pty, "0.9.0", "portable-pty Android compatibility pin must be exact");
 
+const watcherBuild = fs.readFileSync("scripts/ci/build-parcel-watcher-android.sh", "utf8");
+for (const token of [
+  "x86_64-linux-android",
+  "src/linux/InotifyBackend.cc",
+  "src/unix/legacy.cc",
+  "NAPI_VERSION=3",
+  "napi_register_module_v1",
+  "readelf -h",
+  "libc.so"
+]) assert.ok(watcherBuild.includes(token), "Android watcher cross-build missing " + token);
+assert.ok(watcherBuild.includes("unsupported TARGET_ARCH"), "watcher builder must reject unsupported targets");
+
 const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
 assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must target this repository");
 assert.ok(sourcePatch.includes("raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh"), "native updater must use the current installer");
