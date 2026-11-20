@@ -105,8 +105,8 @@ jobs:
             shift
           done
           printf '{"version":"%s","runtimeId":"%s"}\n' \
-            "\${OPENCODE_TEST_REMOTE_VERSION:-$OPENCODE_TEST_VERSION}" \
-            "\${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}"
+            "${OPENCODE_TEST_REMOTE_VERSION:-$OPENCODE_TEST_VERSION}" \
+            "${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}"
           STUB
           cat > "$RUNNER_TEMP/termux-stubs/pkg" <<'STUB'
           #!/usr/bin/env bash
