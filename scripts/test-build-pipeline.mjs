@@ -155,7 +155,7 @@ assert.ok(archiveValidator.includes("OTHER_PTY_LIBRARY"), "archive validator mus
 const archiveSmoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
 assert.ok(archiveSmoke.includes('EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"'), "archive smoke test must validate x86_64 ELF machines");
 const deviceTest = fs.readFileSync("scripts/test-termux-device.sh", "utf8");
-for (const token of ["uname -m", "librust_pty_arm64.so", "watcher.node", "--version", "--help", "existing OpenCode installation was not modified"]) {
+for (const token of ["uname -m", "librust_pty_arm64.so", "librust_pty_x86_64.so", "x86_64", "watcher.node", "--version", "--help", "existing OpenCode installation was not modified"]) {
   assert.ok(deviceTest.includes(token), "physical Termux smoke test missing " + token);
 }
 
