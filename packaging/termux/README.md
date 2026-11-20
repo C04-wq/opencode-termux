@@ -4,7 +4,7 @@
 
 ## Goal
 
-Submit a source-built `opencode` package to `termux/termux-packages`, so users can install and update it with Termux's package manager. The target is the complete Termux CPU matrix (`aarch64`, `arm`, `i686`, `x86_64`), not just phone-class ARM64 devices. The current installer, manager, updater and GitHub Releases remain independent and must not be removed or changed as part of this effort.
+Submit a source-built `opencode` package to `termux/termux-packages`, so users can install and update it with Termux's package manager. The target is limited to the 64-bit architectures published by OpenCode: `aarch64` (ARM64) and `x86_64` (x64). 32-bit `arm` and `i686` are explicitly out of scope. The current installer, manager, updater and GitHub Releases remain independent and must not be removed or changed as part of this effort.
 
 Architecture support is a release gate, not a marketing promise: an architecture is supported only after its runtime, every native addon, package build, installation, and real launch have passed. Unsupported architectures must fail early with a precise explanation rather than receive another architecture's binary.
 
@@ -15,7 +15,7 @@ The official package recipe ultimately belongs at `packages/opencode/build.sh` i
 - OpenCode source is pinned in `tools/supply-chain-lock.json`; the existing CI fetches the exact upstream commit from `https://github.com/anomalyco/opencode.git`.
 - The existing pipeline builds the JavaScript bundle from source with a hash-verified host Bun, and builds Android/Bionic native components rather than shipping the upstream glibc/musl executable.
 - Runtime dependencies already available as Termux packages are `bun`, `ripgrep` and `libc++`. The package recipe should declare runtime dependencies instead of downloading or installing them itself.
-- The official Termux `bun` recipe builds Bun for Android/Bionic but explicitly excludes `arm` and `i686`; its current supported Termux architectures are therefore `aarch64` and `x86_64`. This is a hard blocker for a package that requires Bun on all four Termux architectures.
+- OpenCode's official release targets include ARM64 (`aarch64`) and x64 (`x86_64` on Termux). This project deliberately follows that upstream architecture list rather than attempting unsupported 32-bit ports.
 - `packing/launcher/opencode` is already relocatable relative to its own location and uses Termux's Bun.
 - The current source pipeline is not yet a Termux package build: it assumes a Linux x86_64 GitHub Actions host, a separately provisioned Android NDK, Zig, Rust targets, and generated artifacts under `artifacts/transplant`.
 
@@ -38,7 +38,7 @@ The current shipped runtime is ARM64-only. The intended Termux target matrix is:
 | `arm` | `armv7a-linux-androideabi` | Blocked by Termux's Bun package excluding 32-bit ARM |
 | `i686` | `i686-linux-android` | Blocked by Termux's Bun package excluding 32-bit x86 |
 
-Termux itself supports all four architectures, but that does not mean every dependency does. Bun is a required runtime dependency of this project, and the official Termux Bun build recipe excludes `arm` and `i686`. Do not claim 32-bit support unless a compatible, maintainable Android/Bionic Bun runtime becomes available or OpenCode is ported to a different runtime.
+Although Termux itself supports 32-bit architectures, upstream OpenCode does not publish official 32-bit ARM or x86 targets. This project will not build or advertise `arm` or `i686`; those architectures are outside the supported target matrix.
 
 The first practical expansion target is `x86_64`, while retaining `aarch64`. The official Termux Bun recipe supports x86_64, so the JavaScript runtime itself is available there. The remaining native chain is not ready: the current OpenCode lock contains only `@parcel/watcher-android-arm64` and `@ff-labs/fff-bin-android-arm64`; OpenTUI is built only for AArch64; and the bundle/installer are AArch64-specific. FFF is an optimization and may be disabled on x86_64 to retain the ripgrep fallback, but the watcher must be built from source for Android x86_64 (or replaced with a compatible implementation). The PTY build helper now has an x86_64 cross-build path, and CI has successfully produced and ELF-verified the x86_64 Bionic shared library. This validates only that one component, not the complete runtime. No x86_64 support claim is valid until all of these pieces are integrated and the resulting runtime is launched on a real x86_64 Termux device.
 
