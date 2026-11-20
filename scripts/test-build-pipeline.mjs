@@ -30,6 +30,10 @@ for (const token of [
 ]) assert.ok(build.includes(token), "native build script missing " + token);
 assert.ok(build.includes("--filter 'opencode'"), "native typecheck must install root workspace development tools");
 assert.ok(build.includes('export PATH="$work/host/bun-linux-x64:$PATH"'), "verified host Bun must be available to lifecycle subprocesses");
+const bundlePatch = fs.readFileSync("tools/patch-opencode-bundle.py", "utf8");
+assert.ok(bundlePatch.includes('choices=("aarch64", "x86_64")'), "bundle patcher must expose only the official 64-bit architecture targets");
+assert.ok(bundlePatch.includes('opencode_arch = "arm64" if args.target_arch == "aarch64" else "x64"'), "bundle patcher must map Termux architectures to OpenCode target names");
+assert.ok(bundlePatch.includes('arch: "{opencode_arch}", abi: "android"'), "bundle patcher must register the selected Android architecture");
 
 const pty = fs.readFileSync("scripts/ci/build-rust-pty-android.sh", "utf8");
 assert.ok(pty.includes("EXPECTED_COMMIT"), "bun-pty source commit must be pinned and verified");
