@@ -632,16 +632,21 @@ jobs:
           retention-days: 14
 
       - name: Add verified x86_64 archive to the dual-architecture release
-        if: startsWith(github.ref, 'refs/tags/v') && vars.X86_64_TERMUX_PHYSICALLY_VALIDATED == 'true'
+        if: startsWith(github.ref, 'refs/tags/v') && vars.X86_64_TERMUX_VALIDATED_SHA256 != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          EXPECTED_X86_64_SHA256: ${{ vars.X86_64_TERMUX_VALIDATED_SHA256 }}
         run: |
           set -euo pipefail
+          [[ "$EXPECTED_X86_64_SHA256" =~ ^[a-f0-9]{64}$ ]] || { echo "Invalid X86_64_TERMUX_VALIDATED_SHA256 repository variable." >&2; exit 1; }
           mkdir -p dist/x86_64
           gh run download "$GITHUB_RUN_ID" --name "android-x86_64-candidate-$GITHUB_SHA" --dir dist/x86_64
           X86_ARCHIVE="opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz"
           test -s "dist/x86_64/$X86_ARCHIVE"
           cp "dist/x86_64/$X86_ARCHIVE" "dist/$X86_ARCHIVE"
+          ACTUAL_X86_64_SHA256="$(sha256sum "dist/$X86_ARCHIVE" | awk '{print $1}')"
+          [[ "$ACTUAL_X86_64_SHA256" == "$EXPECTED_X86_64_SHA256" ]] || { echo "The rebuilt x86_64 archive differs from the physically validated artifact." >&2; exit 1; }
+          cp "dist/x86_64/report.json" "dist/report-x86_64.json"
           python3 - "$OPENCODE_VERSION" "dist/$X86_ARCHIVE" "dist/release-checksums.json" <<'PY'
           import hashlib, json, sys
           version, archive, metadata = sys.argv[1:]
@@ -681,7 +686,7 @@ jobs:
           fi
           RELEASE_ASSETS=(
             "dist/opencode-$OPENCODE_VERSION-android-aarch64-bundle.tar.gz"
-            dist/SHA256SUMS dist/report.json dist/supply-chain-lock.json dist/release-checksums.json
+            dist/SHA256SUMS dist/report.json dist/report-x86_64.json dist/supply-chain-lock.json dist/release-checksums.json
           )
           if [[ -f "dist/opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz" ]]; then
             RELEASE_ASSETS+=("dist/opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz")
