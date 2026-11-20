@@ -127,7 +127,8 @@ for (const token of [
   "releaseTag",
   "SOURCE_TAG",
   "RELEASE_TAG",
-  "releases/download/$RELEASE_TAG/opencode-$VERSION-android-aarch64-bundle.tar.gz",\n  "archiveSha256X86_64", "android-x86_64-candidate-$GITHUB_SHA", "android-x86_64-bundle.tar.gz",
+  "releases/download/$RELEASE_TAG/opencode-$VERSION-android-aarch64-bundle.tar.gz",
+  "archiveSha256X86_64", "android-x86_64-candidate-$GITHUB_SHA", "android-x86_64-bundle.tar.gz",
   "Invalid package release tag",
   "ocver.py tag",
   "C04-wq/opencode-termux"
