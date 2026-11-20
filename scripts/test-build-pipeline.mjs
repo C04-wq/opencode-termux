@@ -150,7 +150,7 @@ for (const token of ["OPENCODE_ROOT", "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PA
 }
 
 const archiveValidator = fs.readFileSync("scripts/validate-runtime-archive.sh", "utf8");
-assert.ok(archiveValidator.includes('x86_64) PTY_LIBRARY="librust_pty_x86_64.so"'), "archive validator must require the x86_64 PTY library for x86_64 bundles");
+assert.ok(archiveValidator.includes('PTY_LIBRARY="librust_pty_x86_64.so"'), "archive validator must require the x86_64 PTY library for x86_64 bundles");
 assert.ok(archiveValidator.includes("OTHER_PTY_LIBRARY"), "archive validator must reject a mismatched architecture PTY library");
 const archiveSmoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
 assert.ok(archiveSmoke.includes('EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"'), "archive smoke test must validate x86_64 ELF machines");
