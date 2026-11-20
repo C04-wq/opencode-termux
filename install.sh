@@ -27,7 +27,7 @@ run_quiet() {
   fi
 }
 
-# Compact terminal UI: show the project mark and a thin staged progress bar.
+# Compact terminal UI: show the project mark before the real download meter.
 # When stdout is not a terminal, keep output suitable for scripts and CI.
 UI_ENABLED=0
 UI_STARTED="${OPENCODE_TERMUX_UI_STARTED:-0}"
@@ -57,20 +57,6 @@ ui_start() {
   printf '\n'
   UI_STARTED=1
   export OPENCODE_TERMUX_UI_STARTED=1
-}
-ui_step() {
-  local percent="$1" width=28 filled empty padding=0 columns="${COLUMNS:-0}"
-  (( UI_ENABLED == 1 )) || return 0
-  filled=$(( width * percent / 100 ))
-  empty=$(( width - filled ))
-  if [[ "$columns" =~ ^[0-9]+$ ]] && (( columns > width )); then
-    padding=$(( (columns - width) / 2 ))
-  fi
-  printf '\r\033[2K%*s\033[32m' "$padding" ''
-  printf '%*s' "$filled" '' | tr ' ' '─'
-  printf '\033[90m'
-  printf '%*s' "$empty" '' | tr ' ' '─'
-  printf '\033[0m'
 }
 ui_finish() {
   (( UI_ENABLED == 1 )) || return 0
