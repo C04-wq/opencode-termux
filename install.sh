@@ -270,7 +270,6 @@ if (( UI_ENABLED == 1 )); then
   # Pulse the logo while curl renders its real byte-based transfer progress.
   ui_animation_start
   curl --fail --location --progress-bar --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
-  ui_animation_stop
 else
   curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
 fi
@@ -315,8 +314,12 @@ REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
 UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
 ui_draw_logo() {
-  local shade="$1" row col
+  local shade="$1" row col padding=0 columns="${COLUMNS:-0}"
+  if [[ "$columns" =~ ^[0-9]+$ ]] && (( columns > 32 )); then
+    padding=$(( (columns - 32) / 2 ))
+  fi
   for (( row=0; row<20; row++ )); do
+    printf '%*s' "$padding" ''
     for (( col=0; col<16; col++ )); do
       if (( row >= 8 && row < 16 && col >= 4 && col < 12 )); then
         printf '\033[48;2;75;70;70m  '
