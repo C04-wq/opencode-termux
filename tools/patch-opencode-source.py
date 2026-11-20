@@ -70,7 +70,7 @@ def main() -> None:
         "      ? await resolveOpencodePty({\n"
         "          platform: item.os,\n"
         "          arch: item.arch,\n"
-        '          ...(item.os === "linux" ? { libc: item.abi ?? "glibc" } : {}),\n'
+        '          ...(item.os === "linux" ? { libc: item.abi === "musl" ? "musl" : "glibc" } : {}),\n'
         "        })\n"
         "      : undefined\n",
     )
@@ -260,7 +260,8 @@ def main() -> None:
         text = text.replace(
             anchor,
             anchor
-            + "\nconst launcherPath = () => process.env.OPENCODE_LAUNCHER ?? process.execPath\n",
+            + "\nconst launcherPath = () => process.env.OPENCODE_LAUNCHER ?? process.execPath\n"
+            + 'const isCurlMethod = (method: unknown): boolean => method === "curl"\n',
             1,
         )
         uninstall.write_text(text, encoding="utf-8")
@@ -270,7 +271,7 @@ def main() -> None:
         '    const method = yield* updater.method()\n'
         '    // A bundle install owns a launcher script, not the interpreter bun.\n'
         '    const nativeBinary =\n'
-        '      launcherPath() === path.join(global.home, ".local", "bin", "opencode") || method === "curl"\n',
+        '      launcherPath() === path.join(global.home, ".local", "bin", "opencode") || isCurlMethod(method)\n',
     )
     replace_once(
         uninstall,
@@ -296,7 +297,7 @@ def main() -> None:
         '        )\n'
         '      }\n'
         '    }\n'
-        '    if (!nativeBinary && method === "curl") {\n      log.message("To finish removing the binary, run:")\n',
+        '    if (!nativeBinary && isCurlMethod(method)) {\n      log.message("To finish removing the binary, run:")\n',
     )
 
 
