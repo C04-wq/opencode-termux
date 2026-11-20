@@ -87,6 +87,7 @@ assert.ok(candidateWorkflow.includes("python3 tools/upstream_tags.py"));
 assert.ok(candidateWorkflow.includes("source_sha256"));
 assert.ok(candidateWorkflow.includes("candidate_only_not_approved_for_release"));
 assert.ok(candidateWorkflow.includes('update_available=false'), "an already-current upstream tag must be a successful no-op");
+assert.ok(candidateWorkflow.includes('UPDATE_AVAILABLE="$(python3 - "$CURRENT" "$VERSION"'), "candidate workflow must validate versions before deciding whether an update is available");
 assert.ok(candidateWorkflow.includes("Do not modify release-checksums.json"), "candidate preparation must not publish installer metadata");
 
 const installer = fs.readFileSync("install.sh", "utf8");
