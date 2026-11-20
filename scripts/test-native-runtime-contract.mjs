@@ -11,7 +11,7 @@ for (const token of [
   "bun ripgrep libc++", "SOURCE_REPO_PIN", "SOURCE_TAG",
   "opencode-$VERSION-android-aarch64-bundle.tar.gz",
   "validate-runtime-archive.sh", "@TERMUX_PREFIX@/lib/opencode",
-  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
+  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "DEFERRED_RUNTIME_ID", ".opencode-termux-deferred-version", "A new Termux runtime is available", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
 const manager = fs.readFileSync("manager.sh", "utf8");
