@@ -67,6 +67,9 @@ const opentuiPatch = fs.readFileSync("tools/patch-opentui-android.py", "utf8");
 assert.ok(opentuiPatch.includes("builtin.abi == .android"), "Android OpenTUI must avoid glibc-only pthread_tryjoin_np");
 assert.ok(opentuiPatch.includes("thread.join();"), "Android clipboard worker must be joined only after its completion flag is observed");
 assert.ok(opentuiPatch.includes("wayland_conversion_started"), "Android blocking join safety must remain tied to the worker completion flag");
+assert.ok(opentuiPatch.includes('choices=("aarch64", "x86_64")'), "OpenTUI patcher must explicitly support the two official 64-bit targets");
+assert.ok(opentuiPatch.includes('if args.target_arch == "aarch64"'), "AArch64-only TLSDESC fallback must be conditional");
+assert.ok(opentuiPatch.includes("x86_64 build still references the AArch64 TLSDESC shim"), "x86_64 patch path must fail if the AArch64 shim remains");
 const tlsShim = fs.readFileSync("patches/opentui/tlsdesc-shim.c", "utf8");
 assert.ok(!tlsShim.includes("int pthread_tryjoin_np("), "unsafe pthread_tryjoin_np emulation must not be shipped");
 
