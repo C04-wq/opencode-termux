@@ -2,7 +2,7 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 const meta = JSON.parse(fs.readFileSync("release-checksums.json", "utf8"));
-assert.match(meta.version, /^\\d+\\.\\d+\\.\\d+$/);
+assert.match(meta.version, /^[0-9]+\\.[0-9]+\\.[0-9]+$/);
 assert.ok(["Spectra010s/opencode-termux", "C04-wq/opencode-termux"].includes(meta.sourceRepo));
 assert.equal(meta.sourceTag, "v" + meta.version);
 assert.equal(meta.runtimeId, "android-bionic-bun-v1");
