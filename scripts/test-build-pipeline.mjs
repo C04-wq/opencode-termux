@@ -49,6 +49,9 @@ for (const token of [
   '"release/**"',
   "runtime-metadata-updated",
   "gh api --method POST",
+  "needs: [static-checks, native-runtime]",
+  "git merge-base --is-ancestor",
+  "release-checksums.json?ref=main",
   '"release/**"',
   "C04-wq/opencode-termux"
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
