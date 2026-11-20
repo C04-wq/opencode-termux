@@ -13,6 +13,17 @@ else
 fi
 REPO_DIR="$SCRIPT_DIR"
 
+# Reject unsupported devices before invoking pkg, which may trigger mirror setup.
+DEVICE_ARCH="$(uname -m)"
+case "$DEVICE_ARCH" in
+  aarch64) TARGET_ARCH="aarch64"; HASH_FIELD="archiveSha256" ;;
+  x86_64) TARGET_ARCH="x86_64"; HASH_FIELD="archiveSha256X86_64" ;;
+  *)
+    echo "Error: unsupported architecture '$DEVICE_ARCH'. Supported architectures: aarch64 (ARM64) and x86_64." >&2
+    exit 1
+    ;;
+esac
+
 # Keep successful setup commands quiet while preserving their full error output.
 run_quiet() {
   local log status
@@ -22,6 +33,27 @@ run_quiet() {
   else
     status=$?
     cat "$log" >&2
+    rm -f "$log"
+    return "$status"
+  fi
+}
+
+# Give actionable guidance when the selected Termux mirror lacks this device's
+# package index (a common 404 on community mirrors for x86_64).
+install_termux_packages() {
+  local log status
+  log="$(mktemp)"
+  if pkg install -y "$@" >"$log" 2>&1; then
+    rm -f "$log"
+  else
+    status=$?
+    cat "$log" >&2
+    if grep -Eiq '404 Not Found|binary-(aarch64|x86_64)/Packages' "$log"; then
+      echo "The selected Termux mirror does not provide the $DEVICE_ARCH package index." >&2
+      echo "Run: termux-change-repo" >&2
+      echo "Select Main repository and choose the official packages.termux.dev mirror (or packages-cf.termux.dev)." >&2
+      echo "Then run: pkg update" >&2
+    fi
     rm -f "$log"
     return "$status"
   fi
@@ -44,7 +76,7 @@ is_project_checkout() {
 if ! is_project_checkout "$REPO_DIR"; then
   echo "Preparing OpenCode for Termux..."
   if ! command -v git >/dev/null 2>&1; then
-    run_quiet pkg install -y git
+    install_termux_packages git
   fi
   command -v git >/dev/null 2>&1 || { echo "Error: Git could not be installed." >&2; exit 1; }
 
@@ -104,16 +136,22 @@ META="$REPO_DIR/release-checksums.json"
 RUNTIME="$PREFIX/lib/opencode-termux"
 CERT="$PREFIX/etc/tls/cert.pem"
 RESOLVER="$PREFIX/etc/resolv.conf"
-[[ "$(uname -m)" == aarch64 ]] || { echo "Error: ARM64/aarch64 only." >&2; exit 1; }
 [[ -f "$META" ]] || { echo "Error: release-checksums.json missing." >&2; exit 1; }
 VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
-HASH="$(sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' "$META" | head -n1)"
+HASH="$(sed -n "s/.*\"$HASH_FIELD\"[[:space:]]*:[[:space:]]*\"\\([a-f0-9]*\\)\".*/\\1/p" "$META" | head -n1)"
 SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 RELEASE_TAG="$(sed -n 's/.*"releaseTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
-[[ "$HASH" =~ ^[a-f0-9]{64}$ ]] || { echo "Error: invalid checksum." >&2; exit 1; }
+if [[ ! "$HASH" =~ ^[a-f0-9]{64}$ ]]; then
+  if [[ "$TARGET_ARCH" == "x86_64" ]]; then
+    echo "Error: no verified x86_64 runtime is published for OpenCode $VERSION yet. The x86_64 build must pass physical Termux validation before release." >&2
+  else
+    echo "Error: invalid or missing ARM64 archive checksum in release metadata." >&2
+  fi
+  exit 1
+fi
 [[ "$SOURCE_TAG" == "v$VERSION" ]] || {
   echo "Error: native runtime source tag does not match the pinned version." >&2
   exit 1
@@ -132,20 +170,20 @@ fi
 for cmd in git curl tar sha256sum sed find grep awk; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     case "$cmd" in sha256sum) package="coreutils" ;; *) package="$cmd" ;; esac
-    run_quiet pkg install -y "$package"
+    install_termux_packages "$package"
   fi
 done
 # The native bundle runs on Termux Bun and loads Bionic modules at runtime.
 if ! command -v bun >/dev/null 2>&1 || ! command -v rg >/dev/null 2>&1 || [[ ! -s "$PREFIX/lib/libc++_shared.so" ]]; then
   echo "Preparing native runtime dependencies..."
-  run_quiet pkg install -y bun ripgrep libc++
+  install_termux_packages bun ripgrep libc++
 fi
 for cmd in git curl tar sha256sum sed find grep awk bun rg; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "Missing required command: $cmd" >&2; exit 1; }
 done
 [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "Termux libc++ shared library is missing." >&2; exit 1; }
-[[ -f "$CERT" ]] || run_quiet pkg install -y ca-certificates
-[[ -f "$RESOLVER" ]] || run_quiet pkg install -y resolv-conf
+[[ -f "$CERT" ]] || install_termux_packages ca-certificates
+[[ -f "$RESOLVER" ]] || install_termux_packages resolv-conf
 [[ -f "$CERT" && -f "$RESOLVER" ]] || { echo "Termux TLS/resolver files are missing." >&2; exit 1; }
 
 STAGE="$(mktemp -d)"
@@ -206,14 +244,14 @@ cleanup() {
   exit "$status"
 }
 trap cleanup EXIT
-ARCHIVE="opencode-$VERSION-android-aarch64-bundle.tar.gz"
+ARCHIVE="opencode-$VERSION-android-$TARGET_ARCH-bundle.tar.gz"
 URL="https://github.com/$SOURCE_REPO_PIN/releases/download/$RELEASE_TAG/$ARCHIVE"
 echo "Downloading OpenCode $VERSION..."
 curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
 ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz" | awk '{print $1}')"
 [[ "$ACTUAL" == "$HASH" ]] || { echo "Error: SHA-256 mismatch; refusing to install." >&2; exit 1; }
 echo "Verifying package integrity... OK"
-bash "$REPO_DIR/scripts/validate-runtime-archive.sh" "$STAGE/runtime.tar.gz" "$STAGE/files"
+TARGET_ARCH="$TARGET_ARCH" bash "$REPO_DIR/scripts/validate-runtime-archive.sh" "$STAGE/runtime.tar.gz" "$STAGE/files"
 # Release assets are built with a prefix placeholder so the same pinned bundle
 # works in every Termux installation path.
 find "$STAGE/files/lib/opencode" -type f -name '*.js' -exec \
@@ -267,7 +305,12 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
   REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
   LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
   LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-  LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
+  case "$(uname -m)" in
+    aarch64) UPDATE_HASH_FIELD="archiveSha256" ;;
+    x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64" ;;
+    *) UPDATE_HASH_FIELD="unsupported" ;;
+  esac
+  LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"'$UPDATE_HASH_FIELD'"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
   DEFERRED_VERSION="$(cat "$RUNTIME/.opencode-termux-deferred-version" 2>/dev/null || true)"
   DEFERRED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-deferred-runtime-id" 2>/dev/null || true)"
   DEFERRED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-deferred-archive-sha256" 2>/dev/null || true)"

@@ -119,7 +119,7 @@ for (const token of [
   '"v*"',
   "runtime-metadata-updated",
   "gh api --method POST",
-  "needs: [static-checks, native-runtime]",
+  "needs: [static-checks, native-runtime, build-x86_64-native]",
   "contents: read",
   "contents: write",
   "git merge-base --is-ancestor",
@@ -128,6 +128,8 @@ for (const token of [
   "SOURCE_TAG",
   "RELEASE_TAG",
   "releases/download/$RELEASE_TAG/opencode-$VERSION-android-aarch64-bundle.tar.gz",
+  "archiveSha256X86_64", "android-x86_64-candidate-$GITHUB_SHA", "android-x86_64-bundle.tar.gz",
+  "vars.X86_64_TERMUX_VALIDATED_SHA256 != ''", "RELEASE_ASSETS", "EXPECTED_X86_64_SHA256", "report-x86_64.json",
   "Invalid package release tag",
   "ocver.py tag",
   "C04-wq/opencode-termux"
@@ -167,7 +169,7 @@ assert.ok(archiveValidator.includes("OTHER_PTY_LIBRARY"), "archive validator mus
 const archiveSmoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
 assert.ok(archiveSmoke.includes('EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"'), "archive smoke test must validate x86_64 ELF machines");
 const deviceTest = fs.readFileSync("scripts/test-termux-device.sh", "utf8");
-for (const token of ["uname -m", "librust_pty_arm64.so", "librust_pty_x86_64.so", "x86_64", "watcher.node", "--version", "--help", "existing OpenCode installation was not modified"]) {
+for (const token of ["uname -m", "librust_pty_arm64.so", "librust_pty_x86_64.so", "x86_64", "watcher.node", "--version", "--help", "sha256sum", "SHA256SUMS", "candidate archive SHA-256 mismatch", "existing OpenCode installation was not modified"]) {
   assert.ok(deviceTest.includes(token), "physical Termux smoke test missing " + token);
 }
 

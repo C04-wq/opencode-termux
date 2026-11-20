@@ -3,9 +3,10 @@ set -Eeuo pipefail
 
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 ARCHIVE="${1:-}"
+CHECKSUM_FILE="${2:-}"
 
 if [[ -z "$ARCHIVE" || ! -f "$ARCHIVE" ]]; then
-  echo "Usage: bash scripts/test-termux-device.sh /path/to/opencode-VERSION-android-ARCH-bundle.tar.gz" >&2
+  echo "Usage: bash scripts/test-termux-device.sh /path/to/opencode-VERSION-android-ARCH-bundle.tar.gz [/path/to/SHA256SUMS]" >&2
   exit 2
 fi
 DEVICE_ARCH="$(uname -m)"
@@ -27,12 +28,41 @@ case "$DEVICE_ARCH" in
     exit 1
     ;;
 esac
-for cmd in bun rg tar; do
+for cmd in bun rg tar sha256sum; do
   command -v "$cmd" >/dev/null 2>&1 || {
     echo "Missing dependency: $cmd. Install it with: pkg install bun ripgrep libc++" >&2
     exit 1
   }
 done
+
+# Verify the exact candidate archive before extracting or executing it.
+if [[ -z "$CHECKSUM_FILE" ]]; then
+  if [[ -f "$ARCHIVE.sha256" ]]; then
+    CHECKSUM_FILE="$ARCHIVE.sha256"
+  elif [[ -f "$(dirname "$ARCHIVE")/SHA256SUMS" ]]; then
+    CHECKSUM_FILE="$(dirname "$ARCHIVE")/SHA256SUMS"
+  fi
+fi
+[[ -n "$CHECKSUM_FILE" && -f "$CHECKSUM_FILE" ]] || {
+  echo "Error: checksum file not found. Pass SHA256SUMS or place it beside the archive." >&2
+  exit 1
+}
+ARCHIVE_DIR="$(cd -- "$(dirname -- "$ARCHIVE")" && pwd -P)"
+ARCHIVE="$ARCHIVE_DIR/$(basename -- "$ARCHIVE")"
+CHECKSUM_DIR="$(cd -- "$(dirname -- "$CHECKSUM_FILE")" && pwd -P)"
+CHECKSUM_FILE="$CHECKSUM_DIR/$(basename -- "$CHECKSUM_FILE")"
+EXPECTED_SHA256="$(awk -v archive="$(basename -- "$ARCHIVE")" '$2 == archive || $2 == "*" archive { print $1; exit }' "$CHECKSUM_FILE")"
+[[ "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]] || {
+  echo "Error: checksum file does not contain a valid SHA-256 entry for $(basename -- "$ARCHIVE")." >&2
+  exit 1
+}
+ACTUAL_SHA256="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+[[ "$ACTUAL_SHA256" == "$EXPECTED_SHA256" ]] || {
+  echo "Error: candidate archive SHA-256 mismatch; refusing to execute it." >&2
+  exit 1
+}
+echo "Candidate SHA-256 verified."
+
 [[ -s "$PREFIX/lib/libc++_shared.so" ]] || {
   echo "Termux libc++ is missing. Install it with: pkg install libc++" >&2
   exit 1
