@@ -43,10 +43,10 @@ ui_start() {
     padding=$(( (columns - 32) / 2 ))
   fi
   printf '\n'
-  for (( row=0; row<10; row++ )); do
+  for (( row=0; row<20; row++ )); do
     printf '%*s' "$padding" ''
     for (( col=0; col<16; col++ )); do
-      if (( row >= 4 && row < 8 && col >= 4 && col < 12 )); then
+      if (( row >= 8 && row < 16 && col >= 4 && col < 12 )); then
         printf '\033[48;2;75;70;70m  '
       else
         printf '\033[48;2;241;236;236m  '
