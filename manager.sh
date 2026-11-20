@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 # OPENCODE_TERMUX_MANAGER=1
-PREFIX="/data/data/com.termux/files/usr"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 RUNTIME="$PREFIX/lib/opencode-termux"
 MANAGER_VERSION="1"
 REPO_DIR=""
@@ -50,11 +50,14 @@ case "${1:---help}" in
   doctor|--doctor)
     failed=0
     [[ "$(uname -m)" == aarch64 ]] || { echo "FAIL: architecture must be aarch64"; failed=1; }
-    for cmd in git curl tar sha256sum; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done
-    for file in opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime; do
+    for cmd in git curl tar sha256sum bun rg; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done
+    [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "FAIL: Termux libc++ shared library missing"; failed=1; }
+    [[ "$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)" == "android-bionic-bun-v1" ]] || { echo "FAIL: native runtime generation marker missing or invalid"; failed=1; }
+    for file in bin/opencode lib/opencode/index.js lib/opencode/librust_pty_arm64.so lib/opencode/watcher.node THIRD_PARTY_NOTICES.md; do
       [[ -s "$RUNTIME/$file" ]] || { echo "FAIL: runtime file missing: $file"; failed=1; }
     done
-    [[ -x "$RUNTIME/opencode" && -x "$RUNTIME/ld-musl-aarch64.so.1" ]] || { echo "FAIL: runtime executable or loader is not executable"; failed=1; }
+    [[ -x "$RUNTIME/bin/opencode" ]] || { echo "FAIL: native runtime launcher is not executable"; failed=1; }
+    [[ -f "$RUNTIME/lib/opencode/bunfig.toml" && ! -L "$RUNTIME/lib/opencode/bunfig.toml" ]] || { echo "FAIL: Bun configuration file missing"; failed=1; }
     if [[ -s "$RUNTIME/.opencode-termux-version" ]]; then
       EXPECTED_VERSION="$(cat "$RUNTIME/.opencode-termux-version")"
       if [[ ! "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
@@ -75,7 +78,7 @@ case "${1:---help}" in
     [[ -s "$PREFIX/etc/tls/cert.pem" ]] || { echo "FAIL: CA bundle missing"; failed=1; }
     [[ -s "$PREFIX/etc/resolv.conf" ]] || { echo "FAIL: resolver configuration missing"; failed=1; }
     if (( failed == 0 )); then
-      VERSION_OUTPUT="$(env -u LD_PRELOAD LD_LIBRARY_PATH="$RUNTIME" SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem" "$RUNTIME/opencode" --version)" || {
+      VERSION_OUTPUT="$(env -u LD_PRELOAD SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem" "$RUNTIME/bin/opencode" --version)" || {
         echo "FAIL: OpenCode runtime smoke test failed"; failed=1;
       }
       if (( failed == 0 )) && [[ "$VERSION_OUTPUT" == "opencode v$EXPECTED_VERSION" ]]; then

@@ -1,11 +1,11 @@
-name: Validate Termux installer
+name: Validate Termux native runtime
 on:
   push:
     branches:
       - main
-      - "codex/**"
+      - "feat/**"
+      - "fix/**"
       - "security/**"
-      - "ci/**"
   pull_request:
   workflow_dispatch:
 
@@ -13,13 +13,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: validate-${{ github.event.pull_request.number || github.ref }}
+  group: validate-native-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
   static-checks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -27,263 +27,131 @@ jobs:
       - name: Install ShellCheck
         run: |
           set -euo pipefail
-          retry_apt() {
-            local attempt=1 delay=10
-            while ! "$@"; do
-              if [[ "$attempt" -ge 4 ]]; then
-                echo "APT failed after $attempt attempts: $*" >&2
-                return 1
-              fi
-              sleep "$delay"
-              attempt=$((attempt + 1))
-              delay=$((delay * 2))
-            done
-          }
-          retry_apt sudo apt-get -o Acquire::Retries=3 update
-          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes shellcheck
-
-      - name: Validate workflow YAML syntax
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --yes shellcheck
+      - name: Validate workflow YAML
         run: |
           ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Valid YAML: #{path}" }' .github/workflows/*.yml .github/dependabot.yml
-
-      - name: Validate scripts and release metadata
+      - name: Validate shell scripts and regression tests
         run: |
           set -euo pipefail
-          node --check scripts/check-toolchain-updates.mjs
-          node --check scripts/alpine-release-branches.mjs
-          node --check scripts/test-toolchain-updates.mjs
-          node --check scripts/resolve-opencode-release.mjs
-          node --check scripts/test-opencode-release-resolver.mjs
-          node scripts/test-toolchain-updates.mjs
-          node scripts/test-opencode-release-resolver.mjs
-          bash -n install.sh
-          bash -n uninstall.sh
-          bash -n opencode-termux
-          bash -n manager.sh
-          bash opencode-termux help >/dev/null
-          bash opencode-termux --help >/dev/null
-          bash opencode-termux version | grep -Fq 'opencode-termux manager'
-          bash opencode-termux status | grep -Fq 'Status: not installed'
+          bash -n install.sh uninstall.sh manager.sh opencode-termux
+          bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
+          bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh
+          bash scripts/test-package-owner.sh
+          bash scripts/test-runtime-archive.sh
           bash manager.sh help >/dev/null
           bash manager.sh version | grep -Fq 'opencode-termux manager'
           bash manager.sh status | grep -Fq 'Status: not installed'
-          bash -n scripts/build-android-release.sh
-          bash -n scripts/setup-alpine-chroot.sh
-          bash -n scripts/validate-runtime-archive.sh
-          bash -n scripts/smoke-test-runtime-archive.sh
-          bash -n scripts/test-runtime-archive.sh
-          bash -n scripts/package-owner.sh
-          bash -n scripts/test-package-owner.sh
-          bash scripts/test-package-owner.sh
-          shellcheck -S error install.sh uninstall.sh opencode-termux manager.sh scripts/*.sh
-          bash scripts/test-runtime-archive.sh
-          node <<'NODE'
-          const fs = require('fs');
-          const sums = JSON.parse(fs.readFileSync('release-checksums.json', 'utf8'));
-          if (!/^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$/.test(sums.version)) {
-            throw new Error('invalid OpenCode release version');
-          }
-          if (!/^[a-f0-9]{64}$/.test(sums.archiveSha256)) {
-            throw new Error('invalid release SHA-256');
-          }
-          const installer = fs.readFileSync('install.sh', 'utf8');
-          const ownerHelper = fs.readFileSync('scripts/package-owner.sh', 'utf8');
-          const archiveValidator = fs.readFileSync('scripts/validate-runtime-archive.sh', 'utf8');
-          const builder = fs.readFileSync('scripts/build-android-release.sh', 'utf8');
-          const validateWorkflow = fs.readFileSync('.github/workflows/validate.yml', 'utf8');
-          const toolchainWorkflow = fs.readFileSync('.github/workflows/toolchain-updates.yml', 'utf8');
-          const releaseWorkflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
-          const dependabot = fs.readFileSync('.github/dependabot.yml', 'utf8');
-          if (!installer.includes('SHA-256 mismatch; refusing to install')) {
-            throw new Error('installer must reject an archive with an incorrect checksum');
-          }
-          if (!installer.includes('installed runtime failed final test')) {
-            throw new Error('installer must verify the runtime after activation');
-          }
-          if (!installer.includes('npm uninstall -g --ignore-scripts opencode-termux') || !installer.includes('Found legacy npm installation')) {
-            throw new Error('installer must replace the known legacy npm package before activating its launcher');
-          }
-          if (!installer.includes('readlink -f "$LAUNCHER"') || !installer.includes('"$NPM_OPENCODE_PACKAGE"/*')) {
-            throw new Error('installer must verify that the known npm package actually owns the command before uninstalling it');
-          }
-          if (!installer.includes('get_dpkg_package_owner "$LAUNCHER"') ||
-              !ownerHelper.includes('dpkg-query -S "$1"') ||
-              !installer.includes('opencode1-wrapper')) {
-            throw new Error('installer must safely identify known Termux package owners before replacing them');
-          }
-          if (!installer.includes('validate-runtime-archive.sh') ||
-              !archiveValidator.includes('unexpected runtime archive entry') ||
-              !archiveValidator.includes('libstdc++.so.6 must link only to libstdc++.so.6.runtime')) {
-            throw new Error('installer must validate the complete runtime archive manifest and its only allowed symlink');
-          }
-          if (!installer.includes('unrecognized OpenCode command already exists') || !installer.includes('It has been left untouched')) {
-            throw new Error('installer must refuse to overwrite an unrecognized command');
-          }
-          if (!installer.includes('unrecognized command already exists at $UPDATER') || !installer.includes("grep -Fq 'git -C' \"$UPDATER\"")) {
-            throw new Error('installer must refuse to overwrite an unrecognized updater command');
-          }
-          const manager = fs.readFileSync('manager.sh', 'utf8');
-          if (fs.readFileSync('opencode-termux', 'utf8') !== manager) {
-            throw new Error('repository manager entry point must match the installed manager implementation');
-          }
-          for (const command of ['install|--install', 'update|--update', 'uninstall|--uninstall', 'version|--version', 'status|--status', 'doctor|--doctor', 'help|--help']) {
-            if (!manager.includes(command)) throw new Error('manager is missing command: ' + command);
-          }
-          if (!manager.includes('OPENCODE_TERMUX_MANAGER=1')) throw new Error('manager ownership marker is missing');
-          if (!manager.includes('case "${1:---help}" in') || manager.includes('\\${1:---help}')) {
-            throw new Error('manager must expand its command argument instead of matching a literal expression');
-          }
-          if (!installer.includes('cp "$REPO_DIR/manager.sh" "$STAGE/opencode-termux-manager"')) {
-            throw new Error('installer must install the canonical manager script from the checkout');
-          }
-          if (!installer.includes('opencode-termux-manager') || !installer.includes('OPENCODE_TERMUX_MANAGER=1')) {
-            throw new Error('installer must install the manager command');
-          }
-          const uninstaller = fs.readFileSync('uninstall.sh', 'utf8');
-          if (!uninstaller.includes('OPENCODE_TERMUX_MANAGER=1') || !uninstaller.includes('"$MANAGER"')) {
-            throw new Error('uninstaller must verify and remove the manager command');
-          }
-          if (!uninstaller.includes('marker missing') || !uninstaller.includes('Nothing was removed')) {
-            throw new Error('uninstaller must refuse to remove files when project ownership cannot be established');
-          }
-          if (!uninstaller.includes('OPENCODE_DISABLE_AUTOUPDATE=1') || !uninstaller.includes('/lib/opencode-termux')) {
-            throw new Error('uninstaller must verify the managed launcher before deleting it');
-          }
-          if (!installer.includes('opencode-termux.git') || !installer.includes('$PREFIX/opt/opencode-termux')) {
-            throw new Error('installer must bootstrap a persistent checkout for one-line installation');
-          }
-          if (!installer.includes('pull --ff-only')) {
-            throw new Error('installer bootstrap must update an existing checkout with fast-forward only');
-          }
-          if (!installer.includes('remote get-url origin') || !installer.includes('C04-wq/opencode-termux')) {
-            throw new Error('installer must identify existing clones by their origin URL');
-          }
-          if (!installer.includes('SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"') || !installer.includes('SCRIPT_DIR=""')) {
-            throw new Error('installer must distinguish piped execution from a script launched inside a clone');
-          }
-          if (!installer.includes('find "$HOME" -maxdepth 5') || !installer.includes('status --porcelain --untracked-files=all')) {
-            throw new Error('installer must discover existing clones and protect dirty checkouts');
-          }
-          if (!installer.includes('mv "$REPO_DIR" "$SOURCE_REPO"')) {
-            throw new Error('installer must migrate an existing clean clone to the managed checkout');
-          }
-          if (!installer.includes('run_quiet()') || !installer.includes('Preparing OpenCode for Termux...')) {
-            throw new Error('installer must keep successful setup output concise and use English status messages');
-          }
-          if (!installer.includes('LOG="\\$(mktemp)"')) {
-            throw new Error('generated updater must preserve its temporary log variable');
-          }
-          if (!builder.includes('OPENCODE_TERMUX_ALPINE_VERSION:-$ALPINE_VERSION')) {
-            throw new Error('builder must allow an explicitly selected Alpine candidate for CI verification');
-          }
-          const candidateOutput = '${' + '{ needs.check-alpine.outputs.latest }}';
-          if (!toolchainWorkflow.includes('OPENCODE_TERMUX_ALPINE_VERSION: ' + candidateOutput)) {
-            throw new Error('toolchain workflow must build against the exact Alpine candidate it validated');
-          }
-          if (!toolchainWorkflow.includes('      - "ci/**"') || !toolchainWorkflow.includes('      - "scripts/**"')) {
-            throw new Error('toolchain candidate workflow must run on CI branches when scripts change');
-          }
-          if (!toolchainWorkflow.includes('sed -i "s/^ALPINE_VERSION=')) {
-            throw new Error('toolchain update PR must actually change the pinned Alpine branch');
-          }
-          if (!toolchainWorkflow.includes("github.event_name != 'pull_request' && github.token")) {
-            throw new Error('toolchain release resolver must not receive a token on pull_request events');
-          }
-          if (!releaseWorkflow.includes('persist-credentials: false') ||
-              !validateWorkflow.includes('persist-credentials: false') ||
-              !toolchainWorkflow.includes('persist-credentials: false') ||
-              !/permissions:\s+contents: read/.test(releaseWorkflow) ||
-              !/permissions:\s+contents: write/.test(releaseWorkflow) ||
-              !releaseWorkflow.includes('CHECKSUM_URL') ||
-              !releaseWorkflow.includes('UPSTREAM_SHA256') ||
-              releaseWorkflow.includes('git push --force')) {
-            throw new Error('release workflow must use scoped write permissions, verify upstream/archive checksums, and avoid force pushes');
-          }
-          const candidateBuildStep = (toolchainWorkflow.split('      - name: Build and smoke-test candidate archive')[1] || '').split(String.fromCharCode(10) + '      - name:')[0];
-          const releaseBuildStep = (releaseWorkflow.split('      - name: Build, validate, and smoke-test ARM64 archive')[1] || '').split(String.fromCharCode(10) + '      - name:')[0];
-          if (!candidateBuildStep || !releaseBuildStep || candidateBuildStep.includes('GH_TOKEN') || releaseBuildStep.includes('GH_TOKEN')) {
-            throw new Error('build and QEMU smoke-test steps must never receive the GitHub API token');
-          }
-          if (!dependabot.includes('package-ecosystem: github-actions') ||
-              !dependabot.includes('interval: weekly') ||
-              !dependabot.includes('patterns:')) {
-            throw new Error('Dependabot must check GitHub Actions weekly and group updates');
-          }
-          const workflowFiles = fs.readdirSync('.github/workflows').filter((name) => name.endsWith('.yml'));
-          for (const file of workflowFiles) {
-            const source = fs.readFileSync('.github/workflows/' + file, 'utf8');
-            for (const match of source.matchAll(/^\s*uses:\s*([^\s]+)$/gm)) {
-              const action = match[1];
-              if (!/^\.\//.test(action) && !/@[a-f0-9]{40}$/.test(action)) {
-                throw new Error(file + ' uses an action without a full commit SHA: ' + action);
-              }
-            }
-          }
-          if (!builder.includes('--arch aarch64')) {
-            throw new Error('Alpine APK architecture must be pinned to aarch64');
-          }
-          if (!builder.includes('libstdc++.so.6.runtime')) {
-            throw new Error('builder runtime library filename mismatch');
-          }
-          if (/\bdocker\b/i.test(builder)) {
-            throw new Error('release builder must not depend on Docker');
-          }
-          NODE
+          bash opencode-termux help >/dev/null
+          shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux scripts/*.sh
+      - name: Validate native runtime contract
+        run: |
+          set -euo pipefail
+          node --check scripts/test-native-runtime-contract.mjs
+          node scripts/test-native-runtime-contract.mjs
 
-  release-build:
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/security/')
+  native-runtime:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+      - name: Install ELF inspection tools
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --yes binutils
+      - name: Download and verify pinned Android bundle
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).version')"
+          HASH="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).archiveSha256')"
+          SOURCE="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).sourceRepo')"
+          TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).sourceTag')"
+          test "$SOURCE" = "Spectra010s/opencode-termux"
+          test "$TAG" = "v$VERSION"
+          ARCHIVE="$RUNNER_TEMP/opencode-native.tar.gz"
+          URL="https://github.com/$SOURCE/releases/download/$TAG/opencode-$VERSION-android-aarch64-bundle.tar.gz"
+          curl --fail --location --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$ARCHIVE"
+          echo "$HASH  $ARCHIVE" | sha256sum -c -
+          bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
 
-      - name: Resolve newest stable upstream release
-        id: upstream
+      - name: Exercise installer, dependency bootstrap and manager in an isolated prefix
         env:
-          GH_TOKEN: ${{ github.token }}
+          PREFIX: ${{ runner.temp }}/termux-prefix
+          OPENCODE_TEST_ARCHIVE: ${{ runner.temp }}/opencode-native.tar.gz
+          OPENCODE_TEST_VERSION: "2.3.2"
         run: |
           set -euo pipefail
-          node scripts/resolve-opencode-release.mjs > "$RUNNER_TEMP/upstream-release.json"
-          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version' "$RUNNER_TEMP/upstream-release.json")"
-          SHA256="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).sha256' "$RUNNER_TEMP/upstream-release.json")"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
-          echo "Testing upstream OpenCode v$VERSION"
-
-      - name: Install cross-build dependencies
-        run: |
-          set -euo pipefail
-          retry_apt() {
-            local attempt=1 delay=10
-            while ! "$@"; do
-              if [[ "$attempt" -ge 4 ]]; then
-                echo "APT failed after $attempt attempts: $*" >&2
-                return 1
-              fi
-              sleep "$delay"
-              attempt=$((attempt + 1))
-              delay=$((delay * 2))
-            done
-          }
-          retry_apt sudo apt-get -o Acquire::Retries=3 update
-          retry_apt sudo apt-get -o Acquire::Retries=3 install --yes gcc-aarch64-linux-gnu patchelf qemu-user
-
-      - name: Prepare verified Alpine chroot
-        run: |
-          set -euo pipefail
-          ALPINE_VERSION="$(awk -F'"' '/^ALPINE_VERSION=/{print $2; exit}' scripts/build-android-release.sh)"
-          test -n "$ALPINE_VERSION"
-          bash scripts/setup-alpine-chroot.sh "$ALPINE_VERSION" "$RUNNER_TEMP/alpine-root"
-          echo "ALPINE_ROOT=$RUNNER_TEMP/alpine-root" >> "$GITHUB_ENV"
-
-      - name: Build and inspect ARM64 Termux archive
-        env:
-          VERSION: ${{ steps.upstream.outputs.version }}
-          UPSTREAM_SHA256: ${{ steps.upstream.outputs.sha256 }}
-        run: |
-          set -euo pipefail
-          OUTPUT="$RUNNER_TEMP/opencode-termux-aarch64.tar.gz"
-          bash scripts/build-android-release.sh "$VERSION" "$OUTPUT" "$UPSTREAM_SHA256"
-          bash scripts/smoke-test-runtime-archive.sh "$OUTPUT" "$VERSION" "$RUNNER_TEMP/runtime-smoke"
+          mkdir -p "$PREFIX/etc/tls" "$PREFIX/etc" "$RUNNER_TEMP/termux-stubs"
+          printf 'test CA bundle\n' > "$PREFIX/etc/tls/cert.pem"
+          printf 'nameserver 1.1.1.1\n' > "$PREFIX/etc/resolv.conf"
+          sudo mkdir -p /data/data/com.termux/files/usr/bin
+          sudo ln -sf /bin/sh /data/data/com.termux/files/usr/bin/sh
+          cat > "$RUNNER_TEMP/termux-stubs/uname" <<'STUB'
+          #!/usr/bin/env bash
+          echo aarch64
+          STUB
+          cat > "$RUNNER_TEMP/termux-stubs/curl" <<'STUB'
+          #!/usr/bin/env bash
+          set -e
+          while (($#)); do
+            if [[ "$1" == "-o" ]]; then
+              cp "$OPENCODE_TEST_ARCHIVE" "$2"
+              exit 0
+            fi
+            shift
+          done
+          printf '{"version":"%s","runtimeId":"%s"}\n' \
+            "${OPENCODE_TEST_REMOTE_VERSION:-$OPENCODE_TEST_VERSION}" \
+            "${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}"
+          STUB
+          cat > "$RUNNER_TEMP/termux-stubs/pkg" <<'STUB'
+          #!/usr/bin/env bash
+          set -e
+          mkdir -p "$PREFIX/bin" "$PREFIX/lib"
+          cat > "$PREFIX/bin/bun" <<'BUN'
+          #!/usr/bin/env bash
+          if [[ "${*: -1}" == "--version" ]]; then
+            echo "opencode v$OPENCODE_TEST_VERSION"
+          fi
+          BUN
+          cat > "$PREFIX/bin/rg" <<'RG'
+          #!/usr/bin/env bash
+          exit 0
+          RG
+          printf 'libc++ test stub\n' > "$PREFIX/lib/libc++_shared.so"
+          chmod 755 "$PREFIX/bin/bun" "$PREFIX/bin/rg"
+          STUB
+          chmod 755 "$RUNNER_TEMP/termux-stubs/"*
+          export PATH="$RUNNER_TEMP/termux-stubs:$PREFIX/bin:$PATH"
+          bash install.sh
+          test -x "$PREFIX/bin/opencode"
+          test -x "$PREFIX/bin/opencode-termux"
+          test -x "$PREFIX/bin/opencode-termux-update"
+          test -s "$PREFIX/lib/opencode-termux/lib/opencode/index.js"
+          test -f "$PREFIX/lib/opencode-termux/lib/opencode/bunfig.toml"
+          test -s "$PREFIX/lib/opencode-termux/THIRD_PARTY_NOTICES.md"
+          test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
+          bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
+          bash "$PREFIX/bin/opencode-termux" doctor
+          # Existing 2.3.2 musl installs must be offered the Bionic migration
+          # even though the OpenCode version number itself does not change.
+          printf 'legacy-musl\n' > "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
+          rm -f "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id"
+          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/migration-prompt.txt"
+          grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/migration-prompt.txt"
+          grep -Fxq '2.3.2' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version"
+          grep -Fxq 'android-bionic-bun-v1' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id"
+          script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/deferred-prompt.txt"
+          if grep -Fq 'A new Termux runtime is available' "$RUNNER_TEMP/deferred-prompt.txt"; then
+            echo "Deferred runtime prompt was shown again for the same target." >&2
+            exit 1
+          fi
+          OPENCODE_TEST_REMOTE_VERSION=2.3.3
+          export OPENCODE_TEST_REMOTE_VERSION
+          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/next-version-prompt.txt"
+          grep -Fq 'A new OpenCode version is available: 2.3.3' "$RUNNER_TEMP/next-version-prompt.txt"
+          echo "PASS: installer, dependency bootstrap, manager doctor and same-version migration/defer prompts."

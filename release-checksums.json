@@ -1,4 +1,7 @@
 {
   "version": "2.3.2",
-  "archiveSha256": "5ed60a69e108f74d5eddad173e685838e92143974fe5094f469f1d784d4cbcfe"
+  "sourceRepo": "Spectra010s/opencode-termux",
+  "sourceTag": "v2.3.2",
+  "archiveSha256": "6d32b72efae7ecb6b78a5e023a8af471ea9118a6faa741fbcde9d1dfa88bd12d",
+  "runtimeId": "android-bionic-bun-v1"
 }

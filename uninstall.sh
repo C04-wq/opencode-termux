@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
-PREFIX="/data/data/com.termux/files/usr"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 RUNTIME="$PREFIX/lib/opencode-termux"
 LAUNCHER="$PREFIX/bin/opencode"
 UPDATER="$PREFIX/bin/opencode-termux-update"
