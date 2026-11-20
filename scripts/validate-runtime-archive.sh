@@ -52,7 +52,39 @@ for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml lib/
     exit 1
   }
 done
-printf '%s\n' "$LISTING" | grep -Eq '^lib/opencode/[^/]+\.so$' || {
+case "$TARGET_ARCH" in
+  aarch64) OTHER_PTY_LIBRARY="librust_pty_x86_64.so" ;;
+  x86_64) OTHER_PTY_LIBRARY="librust_pty_arm64.so" ;;
+esac
+if printf '%s\n' "$LISTING" | grep -Fxq "lib/opencode/$OTHER_PTY_LIBRARY"; then
+  echo "Error: archive contains a PTY library for the other architecture: $OTHER_PTY_LIBRARY" >&2
+  exit 1
+fi
+printf '%s\n' "$LISTING" | grep -Eq '^lib/opencode/[^/]+\.so
+  echo "Error: native Android shared libraries are missing." >&2
+  exit 1
+}
+
+mkdir -p "$DESTINATION"
+if ! tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE" -C "$DESTINATION"; then
+  rm -rf "$DESTINATION"
+  echo "Error: native runtime extraction failed." >&2
+  exit 1
+fi
+for path in bin/opencode lib/opencode/index.js "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node; do
+  if [[ ! -f "$DESTINATION/$path" || -L "$DESTINATION/$path" || ! -s "$DESTINATION/$path" ]]; then
+    rm -rf "$DESTINATION"
+    echo "Error: required runtime file is missing or invalid: $path" >&2
+    exit 1
+  fi
+done
+if [[ ! -f "$DESTINATION/lib/opencode/bunfig.toml" || -L "$DESTINATION/lib/opencode/bunfig.toml" ]]; then
+  rm -rf "$DESTINATION"
+  echo "Error: Bun configuration is missing or invalid." >&2
+  exit 1
+fi
+echo "Native Android bundle structure verified."
+ || {
   echo "Error: native Android shared libraries are missing." >&2
   exit 1
 }
