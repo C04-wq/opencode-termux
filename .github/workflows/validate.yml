@@ -216,7 +216,12 @@ jobs:
           const updateLogoIndex = installer.indexOf('ui_draw_logo 241', installer.indexOf('UPDATE_URL='));
           const updateOptionsIndex = installer.indexOf("printf '  Install update now\\n'");
           const updateAnimationIndex = installer.indexOf('ui_animation_start', updateOptionsIndex);
-          const updateClearIndex = installer.indexOf("printf '\\033[7A\\033[J'");
+          if (!installer.includes("printf '\\n'") ||
+              !installer.includes("printf '\\033[3A'") ||
+              !installer.includes("printf '\\033[2K\\n'")) {
+            throw new Error('update choices must have a blank line between them and redraw as a three-row menu');
+          }
+          const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J'");
           const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
           if (updateLogoIndex < 0 || updateOptionsIndex < 0 || updateAnimationIndex < updateOptionsIndex ||
               updateClearIndex < 0 || updateCommandIndex < updateClearIndex) {
