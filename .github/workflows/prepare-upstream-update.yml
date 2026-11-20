@@ -38,11 +38,16 @@ jobs:
           UPSTREAM_SHA="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])' <<<"$BRANCH_META")"
           [[ "$UPSTREAM_SHA" =~ ^[0-9a-f]{40}$ ]]
 
-          # Match the same root package manifest used by the daily upstream checker.
-          PACKAGE_JSON="$(curl --fail --location --silent --show-error \
+          # Prefer the root manifest, then fall back to the package workspace.
+          PACKAGE_JSON=""
+          if PACKAGE_JSON="$(curl --fail --location --silent --show-error \
             --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
-            "https://raw.githubusercontent.com/anomalyco/opencode/$UPSTREAM_SHA/package.json")"
-          if ! python3 -c 'import json,sys; p=json.load(sys.stdin); assert isinstance(p.get("version"),str)' <<<"$PACKAGE_JSON" 2>/dev/null; then
+            "https://raw.githubusercontent.com/anomalyco/opencode/$UPSTREAM_SHA/package.json")"; then
+            if ! python3 -c 'import json,sys; p=json.load(sys.stdin); assert isinstance(p.get("version"),str)' <<<"$PACKAGE_JSON" 2>/dev/null; then
+              PACKAGE_JSON=""
+            fi
+          fi
+          if [[ -z "$PACKAGE_JSON" ]]; then
             PACKAGE_JSON="$(curl --fail --location --silent --show-error \
               --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
               "https://raw.githubusercontent.com/anomalyco/opencode/$UPSTREAM_SHA/packages/opencode/package.json")"
