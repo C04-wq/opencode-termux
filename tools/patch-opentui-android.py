@@ -30,6 +30,7 @@ def replace(path: Path, old: str, new: str, count: int = 1, required: bool = Tru
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("tree", type=Path)
+    parser.add_argument("--target-arch", choices=("aarch64", "x86_64"), default="aarch64")
     args = parser.parse_args()
 
     native = args.tree / "packages" / "native"
@@ -174,22 +175,27 @@ fn addTranslatedCImports(
     if "pthread_tryjoin_np(thread.getHandle(), null)" in host_text.split("builtin.abi == .android", 1)[0]:
         raise SystemExit("patch-opentui: Android still reaches pthread_tryjoin_np")
 
-    # Bionic < 11 ignores TLSDESC relocations; the shim supplies that fallback.
-    shim = Path(__file__).resolve().parent.parent / "patches" / "opentui" / "tlsdesc-shim.c"
-    if not shim.is_file():
-        raise SystemExit(f"patch-opentui: missing {shim}")
-    (src / "tlsdesc-shim.c").write_text(shim.read_text(encoding="utf-8"), encoding="utf-8")
-    replace(
-        build,
-        "    addMiniaudioShim(b, module, target, macos_sdk_path);\n"
-        "    addImageShim(b, module, target, macos_sdk_path);\n",
-        "    addMiniaudioShim(b, module, target, macos_sdk_path);\n"
-        "    addImageShim(b, module, target, macos_sdk_path);\n"
-        "    // tlsdesc-shim.c: bionic < 11 ignores TLSDESC relocations.\n"
-        "    // Android clipboard joining is handled in host.zig without the\n"
-        "    // glibc-only pthread_tryjoin_np symbol.\n"
-        '    module.addCSourceFile(.{ .file = b.path("src/tlsdesc-shim.c"), .flags = &.{"-std=c99"} });\n',
-    )
+    # The TLSDESC fallback is AArch64-specific: its resolver uses AArch64
+    # register conventions and R_AARCH64_TLSDESC relocation records. Bionic
+    # currently implements TLSDESC only on AArch64; x86_64 uses the traditional
+    # TLS ABI and must not compile this shim's AArch64 inline assembly.
+    if args.target_arch == "aarch64":
+        shim = Path(__file__).resolve().parent.parent / "patches" / "opentui" / "tlsdesc-shim.c"
+        if not shim.is_file():
+            raise SystemExit(f"patch-opentui: missing {shim}")
+        (src / "tlsdesc-shim.c").write_text(shim.read_text(encoding="utf-8"), encoding="utf-8")
+        replace(
+            build,
+            "    addMiniaudioShim(b, module, target, macos_sdk_path);\n"
+            "    addImageShim(b, module, target, macos_sdk_path);\n",
+            "    addMiniaudioShim(b, module, target, macos_sdk_path);\n"
+            "    addImageShim(b, module, target, macos_sdk_path);\n"
+            "    // AArch64 Bionic < 11 ignores TLSDESC relocations.\n"
+            "    // Android clipboard joining is handled in host.zig.\n"
+            '    module.addCSourceFile(.{ .file = b.path("src/tlsdesc-shim.c"), .flags = &.{"-std=c99"} });\n',
+        )
+    else:
+        (src / "tlsdesc-shim.c").unlink(missing_ok=True)
 
     # 2. Optional integer-overflow guards; skipped if upstream already fixed them.
     skipped = []
@@ -273,7 +279,7 @@ fn addTranslatedCImports(
         if marker not in build_text:
             raise SystemExit(f"patch-opentui: missing postcondition in build.zig: {marker}")
 
-    print("patch-opentui: bionic build hooks applied")
+    print(f"patch-opentui: bionic build hooks applied for {args.target_arch}")
     if skipped:
         print("patch-opentui: upstream no longer needs: " + ", ".join(skipped))
     return 0
