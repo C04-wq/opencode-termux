@@ -294,6 +294,8 @@ The bundle contains a shell launcher, the JavaScript module graph, a Bionic Open
 6. Stage the bundle and preserve the previous runtime and launchers until activation.
 7. Run the installed launcher's --version check and roll back if it fails.
 
+The launcher also compares a pinned runtime-generation marker, not just the OpenCode version. This makes existing 2.3.2 musl installations receive the migration prompt even though the OpenCode version number remains 2.3.2.
+
 The project manager, updater, interactive update prompt and uninstaller remain separate from the upstream runtime bundle.
 
 ## 🔐 Security and integrity
