@@ -147,8 +147,34 @@ fn addTranslatedCImports(
         },""",
     )
 
-    # Bionic < 11 ignores TLSDESC relocations; the shim also supplies the
-    # glibc-only pthread_tryjoin_np that OpenTUI declares as extern.
+    # Bionic has no pthread_tryjoin_np. OpenTUI's clipboard worker clears
+    # wayland_conversion_started while holding operation.mutex immediately
+    # before returning. joinCompletedWorker observes that flag under the same
+    # mutex before calling tryJoinThread, so Android can safely use join() here:
+    # it waits only for the worker's final function epilogue, not the work.
+    replace(
+        clipboard_host,
+        """        .linux => switch (pthread_tryjoin_np(thread.getHandle(), null)) {
+            0 => true,
+            @backingInt(std.posix.E.BUSY) => false,
+            else => false,
+        },""",
+        """        .linux => if (builtin.abi == .android) blk: {
+            thread.join();
+            break :blk true;
+        } else switch (pthread_tryjoin_np(thread.getHandle(), null)) {
+            0 => true,
+            @backingInt(std.posix.E.BUSY) => false,
+            else => false,
+        },""",
+    )
+    host_text = clipboard_host.read_text(encoding="utf-8")
+    if "builtin.abi == .android" not in host_text or "thread.join();" not in host_text:
+        raise SystemExit("patch-opentui: Android clipboard worker join fallback missing")
+    if "pthread_tryjoin_np(thread.getHandle(), null)" in host_text.split("builtin.abi == .android", 1)[0]:
+        raise SystemExit("patch-opentui: Android still reaches pthread_tryjoin_np")
+
+    # Bionic < 11 ignores TLSDESC relocations; the shim supplies that fallback.
     shim = Path(__file__).resolve().parent.parent / "patches" / "opentui" / "tlsdesc-shim.c"
     if not shim.is_file():
         raise SystemExit(f"patch-opentui: missing {shim}")
