@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: validate-native-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
+  group: validate-native-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
