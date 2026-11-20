@@ -80,10 +80,13 @@ jobs:
           RELEASE_TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).releaseTag')"
           case "$SOURCE" in C04-wq/opencode-termux|Spectra010s/opencode-termux) ;; *) echo "Unapproved runtime source: $SOURCE" >&2; exit 1 ;; esac
           test "$SOURCE_TAG" = "v$VERSION"
-          [[ "$RELEASE_TAG" =~ ^v${VERSION//./\\.}(-[1-9][0-9]*)?$ ]] || {
-            echo "Invalid package release tag: $RELEASE_TAG" >&2
-            exit 1
-          }
+          if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
+            RELEASE_REVISION="${RELEASE_TAG#v$VERSION-}"
+            [[ "$RELEASE_TAG" == "v$VERSION-"* && "$RELEASE_REVISION" =~ ^[1-9][0-9]*$ ]] || {
+              echo "Invalid package release tag: $RELEASE_TAG" >&2
+              exit 1
+            }
+          fi
           ARCHIVE="$RUNNER_TEMP/opencode-native.tar.gz"
           URL="https://github.com/$SOURCE/releases/download/$TAG/opencode-$VERSION-android-aarch64-bundle.tar.gz"
           curl --fail --location --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$ARCHIVE"
