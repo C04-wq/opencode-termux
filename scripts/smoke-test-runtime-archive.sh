@@ -1,77 +1,47 @@
 #!/usr/bin/env bash
-# Validate and execute a packaged ARM64 Termux runtime under QEMU.
 set -Eeuo pipefail
-
-if [[ "$#" -ne 3 ]]; then
-  echo "Usage: $0 <runtime-archive.tar.gz> <expected-version> <work-directory>" >&2
-  exit 64
-fi
-
-ARCHIVE="$1"
-VERSION="$2"
-WORKDIR="$3"
-TERMUX_RUNTIME_PATH="/data/data/com.termux/files/usr/lib/opencode-termux"
-TERMUX_INTERPRETER="$TERMUX_RUNTIME_PATH/ld-musl-aarch64.so.1"
-
-[[ -f "$ARCHIVE" ]] || { echo "Runtime archive not found: $ARCHIVE" >&2; exit 1; }
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || {
-  echo "Invalid expected OpenCode version: $VERSION" >&2
-  exit 64
-}
-for command in bash readelf qemu-aarch64 timeout sha256sum; do
-  command -v "$command" >/dev/null 2>&1 || {
-    echo "Missing required command: $command" >&2
-    exit 1
-  }
+if [[ $# -ne 3 ]]; then echo "Usage: $0 <native-bundle.tar.gz> <version> <new-workdir>" >&2; exit 64; fi
+ARCHIVE=$1 VERSION=$2 WORKDIR=$3
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 64; }
+[[ ! -e "$WORKDIR" && "$WORKDIR" != / ]] || { echo "Work directory must be new" >&2; exit 64; }
+for cmd in bash sh readelf timeout sha256sum; do command -v "$cmd" >/dev/null || { echo "Missing command: $cmd" >&2; exit 1; }; done
+mkdir -p "$(dirname "$WORKDIR")"; mkdir "$WORKDIR"
+trap 'rm -rf "$WORKDIR"' EXIT
+ROOT="$WORKDIR/root"
+bash "$(dirname "$0")/validate-runtime-archive.sh" "$ARCHIVE" "$ROOT"
+sh -n "$ROOT/bin/opencode"
+for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
+  [[ -f "$native" ]] || continue
+  header="$(readelf -h "$native")"
+  grep -q 'Class:.*ELF64' <<<"$header"
+  grep -q 'Type:.*DYN' <<<"$header"
+  grep -q 'Machine:.*AArch64' <<<"$header"
+  if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
+    echo "glibc dependency found in Android module: $native" >&2; exit 1
+  fi
 done
-
-if [[ -z "$WORKDIR" || "$WORKDIR" == "/" || -e "$WORKDIR" || -L "$WORKDIR" ]]; then
-  echo "Work directory must be a new, non-root path: $WORKDIR" >&2
-  exit 1
-fi
-mkdir -p "$(dirname "$WORKDIR")"
-mkdir "$WORKDIR"
-RUNTIME="$WORKDIR/runtime"
-SYSROOT="$WORKDIR/termux-sysroot"
-SERVE_LOG="$WORKDIR/opencode-serve.log"
-cleanup() {
-  rm -rf "$WORKDIR"
-}
-trap cleanup EXIT
-
-bash "$(dirname "$0")/validate-runtime-archive.sh" "$ARCHIVE" "$RUNTIME"
-
-readelf -h "$RUNTIME/opencode" | grep -Eq 'Machine:.*AArch64'
-readelf -l "$RUNTIME/opencode" | grep -Fq "$TERMUX_INTERPRETER" || {
-  echo "OpenCode ELF is not patched to use the Termux musl interpreter." >&2
-  exit 1
-}
-
-# QEMU resolves the ELF's absolute PT_INTERP under this synthetic Termux root.
-mkdir -p "$SYSROOT$TERMUX_RUNTIME_PATH"
-cp "$RUNTIME/ld-musl-aarch64.so.1" "$SYSROOT$TERMUX_RUNTIME_PATH/"
-
-VERSION_OUTPUT="$(timeout 60s env -u LD_PRELOAD qemu-aarch64 -L "$SYSROOT" \
-  -E LD_LIBRARY_PATH="$RUNTIME" "$RUNTIME/opencode" --version)"
-[[ "$VERSION_OUTPUT" == "opencode v$VERSION" ]] || {
-  echo "Unexpected emulated runtime version: $VERSION_OUTPUT" >&2
-  exit 1
-}
-echo "$VERSION_OUTPUT"
-
-# A live serve process exercises the ELF interpreter and libraries beyond --version.
-set +e
-timeout 12s env -u LD_PRELOAD qemu-aarch64 -L "$SYSROOT" \
-  -E LD_LIBRARY_PATH="$RUNTIME" "$RUNTIME/opencode" serve \
-  --hostname 127.0.0.1 --port 4099 >"$SERVE_LOG" 2>&1
-SERVE_STATUS=$?
+# Exercise the shipped shell launcher and its argument/environment contract
+# without trying to load Android/Bionic modules on the Linux CI host.
+mkdir -p "$WORKDIR/prefix/bin" "$WORKDIR/prefix/lib"
+cat > "$WORKDIR/prefix/bin/bun" <<'BUN'
+#!/usr/bin/env bash
 set -e
-if [[ "$SERVE_STATUS" -ne 124 ]]; then
-  echo "OpenCode serve exited before the smoke-test timeout (status $SERVE_STATUS)." >&2
-  cat "$SERVE_LOG" >&2
-  exit 1
-fi
-
-echo "OpenCode serve remained running under ARM64 emulation."
+printf '%s\n' "$OPENCODE_ROOT" > "$BUN_TEST_LOG.root"
+printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
+printf '%s\n' "$OPENCODE_DISABLE_AUTOUPDATE" > "$BUN_TEST_LOG.autoupdate"
+printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
+if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
+BUN
+chmod 755 "$WORKDIR/prefix/bin/bun"
+export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
+bash "$ROOT/bin/opencode" --version > "$WORKDIR/version.txt"
+grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"
+grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
+grep -Fxq "$ROOT/lib/opencode/librust_pty_arm64.so" "$BUN_TEST_LOG.pty"
+grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
+grep -Fq -- '--smol' "$BUN_TEST_LOG.args"
+grep -Fq -- "$ROOT/lib/opencode/index.js --version" "$BUN_TEST_LOG.args"
+echo "PASS: Android ELF modules are AArch64 PIE shared libraries without glibc dependencies."
+echo "PASS: native launcher resolves the bundle, selects Bun, and forwards arguments."
+cat "$WORKDIR/version.txt"
 sha256sum "$ARCHIVE"
-echo "ARM64 archive structure, PT_INTERP, direct execution, version, and serve startup verified."
