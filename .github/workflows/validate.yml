@@ -133,6 +133,7 @@ jobs:
           test -s "$PREFIX/lib/opencode-termux/lib/opencode/index.js"
           test -f "$PREFIX/lib/opencode-termux/lib/opencode/bunfig.toml"
           test -s "$PREFIX/lib/opencode-termux/THIRD_PARTY_NOTICES.md"
+          test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
           bash "$PREFIX/bin/opencode-termux" doctor
           echo "PASS: installer bootstraps dependencies, activates the native bundle, and passes manager doctor."
