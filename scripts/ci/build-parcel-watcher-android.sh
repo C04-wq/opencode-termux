@@ -56,10 +56,14 @@ mapfile -t watcher_manifests < <(find "$SRC_ROOT/node_modules/.bun" -path '*/@pa
 }
 watcher_dir="$(dirname "${watcher_manifests[0]}")"
 addon_dir="$watcher_dir/node_modules/node-addon-api"
-[[ -f "$addon_dir/napi.h" ]] || {
-  echo "watcher: node-addon-api headers missing at $addon_dir" >&2
-  exit 1
-}
+if [[ ! -f "$addon_dir/napi.h" ]]; then
+  addon_header="$(find -L "$SRC_ROOT/node_modules/.bun" -type f -path '*/node-addon-api/napi.h' -print -quit)"
+  [[ -n "$addon_header" ]] || {
+    echo "watcher: node-addon-api headers were not found in the installed Bun dependency tree" >&2
+    exit 1
+  }
+  addon_dir="$(dirname "$addon_header")"
+fi
 
 node_include="${NODE_INCLUDE_DIR:-/usr/include/node}"
 [[ -f "$node_include/node_api.h" ]] || {
