@@ -50,7 +50,8 @@ case "${1:---help}" in
   doctor|--doctor)
     failed=0
     [[ "$(uname -m)" == aarch64 ]] || { echo "FAIL: architecture must be aarch64"; failed=1; }
-    for cmd in git curl tar sha256sum bun rg; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done\n    [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "FAIL: Termux libc++ shared library missing"; failed=1; }
+    for cmd in git curl tar sha256sum bun rg; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done
+    [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "FAIL: Termux libc++ shared library missing"; failed=1; }
     for file in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml lib/opencode/librust_pty_arm64.so lib/opencode/watcher.node; do
       [[ -s "$RUNTIME/$file" ]] || { echo "FAIL: runtime file missing: $file"; failed=1; }
     done
