@@ -35,7 +35,7 @@ different product.
     patch-opencode-bundle.py <opencode-source-tree>
 """
 
-import sys
+import argparse
 from pathlib import Path
 
 
@@ -51,9 +51,12 @@ def replace_once(path: Path, old: str, new: str) -> None:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: patch-opencode-bundle.py SOURCE_ROOT")
-    root = Path(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("tree", type=Path)
+    parser.add_argument("--target-arch", choices=("aarch64", "x86_64"), default="aarch64")
+    args = parser.parse_args()
+    root = args.tree
+    opencode_arch = "arm64" if args.target_arch == "aarch64" else "x64"
     build = root / "packages/cli/script/build.ts"
     if not build.is_file():
         raise SystemExit(f"patch-opencode-bundle: missing {build}")
@@ -71,7 +74,7 @@ def main() -> int:
         build,
         "  { os: \"linux\", arch: \"x64\", abi: \"musl\", avx2: false },\n",
         "  { os: \"linux\", arch: \"x64\", abi: \"musl\", avx2: false },\n"
-        '  { os: "linux", arch: "arm64", abi: "android" },\n',
+        f'  {{ os: "linux", arch: "{opencode_arch}", abi: "android" }},\n',
     )
     replace_once(
         build,
@@ -176,7 +179,7 @@ def main() -> int:
         "    await NativeArch.verify(path.join(outdir, name, \"bin\", item.os === \"win32\" ? `${binary}.exe` : binary), item.arch)\n",
     )
 
-    print("patch-opencode-bundle: android bundle target installed")
+    print(f"patch-opencode-bundle: android {args.target_arch} bundle target installed")
     return 0
 
 
