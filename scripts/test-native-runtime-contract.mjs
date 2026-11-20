@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 const meta = JSON.parse(fs.readFileSync("release-checksums.json", "utf8"));
 assert.equal(meta.version, "2.3.2");
 assert.equal(meta.sourceRepo, "Spectra010s/opencode-termux");
@@ -14,6 +15,15 @@ for (const token of [
   "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "DEFERRED_RUNTIME_ID", ".opencode-termux-deferred-version", "A new Termux runtime is available", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
+const launcherStart = 'cat > "$STAGE/opencode-launcher" <<\'LAUNCHER\'\\n';
+const launcherEnd = "\\nLAUNCHER";
+const launcherOffset = installer.indexOf(launcherStart);
+assert.notEqual(launcherOffset, -1, "installer launcher heredoc is missing");
+const launcherBodyStart = launcherOffset + launcherStart.length;
+const launcherBodyEnd = installer.indexOf(launcherEnd, launcherBodyStart);
+assert.notEqual(launcherBodyEnd, -1, "installer launcher heredoc is not terminated");
+const launcherSyntax = spawnSync("bash", ["-n"], { input: installer.slice(launcherBodyStart, launcherBodyEnd), encoding: "utf8" });
+assert.equal(launcherSyntax.status, 0, "generated OpenCode launcher has invalid Bash syntax: " + launcherSyntax.stderr);
 const manager = fs.readFileSync("manager.sh", "utf8");
 assert.equal(fs.readFileSync("opencode-termux", "utf8"), manager, "manager entry point must match manager.sh");
 for (const token of ["bun rg", "libc++_shared.so", ".opencode-termux-runtime-id", "bin/opencode", "lib/opencode/index.js", "lib/opencode/librust_pty_arm64.so", "lib/opencode/watcher.node"]) {
