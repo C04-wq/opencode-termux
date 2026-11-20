@@ -77,3 +77,62 @@ jobs:
           curl --fail --location --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$ARCHIVE"
           echo "$HASH  $ARCHIVE" | sha256sum -c -
           bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
+
+      - name: Exercise installer, dependency bootstrap and manager in an isolated prefix
+        env:
+          PREFIX: ${{ runner.temp }}/termux-prefix
+          OPENCODE_TEST_ARCHIVE: ${{ runner.temp }}/opencode-native.tar.gz
+          OPENCODE_TEST_VERSION: ${{ fromJSON('{"v":"2.3.2"}').v }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$PREFIX/etc/tls" "$PREFIX/etc" "$RUNNER_TEMP/termux-stubs"
+          printf 'test CA bundle\n' > "$PREFIX/etc/tls/cert.pem"
+          printf 'nameserver 1.1.1.1\n' > "$PREFIX/etc/resolv.conf"
+          sudo mkdir -p /data/data/com.termux/files/usr/bin
+          sudo ln -sf /bin/sh /data/data/com.termux/files/usr/bin/sh
+          cat > "$RUNNER_TEMP/termux-stubs/uname" <<'STUB'
+          #!/usr/bin/env bash
+          echo aarch64
+          STUB
+          cat > "$RUNNER_TEMP/termux-stubs/curl" <<'STUB'
+          #!/usr/bin/env bash
+          set -e
+          while (($#)); do
+            if [[ "$1" == "-o" ]]; then
+              cp "$OPENCODE_TEST_ARCHIVE" "$2"
+              exit 0
+            fi
+            shift
+          done
+          echo "curl test stub did not receive -o" >&2
+          exit 2
+          STUB
+          cat > "$RUNNER_TEMP/termux-stubs/pkg" <<'STUB'
+          #!/usr/bin/env bash
+          set -e
+          mkdir -p "$PREFIX/bin" "$PREFIX/lib"
+          cat > "$PREFIX/bin/bun" <<'BUN'
+          #!/usr/bin/env bash
+          if [[ "${*: -1}" == "--version" ]]; then
+            echo "opencode v$OPENCODE_TEST_VERSION"
+          fi
+          BUN
+          cat > "$PREFIX/bin/rg" <<'RG'
+          #!/usr/bin/env bash
+          exit 0
+          RG
+          printf 'libc++ test stub\n' > "$PREFIX/lib/libc++_shared.so"
+          chmod 755 "$PREFIX/bin/bun" "$PREFIX/bin/rg"
+          STUB
+          chmod 755 "$RUNNER_TEMP/termux-stubs/"*
+          export PATH="$RUNNER_TEMP/termux-stubs:$PREFIX/bin:$PATH"
+          bash install.sh
+          test -x "$PREFIX/bin/opencode"
+          test -x "$PREFIX/bin/opencode-termux"
+          test -x "$PREFIX/bin/opencode-termux-update"
+          test -s "$PREFIX/lib/opencode-termux/lib/opencode/index.js"
+          test -f "$PREFIX/lib/opencode-termux/lib/opencode/bunfig.toml"
+          test -s "$PREFIX/lib/opencode-termux/THIRD_PARTY_NOTICES.md"
+          bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
+          bash "$PREFIX/bin/opencode-termux" doctor
+          echo "PASS: installer bootstraps dependencies, activates the native bundle, and passes manager doctor."
