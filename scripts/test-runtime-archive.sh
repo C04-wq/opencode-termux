@@ -13,6 +13,7 @@ make_fixture() {
   esac
   mkdir -p "$dir/bin" "$dir/lib/opencode"
   printf '#!/bin/sh\nexec bun "$@"\n' > "$dir/bin/opencode"
+  chmod 0755 "$dir/bin/opencode"
   printf 'console.log("fixture")\n' > "$dir/lib/opencode/index.js"
   : > "$dir/lib/opencode/bunfig.toml"
   printf 'native\n' > "$dir/lib/opencode/libopentui.so"
