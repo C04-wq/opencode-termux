@@ -42,6 +42,7 @@ BUN
 chmod 755 "$WORKDIR/prefix/bin/bun"
 cat > "$WORKDIR/prefix/bin/opencode" <<'OUTER'
 #!/usr/bin/env sh
+export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"
 exec "$ROOT/bin/opencode" "$@"
 OUTER
 chmod 755 "$WORKDIR/prefix/bin/opencode"
