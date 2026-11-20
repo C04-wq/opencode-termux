@@ -3,6 +3,21 @@ set -Eeuo pipefail
 trap 'status=$?; printf "ERROR: smoke test failed at line %s: %s (exit %s)\n" "$LINENO" "$BASH_COMMAND" "$status" >&2; exit "$status"' ERR
 if [[ $# -ne 3 ]]; then echo "Usage: $0 <native-bundle.tar.gz> <version> <new-workdir>" >&2; exit 64; fi
 ARCHIVE=$1 VERSION=$2 WORKDIR=$3
+TARGET_ARCH="${TARGET_ARCH:-aarch64}"
+case "$TARGET_ARCH" in
+  aarch64)
+    EXPECTED_ELF_MACHINE="AArch64"
+    PTY_LIBRARY="librust_pty_arm64.so"
+    ;;
+  x86_64)
+    EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"
+    PTY_LIBRARY="librust_pty_x86_64.so"
+    ;;
+  *)
+    echo "Unsupported TARGET_ARCH '$TARGET_ARCH' (supported: aarch64, x86_64)" >&2
+    exit 64
+    ;;
+esac
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 64; }
 [[ ! -e "$WORKDIR" && "$WORKDIR" != / ]] || { echo "Work directory must be new" >&2; exit 64; }
 for cmd in bash sh readelf sha256sum; do command -v "$cmd" >/dev/null || { echo "Missing command: $cmd" >&2; exit 1; }; done
@@ -22,7 +37,7 @@ for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
   header="$(readelf -h "$native")"
   grep -q 'Class:.*ELF64' <<<"$header"
   grep -q 'Type:.*DYN' <<<"$header"
-  grep -q 'Machine:.*AArch64' <<<"$header"
+  grep -Fq "Machine: $EXPECTED_ELF_MACHINE" <<<"$header"
   if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
@@ -52,11 +67,11 @@ if ! grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"; then
 fi
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
-grep -Fxq "$ROOT/lib/opencode/librust_pty_arm64.so" "$BUN_TEST_LOG.pty"
+grep -Fxq "$ROOT/lib/opencode/$PTY_LIBRARY" "$BUN_TEST_LOG.pty"
 grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
 grep -Fq -- '--smol' "$BUN_TEST_LOG.args"
 grep -Fq -- "$ROOT/lib/opencode/index.js --version" "$BUN_TEST_LOG.args"
-echo "PASS: Android ELF modules are AArch64 shared libraries without glibc dependencies."
+echo "PASS: Android $TARGET_ARCH ELF modules are Bionic shared libraries without glibc dependencies."
 echo "PASS: native launcher resolves the installed bundle, selects Bun and forwards arguments."
 cat "$WORKDIR/version.txt"
 sha256sum "$ARCHIVE"
