@@ -318,7 +318,9 @@ The validation workflow checks shell syntax, ShellCheck, manager consistency, ar
 
 Hosted CI is not a physical-device test. A release must also be exercised on real Termux ARM64 devices, including interactive TUI use, PTY commands, file watching and background server startup, before it can be considered fully verified.
 
-Runtime version changes update the pinned source tag and digest together in a reviewed repository change. This project no longer builds or publishes the incompatible Linux/musl executable.
+To test a PR candidate, download its `android-arm64-candidate-*` GitHub Actions artifact and run `bash scripts/test-termux-device.sh /path/to/opencode-VERSION-android-aarch64-bundle.tar.gz` on a physical ARM64 Termux device. The script installs the candidate into a separate directory under `$PREFIX/opt` and does not replace the current installation. Then launch the candidate and verify interactive TUI, PTY, file watching and the background server; remove the candidate directory when finished.
+
+Installer metadata is changed only after a release has passed the source build, ELF, archive and SHA-256 checks. This project no longer builds or publishes the incompatible Linux/musl executable.
 ## 🛠️ Troubleshooting
 
 ### `opencode: command not found`
