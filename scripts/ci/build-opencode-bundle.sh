@@ -136,7 +136,7 @@ if drift:
 print(f"pins: opentui {opentui}, bun-pty {bunpty}")
 PY
 OPENCODE_BUN_VERSION="$BUN_VERSION" python3 tools/patch-opencode-source.py "$src"
-python3 tools/patch-opencode-bundle.py "$src"
+python3 tools/patch-opencode-bundle.py --target-arch "$TARGET_ARCH" "$src"
 
 cd "$src"
 "$host_bun" install \
