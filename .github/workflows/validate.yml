@@ -119,7 +119,7 @@ jobs:
           if (!installer.includes('unrecognized OpenCode command already exists') || !installer.includes('It has been left untouched')) {
             throw new Error('installer must refuse to overwrite an unrecognized command');
           }
-          if (!installer.includes('unrecognized command already exists at $UPDATER') || !installer.includes("grep -Fq 'git -C' \"$UPDATER\"")) {
+          if (!installer.includes('unrecognized command already exists at $UPDATER') || !installer.includes("grep -Fq 'OPENCODE_TERMUX_UPDATER=1' \"$UPDATER\"")) {
             throw new Error('installer must refuse to overwrite an unrecognized updater command');
           }
           const manager = fs.readFileSync('manager.sh', 'utf8');
@@ -140,7 +140,7 @@ jobs:
             throw new Error('installer must install the manager command');
           }
           const uninstaller = fs.readFileSync('uninstall.sh', 'utf8');
-          if (!uninstaller.includes('OPENCODE_TERMUX_MANAGER=1') || !uninstaller.includes('"$MANAGER"')) {
+          if (!uninstaller.includes('OPENCODE_TERMUX_MANAGER=1') || !uninstaller.includes('"$MANAGER"') || !uninstaller.includes('OPENCODE_TERMUX_UPDATER=1')) {
             throw new Error('uninstaller must verify and remove the manager command');
           }
           if (!uninstaller.includes('marker missing') || !uninstaller.includes('Nothing was removed')) {
