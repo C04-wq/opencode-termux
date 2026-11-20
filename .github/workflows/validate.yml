@@ -239,7 +239,7 @@ jobs:
               !gradientMenu.includes("print_gradient_text 'Wait for the next version'")) {
             throw new Error('the selected update option must use a soft white gradient with readable dark text');
           }
-          const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J'");
+          const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J\\n'");
           const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
           if (updateLogoIndex < 0 || updateOptionsIndex < 0 || updateAnimationIndex < updateOptionsIndex ||
               updateClearIndex < 0 || updateCommandIndex < updateClearIndex) {
