@@ -47,12 +47,9 @@ if [ ! -f "$root/index.js" ]; then
   exit 1
 fi
 
-# Under bun, process.execPath is the interpreter; these name the install.
-if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/opencode" ]; then
-  OPENCODE_LAUNCHER="$PREFIX/bin/opencode"
-else
-  OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"
-fi
+# Under bun, process.execPath is the interpreter; preserve an explicit public
+# launcher from the installer, otherwise use this executable (e.g. a candidate).
+OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"
 OPENCODE_ROOT=$root
 export OPENCODE_LAUNCHER OPENCODE_ROOT
 export OPENCODE_DISABLE_AUTOUPDATE=1
