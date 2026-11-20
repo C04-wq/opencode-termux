@@ -13,6 +13,10 @@ make_fixture() {
   for file in "${FILES[@]}"; do
     if [[ "$file" == "libstdc++.so.6" ]]; then
       ln -s "$link_target" "$dir/$file"
+    elif [[ "$file" == "opencode" ]]; then
+      # Minimal little-endian ELF64 header with e_type=ET_DYN (3).
+      # The archive validator checks the ELF type before activation.
+      printf '\\177ELF\\002\\001\\001\\000\\000\\000\\000\\000\\000\\000\\000\\000\\003\\000' > "$dir/$file"
     else
       printf 'fixture:%s\n' "$file" > "$dir/$file"
     fi
