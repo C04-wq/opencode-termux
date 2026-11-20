@@ -74,9 +74,18 @@ for (const token of [
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
 
 const watcher = fs.readFileSync(".github/workflows/check-upstream.yml", "utf8");
-assert.ok(watcher.includes("anomalyco/opencode/contents/package.json"));
+assert.ok(watcher.includes("anomalyco/opencode/git/matching-refs/tags/v2."));
+assert.ok(watcher.includes("refs/tags/(v2[.]"));
 assert.ok(watcher.includes("tools/ocver.py current"));
 assert.ok(watcher.includes("gh issue create"));
+assert.ok(!watcher.includes("contents/package.json"), "upstream version discovery must not rely on the dev branch manifest");
+
+const candidateWorkflow = fs.readFileSync(".github/workflows/prepare-upstream-update.yml", "utf8");
+assert.ok(candidateWorkflow.includes("anomalyco/opencode/git/matching-refs/tags/v2."));
+assert.ok(candidateWorkflow.includes("source_sha256"));
+assert.ok(candidateWorkflow.includes("candidate_only_not_approved_for_release"));
+assert.ok(candidateWorkflow.includes('update_available=false'), "an already-current upstream tag must be a successful no-op");
+assert.ok(candidateWorkflow.includes("Do not modify release-checksums.json"), "candidate preparation must not publish installer metadata");
 
 const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
