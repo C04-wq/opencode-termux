@@ -106,6 +106,13 @@ jobs:
           if (!installer.includes('readlink -f "$LAUNCHER"') || !installer.includes('"$NPM_OPENCODE_PACKAGE"/*')) {
             throw new Error('installer must verify that the known npm package actually owns the command before uninstalling it');
           }
+          const npmRemovalIndex = installer.indexOf('run_quiet npm uninstall -g --ignore-scripts opencode-termux');
+          const updaterPreflightIndex = installer.indexOf('# Protect the updater path too:');
+          const managerPreflightIndex = installer.indexOf('# Protect the manager path too:');
+          if (npmRemovalIndex < 0 || updaterPreflightIndex < 0 || managerPreflightIndex < 0 ||
+              updaterPreflightIndex > npmRemovalIndex || managerPreflightIndex > npmRemovalIndex) {
+            throw new Error('installer must validate updater and manager collisions before removing a legacy package');
+          }
           if (!installer.includes('get_dpkg_package_owner "$LAUNCHER"') ||
               !ownerHelper.includes('dpkg-query -S "$1"') ||
               !installer.includes('opencode1-wrapper')) {
