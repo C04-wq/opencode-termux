@@ -61,6 +61,9 @@ for (const token of [
   "git merge-base --is-ancestor",
   "release-checksums.json?ref=main",
   "releaseTag",
+  "SOURCE_TAG",
+  "RELEASE_TAG",
+  "Invalid package release tag",
   "ocver.py tag",
   "C04-wq/opencode-termux"
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
