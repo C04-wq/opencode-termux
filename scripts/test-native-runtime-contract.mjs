@@ -25,4 +25,6 @@ for (const token of ["bin/opencode", "lib/opencode/index.js", "librust_pty_arm64
 }
 const uninstall = fs.readFileSync("uninstall.sh", "utf8");
 assert.ok(uninstall.includes('rm -rf "$RUNTIME"'), "uninstaller must remove the complete native bundle");
+assert.ok(installer.includes('THIRD_PARTY_NOTICES.md'), "installer must install third-party license notices");
+assert.ok(manager.includes("THIRD_PARTY_NOTICES.md"), "doctor must verify installed license notices");
 console.log("Native runtime metadata, installer, manager, validator and uninstall contracts passed.");
