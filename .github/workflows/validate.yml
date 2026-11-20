@@ -224,7 +224,7 @@ jobs:
           if (!installer.includes('○ Install update now') ||
               !installer.includes('○ Wait for the next version') ||
               !installer.includes('●') ||
-              !installer.includes('\\033[32m')) {
+              !installer.includes('32m●')) {
             throw new Error('update menu must show empty circles and green filled circles for selected choices');
           }
           const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J'");
