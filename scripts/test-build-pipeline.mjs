@@ -76,6 +76,10 @@ assert.ok(!tlsShim.includes("int pthread_tryjoin_np("), "unsafe pthread_tryjoin_
 const workflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
 assert.ok(workflow.includes("group: validate-native-${{ github.event.pull_request.number || github.ref }}"), "validation runs for the same PR must share one concurrency group");
 assert.ok(workflow.includes("cancel-in-progress: true"), "new PR validation must cancel superseded runs");
+assert.ok(workflow.includes("build-x86_64-native:"), "CI must build the x86_64 OpenTUI native library independently");
+assert.ok(workflow.includes("patch-opentui-android.py --target-arch x86_64"), "x86_64 CI must select the architecture-specific OpenTUI patch path");
+assert.ok(workflow.includes("x86_64 OpenTUI unexpectedly contains unsupported Bionic TLSDESC relocations"), "x86_64 CI must reject unsupported TLSDESC relocations");
+assert.ok(workflow.includes("test ! -e work/opentui-x86_64/packages/native/src/tlsdesc-shim.c"), "x86_64 CI must not compile the AArch64 TLS shim");
 
 for (const token of [
   "https://github.com/anomalyco/opentui.git",
