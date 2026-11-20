@@ -53,7 +53,7 @@ for (const token of [
   "x86_64-linux-android",
   "src/linux/InotifyBackend.cc",
   "src/unix/legacy.cc",
-  "NAPI_VERSION=3",
+  "NAPI_VERSION=4",
   "napi_register_module_v1",
   "readelf -h",
   "glibc-linked dependency found"
