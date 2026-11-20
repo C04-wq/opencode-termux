@@ -110,10 +110,11 @@ VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$M
 HASH="$(sed -n 's/.*"archiveSha256"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+RELEASE_TAG="$(sed -n 's/.*"releaseTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
 [[ "$HASH" =~ ^[a-f0-9]{64}$ ]] || { echo "Error: invalid checksum." >&2; exit 1; }
-[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$SOURCE_TAG" == "v$VERSION" && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
+[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$SOURCE_TAG" == "v$VERSION" && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[1-9][0-9]*)?$ && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
   echo "Error: native runtime source is not an approved, version-matched release." >&2
   exit 1
 }
@@ -195,7 +196,7 @@ cleanup() {
 }
 trap cleanup EXIT
 ARCHIVE="opencode-$VERSION-android-aarch64-bundle.tar.gz"
-URL="https://github.com/$SOURCE_REPO_PIN/releases/download/$SOURCE_TAG/$ARCHIVE"
+URL="https://github.com/$SOURCE_REPO_PIN/releases/download/$RELEASE_TAG/$ARCHIVE"
 echo "Downloading OpenCode $VERSION..."
 curl --fail --location --silent --show-error --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$STAGE/runtime.tar.gz"
 ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz" | awk '{print $1}')"
