@@ -222,6 +222,19 @@ jobs:
               updateClearIndex < 0 || updateCommandIndex < updateClearIndex) {
             throw new Error('update menu must show the animated logo above its options and clear the options before displaying download progress');
           }
+          if (!installer.includes("printf '\\\\033[?25l' >/dev/tty") ||
+              !installer.includes("printf '\\\\033[?25h' >/dev/tty") ||
+              !installer.includes("trap 'ui_handle_signal 130' INT") ||
+              !installer.includes("trap 'ui_handle_signal 143' TERM") ||
+              !installer.includes("trap 'ui_handle_signal 129' HUP") ||
+              !installer.includes('ui_restore_cursor')) {
+            throw new Error('installer must hide the cursor for the full operation and restore it on exit or signals');
+          }
+          const updateFlow = installer.slice(updateCommandIndex - 350, updateCommandIndex + 500);
+          if (!updateFlow.includes('Keep the cursor hidden through the updater') ||
+              updateFlow.indexOf('restore_cursor') < updateFlow.indexOf('"$PREFIX/bin/opencode-termux-update"')) {
+            throw new Error('interactive update must keep the cursor hidden until the updater and installer finish');
+          }
           if (!installer.includes('LOG="$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
           }
