@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Spectra010s/opencode-termux/releases/tag/v2.3.2"><img src="https://img.shields.io/badge/Android%20runtime-2.3.2-blue?style=for-the-badge" alt="Pinned Android runtime 2.3.2"></a>
+  <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?label=Android%20runtime&style=for-the-badge" alt="Repository-built Android runtime"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Workflow de validation"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="Licence MIT"></a>
 </p>
@@ -276,7 +276,7 @@ Cette architecture remplace l’ancienne approche Linux/musl : l’installateur 
 
 ### Source épinglée
 
-Le runtime actuel est OpenCode 2.3.2, issu de la release v2.3.2 de Spectra010s/opencode-termux. Le dépôt source, le tag et le condensat SHA-256 sont épinglés dans release-checksums.json. L’installateur n’accepte que ce dépôt et le tag correspondant à la version.
+Le runtime Android est compilé dans ce dépôt à partir d’un commit épinglé du code source officiel d’OpenCode (anomalyco/opencode). GitHub Actions compile les bibliothèques Bionic d’OpenTUI et PTY, prépare le bundle JavaScript, inspecte les modules ELF et valide l’archive avant de publier une release gérée par ce dépôt. tools/supply-chain-lock.json enregistre les commits et versions des sources et outils ; release-checksums.json épingle la release publiée et son condensat SHA-256.
 
 Le bundle comprend un lanceur shell, les modules JavaScript, le moteur de rendu Bionic OpenTUI, une bibliothèque PTY Android et un module Android de surveillance des fichiers.
 
@@ -306,7 +306,7 @@ Le gestionnaire, le programme de mise à jour, le menu interactif et le désinst
 - L’activation du runtime et des lanceurs est transactionnelle ; l’installation précédente est restaurée si le contrôle final échoue.
 - Le désinstallateur vérifie la propriété des fichiers avant leur suppression.
 
-Limite de confiance : le bundle est produit par le projet tiers épinglé Spectra010s/opencode-termux. SHA-256 confirme que le fichier correspond au condensat épinglé, mais ce n’est pas une signature indépendante et cela ne remplace pas l’audit du code et de la chaîne de compilation. Les mentions de licence du runtime épinglé et d’OpenCode figurent dans THIRD_PARTY_NOTICES.md ; chaque dépendance conserve sa propre licence.
+Limite de confiance : les révisions des sources et les outils de compilation sont épinglés et chaque artefact est vérifié, mais SHA-256 n’est pas une signature indépendante et ne remplace pas l’audit du code et de la chaîne de compilation. Certaines adaptations Android proviennent de scripts MIT de Spectra010s/opencode-termux, désormais maintenus et exécutés par nos propres workflows ; les attributions et licences figurent dans THIRD_PARTY_NOTICES.md.
 
 ## 🤖 Automatisation des releases et CI
 

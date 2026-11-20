@@ -1,12 +1,15 @@
 # Third-party notices
 
-The installed OpenCode runtime is a pinned Android bundle from
-[Spectra010s/opencode-termux](https://github.com/Spectra010s/opencode-termux),
-release tag `v2.3.2`, archive SHA-256:
+This repository builds and publishes its own Android/Bionic runtime from the
+official [anomalyco/opencode](https://github.com/anomalyco/opencode) source.
+The exact OpenCode, OpenTUI, Bun and bun-pty source revisions are recorded in
+`tools/supply-chain-lock.json`. Each release includes its build report, source
+lock, archive checksum and release metadata.
 
-`6d32b72efae7ecb6b78a5e023a8af471ea9118a6faa741fbcde9d1dfa88bd12d`
-
-That project is distributed under the MIT License:
+The Android compatibility build scripts were initially derived from
+[Spectra010s/opencode-termux](https://github.com/Spectra010s/opencode-termux)
+and are maintained and executed by this repository's own workflows. That
+project is distributed under the MIT License:
 
 MIT License
 
@@ -56,17 +59,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Other runtime dependencies retain their own licenses and notices.
+OpenTUI is included under the MIT License:
 
-The Android/Bionic build pipeline in this repository includes build and compatibility
-scripts derived from [Spectra010s/opencode-termux](https://github.com/Spectra010s/opencode-termux),
-which is also distributed under the MIT License. Those scripts are maintained and
-executed by this repository's own GitHub Actions workflows; no prebuilt runtime
-release from that project is required by the build pipeline.
+MIT License
 
-The build fetches OpenCode source from
-[anomalyco/opencode](https://github.com/anomalyco/opencode) at the exact commit
-recorded in `tools/supply-chain-lock.json`. OpenTUI and bun-pty sources are also
-pinned to immutable commits in that lock file. Their original licenses and
-notices remain applicable. The published runtime report and source lock accompany
-each release for provenance.
+Copyright (c) 2025 opentui
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Other runtime dependencies, including bun-pty and the file-watcher module,
+retain their original licenses and notices. Their source revisions are pinned
+in `tools/supply-chain-lock.json` or in the OpenCode dependency lockfile.
+The published runtime report and source lock accompany each release for
+provenance.
