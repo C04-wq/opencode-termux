@@ -1,0 +1,8 @@
+{
+  "target": "1.4.4",
+  "url_pattern": "https://github.com/oven-sh/bun/releases/download/bun-v{ver}/bun-linux-aarch64-android.zip",
+  "archive_sha256": "d72e42c60e895ccbc16144bb1e0e0ad7ee384841c35b5501a7ec28b4d6d759c9",
+  "elf_sha256": "461fda703381e03e8856791cd57093cd79b8f05f2ee262bc69f16c27d2c5575e",
+  "min_base_for_section": "1.4.4",
+  "notes": "Pinned Android base for the native B line. 1.4.4 is what OpenCode 2.2.x declares in packageManager and what the murafdev fork has shipped since 2.1.4; there is no 1.4.2 fallback. The base must match the Bun that compiled the graph exactly."
+}

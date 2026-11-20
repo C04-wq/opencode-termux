@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Spectra010s/opencode-termux/releases/tag/v2.3.2"><img src="https://img.shields.io/badge/Android%20runtime-2.3.2-blue?style=for-the-badge" alt="Pinned Android runtime 2.3.2"></a>
+  <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?label=Android%20runtime&style=for-the-badge" alt="Repository-built Android runtime"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Validation workflow"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="MIT license"></a>
 </p>
@@ -280,7 +280,7 @@ This replaces the former Linux/musl approach: the installer no longer patches or
 
 ### Pinned runtime source
 
-The current runtime is OpenCode 2.3.2 from the v2.3.2 release of Spectra010s/opencode-termux. The source repository, tag and SHA-256 digest are pinned in release-checksums.json. The installer accepts only that repository and matching version tag.
+This repository's pipeline builds OpenCode from a pinned commit of the official source (anomalyco/opencode). GitHub Actions compiles the Bionic OpenTUI and PTY libraries, prepares the JavaScript bundle, inspects the ELF modules, and verifies the archive and its SHA-256 digest. tools/supply-chain-lock.json records source and tool revisions. The installer downloads the release selected by release-checksums.json; that metadata will remain pinned to the previously verified runtime until the new build passes a physical Termux ARM64 device test.
 
 The bundle contains a shell launcher, the JavaScript module graph, a Bionic OpenTUI renderer, an Android PTY library and an Android file-watcher module.
 
@@ -310,7 +310,7 @@ The project manager, updater, interactive update prompt and uninstaller remain s
 - Runtime and launcher activation is transactional, with rollback if the final version check fails.
 - The uninstaller verifies project ownership before removing managed files.
 
-Trust boundary: the bundle is produced by the pinned third-party project Spectra010s/opencode-termux. SHA-256 confirms the downloaded file matches the pinned digest; it is not an independent signature or a substitute for auditing the source and build workflow. License notices for the pinned runtime and OpenCode are included in THIRD_PARTY_NOTICES.md; dependencies retain their own licenses.
+Trust boundary: source revisions and build tools are pinned and every artifact is verified, but SHA-256 is not an independent signature and does not replace auditing the code and build chain. Some Android compatibility scripts are derived from MIT-licensed work in Spectra010s/opencode-termux and are maintained and run by our own workflows; attribution and license notices are in THIRD_PARTY_NOTICES.md.
 
 ## 🤖 Release automation and CI
 
@@ -318,7 +318,9 @@ The validation workflow checks shell syntax, ShellCheck, manager consistency, ar
 
 Hosted CI is not a physical-device test. A release must also be exercised on real Termux ARM64 devices, including interactive TUI use, PTY commands, file watching and background server startup, before it can be considered fully verified.
 
-Runtime version changes update the pinned source tag and digest together in a reviewed repository change. This project no longer builds or publishes the incompatible Linux/musl executable.
+To test a PR candidate, download its `android-arm64-candidate-*` GitHub Actions artifact and run `bash scripts/test-termux-device.sh /path/to/opencode-VERSION-android-aarch64-bundle.tar.gz` on a physical ARM64 Termux device. The script installs the candidate into a separate directory under `$PREFIX/opt` and does not replace the current installation. Then launch the candidate and verify interactive TUI, PTY, file watching and the background server; remove the candidate directory when finished.
+
+Installer metadata is changed only after a release has passed the source build, ELF, archive and SHA-256 checks. This project no longer builds or publishes the incompatible Linux/musl executable.
 ## 🛠️ Troubleshooting
 
 ### `opencode: command not found`

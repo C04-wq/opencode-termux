@@ -1,0 +1,58 @@
+name: Check upstream OpenCode releases
+
+on:
+  schedule:
+    - cron: "23 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - name: Compare the latest official release with our source lock
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CURRENT="$(python3 tools/ocver.py current)"
+          UPSTREAM_BRANCH="$(curl --fail --location --silent --show-error \
+            --retry 3 --retry-all-errors \
+            https://api.github.com/repos/anomalyco/opencode |
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["default_branch"])')"
+          LATEST="$(curl --fail --location --silent --show-error \
+            --retry 3 --retry-all-errors \
+            "https://api.github.com/repos/anomalyco/opencode/contents/package.json?ref=$UPSTREAM_BRANCH" |
+            python3 -c 'import base64,json,sys; print(json.loads(base64.b64decode(json.load(sys.stdin)["content"]))["version"])')"
+          python3 - "$CURRENT" "$LATEST" <<'PY'
+          import re, subprocess, sys
+          current, latest = sys.argv[1:]
+          pattern = re.compile(r"^\d+\.\d+\.\d+$")
+          if not pattern.fullmatch(current) or not pattern.fullmatch(latest):
+              raise SystemExit(f"Invalid version from lock/release: {current!r}, {latest!r}")
+          newer = subprocess.run(
+              ["bash", "-lc", f"printf '%s\\n%s\\n' '{current}' '{latest}' | sort -V | tail -n1"],
+              check=True, text=True, capture_output=True
+          ).stdout.strip()
+          if newer != latest or current == latest:
+              print(f"OpenCode source lock is current ({current}); upstream latest is {latest}.")
+              raise SystemExit(0)
+          print(f"New official OpenCode source version detected: {latest} (locked: {current}).")
+          PY
+          if [ "$LATEST" != "$CURRENT" ] && [ "$(printf '%s\n%s\n' "$CURRENT" "$LATEST" | sort -V | tail -n1)" = "$LATEST" ]; then
+            TITLE="Update Android/Termux build for OpenCode $LATEST"
+            if gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE" --json title --jq 'length' | grep -qx 0; then
+              gh issue create --repo "$GITHUB_REPOSITORY" \
+                --title "$TITLE" \
+                --body "The official anomalyco/opencode default branch ($UPSTREAM_BRANCH) now declares source version $LATEST, while the source lock still pins $CURRENT. Update the pinned OpenCode commit, Bun/OpenTUI/bun-pty versions and verified hashes, run the Android/Bionic build and device smoke tests, then publish v$LATEST from this repository. Do not change installer metadata until the new archive passes all build and validation jobs."
+            fi
+          fi

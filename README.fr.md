@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Spectra010s/opencode-termux/releases/tag/v2.3.2"><img src="https://img.shields.io/badge/Android%20runtime-2.3.2-blue?style=for-the-badge" alt="Pinned Android runtime 2.3.2"></a>
+  <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?label=Android%20runtime&style=for-the-badge" alt="Repository-built Android runtime"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Workflow de validation"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="Licence MIT"></a>
 </p>
@@ -276,7 +276,7 @@ Cette architecture remplace l’ancienne approche Linux/musl : l’installateur 
 
 ### Source épinglée
 
-Le runtime actuel est OpenCode 2.3.2, issu de la release v2.3.2 de Spectra010s/opencode-termux. Le dépôt source, le tag et le condensat SHA-256 sont épinglés dans release-checksums.json. L’installateur n’accepte que ce dépôt et le tag correspondant à la version.
+Le pipeline de ce dépôt compile OpenCode à partir d’un commit épinglé du code source officiel (anomalyco/opencode). GitHub Actions compile les bibliothèques Bionic d’OpenTUI et PTY, prépare le bundle JavaScript, inspecte les modules ELF et vérifie l’archive ainsi que son condensat SHA-256. tools/supply-chain-lock.json enregistre les révisions des sources et outils. L’installateur télécharge la release indiquée par release-checksums.json ; ces métadonnées resteront épinglées au runtime déjà vérifié jusqu’à ce que la nouvelle compilation réussisse un test sur un appareil Termux ARM64 physique.
 
 Le bundle comprend un lanceur shell, les modules JavaScript, le moteur de rendu Bionic OpenTUI, une bibliothèque PTY Android et un module Android de surveillance des fichiers.
 
@@ -306,7 +306,7 @@ Le gestionnaire, le programme de mise à jour, le menu interactif et le désinst
 - L’activation du runtime et des lanceurs est transactionnelle ; l’installation précédente est restaurée si le contrôle final échoue.
 - Le désinstallateur vérifie la propriété des fichiers avant leur suppression.
 
-Limite de confiance : le bundle est produit par le projet tiers épinglé Spectra010s/opencode-termux. SHA-256 confirme que le fichier correspond au condensat épinglé, mais ce n’est pas une signature indépendante et cela ne remplace pas l’audit du code et de la chaîne de compilation. Les mentions de licence du runtime épinglé et d’OpenCode figurent dans THIRD_PARTY_NOTICES.md ; chaque dépendance conserve sa propre licence.
+Limite de confiance : les révisions des sources et les outils de compilation sont épinglés et chaque artefact est vérifié, mais SHA-256 n’est pas une signature indépendante et ne remplace pas l’audit du code et de la chaîne de compilation. Certaines adaptations Android proviennent de scripts MIT de Spectra010s/opencode-termux, désormais maintenus et exécutés par nos propres workflows ; les attributions et licences figurent dans THIRD_PARTY_NOTICES.md.
 
 ## 🤖 Automatisation des releases et CI
 
@@ -314,7 +314,9 @@ Le workflow de validation vérifie la syntaxe shell, ShellCheck, la cohérence d
 
 Ces contrôles hébergés ne remplacent pas les essais sur un appareil physique. Avant de considérer une release comme entièrement vérifiée, il faut également tester sur un vrai Termux ARM64 : TUI interactive, commandes PTY, surveillance des fichiers et démarrage du serveur en arrière-plan.
 
-Les changements de version mettent à jour ensemble le tag source et son condensat dans une modification du dépôt soumise à revue. Ce projet ne compile ni ne publie plus l’exécutable Linux/musl incompatible.
+Pour tester un candidat de PR, téléchargez l’artefact GitHub Actions `android-arm64-candidate-*`, puis exécutez `bash scripts/test-termux-device.sh /chemin/vers/opencode-VERSION-android-aarch64-bundle.tar.gz` sur un appareil Termux ARM64 physique. Le script installe le candidat dans un répertoire séparé sous `$PREFIX/opt` sans remplacer l’installation actuelle. Lancez ensuite le candidat et vérifiez la TUI interactive, le PTY, la surveillance des fichiers et le serveur en arrière-plan ; supprimez le répertoire candidat après les essais.
+
+Les métadonnées d’installation ne sont modifiées qu’après validation de la compilation source, des ELF, de l’archive et du SHA-256. Ce projet ne compile ni ne publie plus l’exécutable Linux/musl incompatible.
 ## 🛠️ Dépannage
 
 ### `opencode: command not found`

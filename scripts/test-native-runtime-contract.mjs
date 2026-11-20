@@ -2,14 +2,14 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 const meta = JSON.parse(fs.readFileSync("release-checksums.json", "utf8"));
-assert.equal(meta.version, "2.3.2");
-assert.equal(meta.sourceRepo, "Spectra010s/opencode-termux");
+assert.match(meta.version, /^[0-9]+\.[0-9]+\.[0-9]+$/);
+assert.ok(["Spectra010s/opencode-termux", "C04-wq/opencode-termux"].includes(meta.sourceRepo));
 assert.equal(meta.sourceTag, "v" + meta.version);
 assert.equal(meta.runtimeId, "android-bionic-bun-v1");
 assert.match(meta.archiveSha256, /^[a-f0-9]{64}$/);
 const installer = fs.readFileSync("install.sh", "utf8");
 for (const token of [
-  "bun ripgrep libc++", "SOURCE_REPO_PIN", "SOURCE_TAG",
+  "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "Spectra010s/opencode-termux", "SOURCE_TAG",
   "opencode-$VERSION-android-aarch64-bundle.tar.gz",
   "validate-runtime-archive.sh", "@TERMUX_PREFIX@/lib/opencode",
   "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "DEFERRED_RUNTIME_ID", ".opencode-termux-deferred-version", "A new Termux runtime is available", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
