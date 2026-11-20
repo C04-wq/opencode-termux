@@ -61,7 +61,11 @@ ui_start() {
 ui_finish() {
   (( UI_ENABLED == 1 )) || return 0
   printf '\n\n'
-  printf '\033[32mOpenCode installed successfully.\033[0m\n'
+  if [[ "$INSTALL_ACTION" == "updated" ]]; then
+    printf '\033[32mOpenCode updated successfully. The update process completed successfully.\033[0m\n'
+  else
+    printf '\033[32mOpenCode installed successfully.\033[0m\n'
+  fi
   printf '  Version: %s\n' "$VERSION"
   printf '  Run: opencode\n\n'
 }
@@ -144,6 +148,10 @@ fi
 
 META="$REPO_DIR/release-checksums.json"
 RUNTIME="$PREFIX/lib/opencode-termux"
+INSTALL_ACTION="installed"
+if [[ -s "$RUNTIME/.opencode-termux-version" ]]; then
+  INSTALL_ACTION="updated"
+fi
 CERT="$PREFIX/etc/tls/cert.pem"
 RESOLVER="$PREFIX/etc/resolv.conf"
 [[ "$(uname -m)" == aarch64 ]] || { echo "Error: ARM64/aarch64 only." >&2; exit 1; }
