@@ -345,6 +345,7 @@ jobs:
           TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" \
             bash scripts/ci/build-rust-pty-android.sh "$RUNNER_TEMP/librust_pty_x86_64.so"
           readelf -h "$RUNNER_TEMP/librust_pty_x86_64.so" | grep -Eq 'Machine:.*Advanced Micro Devices X86-64'
+          readelf -d "$RUNNER_TEMP/librust_pty_x86_64.so" | grep -q 'NEEDED.*libc.so'
 
       - name: Package and verify the Termux runtime archive
         run: |
