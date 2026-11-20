@@ -27,16 +27,32 @@ jobs:
           set -euo pipefail
 
           CURRENT="$(python3 tools/ocver.py current)"
-          UPSTREAM_BRANCH="$(curl --fail --location --silent --show-error \
+          TAGS_JSON="$(curl --fail --location --silent --show-error \
             --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
-            https://api.github.com/repos/anomalyco/opencode |
-            python3 -c 'import json,sys; print(json.load(sys.stdin)["default_branch"])')"
-
-          BRANCH_META="$(curl --fail --location --silent --show-error \
-            --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
-            "https://api.github.com/repos/anomalyco/opencode/branches/$UPSTREAM_BRANCH")"
-          UPSTREAM_SHA="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])' <<<"$BRANCH_META")"
-          [[ "$UPSTREAM_SHA" =~ ^[0-9a-f]{40}$ ]]
+            "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v2.")"
+          read -r UPSTREAM_TAG TAG_VERSION UPSTREAM_SHA < <(
+            printf '%s' "$TAGS_JSON" | python3 -c '
+          import json, re, sys
+          refs = json.load(sys.stdin)
+          candidates = []
+          for item in refs:
+              match = re.fullmatch(r"refs/tags/(v2\\.\\d+\\.\\d+)", item.get("ref", ""))
+              if not match:
+                  continue
+              obj = item.get("object", {})
+              sha = obj.get("sha", "")
+              if obj.get("type") != "commit" or not re.fullmatch(r"[0-9a-f]{40}", sha):
+                  continue
+              tag = match.group(1)
+              version = tag[1:]
+              candidates.append((tuple(map(int, version.split("."))), tag, version, sha))
+          if not candidates:
+              raise SystemExit("No stable official v2.x.y OpenCode tags were found")
+          _, tag, version, sha = max(candidates)
+          print(tag, version, sha)
+          '
+          )
+          [[ "$UPSTREAM_TAG" == "v$TAG_VERSION" && "$UPSTREAM_SHA" =~ ^[0-9a-f]{40}$ ]]
 
           # Prefer the root manifest, then fall back to the package workspace.
           PACKAGE_JSON=""
@@ -54,6 +70,10 @@ jobs:
           fi
 
           VERSION="$(python3 -c 'import json,re,sys; v=json.load(sys.stdin)["version"]; assert re.fullmatch(r"[0-9]+[.][0-9]+[.][0-9]+",v), f"Unsupported upstream version: {v!r}"; print(v)' <<<"$PACKAGE_JSON")"
+          [[ "$VERSION" == "$TAG_VERSION" ]] || {
+            echo "Upstream tag $UPSTREAM_TAG points to a manifest declaring $VERSION, not $TAG_VERSION." >&2
+            exit 1
+          }
           if ! python3 - "$CURRENT" "$VERSION" <<'PY'
           import re, sys
           current, candidate = sys.argv[1:]
@@ -83,15 +103,15 @@ jobs:
           [[ "$SOURCE_SHA256" =~ ^[0-9a-f]{64}$ ]]
 
           mkdir -p candidate
-          python3 - "$PACKAGE_JSON" "$VERSION" "$UPSTREAM_SHA" "$UPSTREAM_BRANCH" "$CURRENT" "$SOURCE_SHA256" <<'PY'
+          python3 - "$PACKAGE_JSON" "$VERSION" "$UPSTREAM_SHA" "$UPSTREAM_TAG" "$CURRENT" "$SOURCE_SHA256" <<'PY'
           import json, pathlib, sys
-          package, version, commit, branch, current, digest = sys.argv[1:]
+          package, version, commit, tag, current, digest = sys.argv[1:]
           manifest = json.loads(package)
           result = {
               "schema_version": 1,
               "status": "candidate_only_not_approved_for_release",
               "source_repository": "anomalyco/opencode",
-              "upstream_default_branch": branch,
+              "upstream_tag": tag,
               "locked_version": current,
               "candidate_version": version,
               "commit": commit,
@@ -117,9 +137,10 @@ jobs:
 
           echo "update_available=true" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$UPSTREAM_TAG" >> "$GITHUB_OUTPUT"
           echo "commit=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
           echo "sha256=$SOURCE_SHA256" >> "$GITHUB_OUTPUT"
-          echo "Prepared candidate OpenCode $VERSION at $UPSTREAM_SHA (SHA-256 $SOURCE_SHA256)."
+          echo "Prepared candidate OpenCode $VERSION from $UPSTREAM_TAG at $UPSTREAM_SHA (SHA-256 $SOURCE_SHA256)."
 
       - name: Upload review-only candidate metadata
         if: steps.candidate.outputs.update_available == 'true'
@@ -137,6 +158,7 @@ jobs:
             echo "## Upstream candidate prepared"
             echo
             echo "- Version: ${{ steps.candidate.outputs.version }}"
+            echo "- Official source tag: `${{ steps.candidate.outputs.tag }}`"
             echo "- Commit: `${{ steps.candidate.outputs.commit }}`"
             echo "- Source archive SHA-256: `${{ steps.candidate.outputs.sha256 }}`"
             echo "- Candidate metadata is attached as a workflow artifact."
