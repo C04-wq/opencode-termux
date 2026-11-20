@@ -68,7 +68,7 @@ for required in \
   bin/opencode \
   lib/opencode/index.js \
   lib/opencode/bunfig.toml \
-  lib/opencode/librust_pty_arm64.so \
+  lib/opencode/$PTY_LIBRARY \
   lib/opencode/watcher.node; do
   [[ -f "$CANDIDATE/$required" ]] || {
     echo "Error: candidate archive is missing $required" >&2
