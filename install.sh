@@ -203,9 +203,9 @@ echo "Verifying package integrity... OK"
 bash "$REPO_DIR/scripts/validate-runtime-archive.sh" "$STAGE/runtime.tar.gz" "$STAGE/files"
 # Release assets are built with a prefix placeholder so the same pinned bundle
 # works in every Termux installation path.
-find "$STAGE/files/lib" -type f -name '*.js' -exec \
+find "$STAGE/files/lib/opencode" -type f -name '*.js' -exec \
   sed -i "s|@TERMUX_PREFIX@/lib/opencode|$RUNTIME/lib/opencode|g" {} +
-if grep -rlq '@TERMUX_PREFIX@' "$STAGE/files/lib"; then
+if grep -rlq '@TERMUX_PREFIX@' "$STAGE/files/lib/opencode"; then
   echo "Error: native bundle contains an unresolved install path." >&2
   exit 1
 fi
@@ -217,7 +217,7 @@ NEW="$PREFIX/lib/.opencode-termux-new-$"
 rm -rf "$NEW"; mkdir -p "$NEW"
 cp -a "$STAGE/files/bin" "$NEW/bin"
 mkdir -p "$NEW/lib"
-cp -a "$STAGE/files/lib" "$NEW/lib/opencode"
+cp -a "$STAGE/files/lib/opencode" "$NEW/lib/opencode"
 printf '%s\n' "$VERSION" > "$NEW/.opencode-termux-version"
 chmod 600 "$NEW/.opencode-termux-version"
 printf '%s\n' "$REPO_DIR" > "$NEW/.opencode-termux-repo-dir"
