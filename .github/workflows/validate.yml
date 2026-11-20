@@ -100,7 +100,7 @@ jobs:
           if (!installer.includes('installed runtime failed final test')) {
             throw new Error('installer must verify the runtime after activation');
           }
-          if (!installer.includes('npm uninstall -g --ignore-scripts opencode-termux') || !installer.includes('Found legacy npm installation')) {
+          if (!installer.includes('npm uninstall -g --ignore-scripts opencode-termux') || !installer.includes('LEGACY_NPM_OWNS_COMMAND=1')) {
             throw new Error('installer must replace the known legacy npm package before activating its launcher');
           }
           if (!installer.includes('readlink -f "$LAUNCHER"') || !installer.includes('"$NPM_OPENCODE_PACKAGE"/*')) {
