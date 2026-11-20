@@ -1,10 +1,12 @@
 # Third-party notices
 
-This repository builds and publishes its own Android/Bionic runtime from the
+This repository owns the Android/Bionic source-build pipeline for the
 official [anomalyco/opencode](https://github.com/anomalyco/opencode) source.
 The exact OpenCode, OpenTUI, Bun and bun-pty source revisions are recorded in
-`tools/supply-chain-lock.json`. Each release includes its build report, source
-lock, archive checksum and release metadata.
+`tools/supply-chain-lock.json`. A release is published only after the build,
+ELF inspection, archive validation and CI smoke tests pass. The installer uses
+the release selected by `release-checksums.json`; the currently pinned runtime
+is retained until the new build has also passed a physical Termux ARM64 test.
 
 The Android compatibility build scripts were initially derived from
 [Spectra010s/opencode-termux](https://github.com/Spectra010s/opencode-termux)

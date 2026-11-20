@@ -276,7 +276,7 @@ Cette architecture remplace l’ancienne approche Linux/musl : l’installateur 
 
 ### Source épinglée
 
-Le runtime Android est compilé dans ce dépôt à partir d’un commit épinglé du code source officiel d’OpenCode (anomalyco/opencode). GitHub Actions compile les bibliothèques Bionic d’OpenTUI et PTY, prépare le bundle JavaScript, inspecte les modules ELF et valide l’archive avant de publier une release gérée par ce dépôt. tools/supply-chain-lock.json enregistre les commits et versions des sources et outils ; release-checksums.json épingle la release publiée et son condensat SHA-256.
+Le pipeline de ce dépôt compile OpenCode à partir d’un commit épinglé du code source officiel (anomalyco/opencode). GitHub Actions compile les bibliothèques Bionic d’OpenTUI et PTY, prépare le bundle JavaScript, inspecte les modules ELF et vérifie l’archive ainsi que son condensat SHA-256. tools/supply-chain-lock.json enregistre les révisions des sources et outils. L’installateur télécharge la release indiquée par release-checksums.json ; ces métadonnées resteront épinglées au runtime déjà vérifié jusqu’à ce que la nouvelle compilation réussisse un test sur un appareil Termux ARM64 physique.
 
 Le bundle comprend un lanceur shell, les modules JavaScript, le moteur de rendu Bionic OpenTUI, une bibliothèque PTY Android et un module Android de surveillance des fichiers.
 

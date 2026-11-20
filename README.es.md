@@ -277,7 +277,7 @@ Esto sustituye el enfoque anterior basado en Linux/musl: el instalador ya no par
 
 ### Origen fijado
 
-El runtime de Android se construye en este repositorio a partir de un commit fijado del código fuente oficial de OpenCode (anomalyco/opencode). GitHub Actions compila las bibliotecas Bionic de OpenTUI y PTY, prepara el bundle JavaScript, comprueba los ELF y valida el archivo antes de publicar una release propia. tools/supply-chain-lock.json registra los commits y versiones de las fuentes y herramientas; release-checksums.json fija la release y su hash SHA-256.
+El pipeline de este repositorio construye OpenCode desde un commit fijado del código fuente oficial (anomalyco/opencode). GitHub Actions compila las bibliotecas Bionic de OpenTUI y PTY, prepara el bundle JavaScript, inspecciona los ELF y valida el archivo y su SHA-256. tools/supply-chain-lock.json registra los commits y versiones de las fuentes y herramientas. El instalador descarga la release indicada por release-checksums.json; esa metadata seguirá apuntando al runtime previamente verificado hasta que la nueva compilación supere una prueba física en Termux ARM64.
 
 El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador Bionic OpenTUI, una biblioteca PTY Android y un módulo Android para vigilar archivos.
 

@@ -31,7 +31,7 @@ assert.ok(pty.includes("tools/ocver.py bunpty commit"));
 const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
 assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must target this repository");
 assert.ok(sourcePatch.includes("raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh"), "native updater must use the current installer");
-assert.ok(!sourcePatch.includes("Spectra010s/opencode-termux"), "native updater must not depend on Spectra releases");
+assert.ok(sourcePatch.includes('const repositories = ["C04-wq/opencode-termux", "Spectra010s/opencode-termux"]'), "native updater must prefer this repository and retain a legacy fallback until the first owned release exists");
 assert.ok(sourcePatch.includes('exec(["sh", installer], "4 hours")'), "native updater must invoke the installer without unsupported arguments");
 assert.ok(!sourcePatch.includes('exec(["sh", installer, "--version", version]'), "unsupported installer version argument must not be generated");
 
@@ -46,7 +46,6 @@ for (const token of [
   "gh release create",
   "gzip -n",
   '"v*"',
-  '"release/**"',
   "runtime-metadata-updated",
   "gh api --method POST",
   "needs: [static-checks, native-runtime]",
@@ -54,12 +53,11 @@ for (const token of [
   "contents: write",
   "git merge-base --is-ancestor",
   "release-checksums.json?ref=main",
-  '"release/**"',
   "C04-wq/opencode-termux"
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
 
 const watcher = fs.readFileSync(".github/workflows/check-upstream.yml", "utf8");
-assert.ok(watcher.includes("anomalyco/opencode/releases/latest"));
+assert.ok(watcher.includes("anomalyco/opencode/contents/package.json"));
 assert.ok(watcher.includes("tools/ocver.py current"));
 assert.ok(watcher.includes("gh issue create"));
 

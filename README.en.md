@@ -280,7 +280,7 @@ This replaces the former Linux/musl approach: the installer no longer patches or
 
 ### Pinned runtime source
 
-The Android runtime is built in this repository from a pinned commit of the official OpenCode source (anomalyco/opencode). GitHub Actions compiles the Bionic OpenTUI and PTY libraries, prepares the JavaScript bundle, inspects the ELF modules and validates the archive before publishing a release owned by this repository. tools/supply-chain-lock.json records source/tool commits and versions; release-checksums.json pins the published release and its SHA-256 digest.
+This repository's pipeline builds OpenCode from a pinned commit of the official source (anomalyco/opencode). GitHub Actions compiles the Bionic OpenTUI and PTY libraries, prepares the JavaScript bundle, inspects the ELF modules, and verifies the archive and its SHA-256 digest. tools/supply-chain-lock.json records source and tool revisions. The installer downloads the release selected by release-checksums.json; that metadata will remain pinned to the previously verified runtime until the new build passes a physical Termux ARM64 device test.
 
 The bundle contains a shell launcher, the JavaScript module graph, a Bionic OpenTUI renderer, an Android PTY library and an Android file-watcher module.
 
