@@ -97,7 +97,7 @@ objects=()
 for source in "${sources[@]}"; do
   object="$tmp/${source//\//_}.o"
   "$cxx" --sysroot="$sysroot" -std=c++17 -O2 -fPIC \
-    -DNAPI_VERSION=3 -DNAPI_DISABLE_CPP_EXCEPTIONS \
+    -DNAPI_VERSION=4 -DNAPI_DISABLE_CPP_EXCEPTIONS \
     -DWATCHMAN -DINOTIFY -DBRUTE_FORCE \
     -I"$node_include" -I"$addon_dir" -I"$watcher_dir/src" \
     -c "$watcher_dir/$source" -o "$object"
