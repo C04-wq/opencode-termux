@@ -58,7 +58,7 @@ export OPENCODE_DISABLE_AUTOUPDATE=1
 # Select only the native library built for this exact Android architecture.
 if [ -z "${BUN_PTY_LIB:-}" ]; then
   case "$(uname -m)" in
-    aarch64) BUN_PTY_LIB="$root/librust_pty_aarch64.so" ;;
+    aarch64) BUN_PTY_LIB="$root/librust_pty_arm64.so" ;;
     x86_64) BUN_PTY_LIB="$root/librust_pty_x86_64.so" ;;
     *)
       echo "opencode: unsupported architecture $(uname -m); supported: aarch64, x86_64" >&2
