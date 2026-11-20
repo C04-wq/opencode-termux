@@ -185,6 +185,133 @@ jobs:
           grep -Fq 'A new OpenCode version is available: 2.3.3' "$RUNNER_TEMP/next-version-prompt.txt"
           echo "PASS: installer, dependency bootstrap, manager doctor, migration/defer prompts and same-version archive rebuild detection."
 
+  build-x86_64-native:
+    name: Build and verify Android x86_64 OpenTUI
+    needs: [static-checks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      ANDROID_API: "28"
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --yes binutils build-essential clang file git llvm patch python3 curl xz-utils
+
+      - name: Resolve pinned source and toolchain
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
+          version = lock["current"]
+          opentui_version = lock["opencode"][version]["opentui_version"]
+          opentui = lock["opentui"][opentui_version]
+          print(f"OPENTUI_VERSION={opentui_version}")
+          print(f"OPENTUI_COMMIT={opentui['commit']}")
+          print(f"ZIG_VERSION={opentui['zig_version']}")
+          print(f"ZIG_SHA256={opentui['zig_x86_64_linux_sha256']}")
+          print(f"NDK_VERSION={lock['android_ndk_version']}")
+          PY
+          mkdir -p work
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz" \
+            -o work/zig.tar.xz
+          echo "$ZIG_SHA256  work/zig.tar.xz" | sha256sum -c -
+          tar -xJf work/zig.tar.xz -C work
+          echo "$GITHUB_WORKSPACE/work/zig-x86_64-linux-$ZIG_VERSION" >> "$GITHUB_PATH"
+          NDK="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
+          test -d "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          ACTUAL_NDK_VERSION="$(sed -n 's/^Pkg.Revision = //p' "$NDK/source.properties" | tr -d '\r')"
+          test "$ACTUAL_NDK_VERSION" = "$NDK_VERSION"
+          echo "NDK=$NDK" >> "$GITHUB_ENV"
+          echo "LLVM_STRIP=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> "$GITHUB_ENV"
+          test -x "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          test "$(zig version)" = "$ZIG_VERSION"
+
+      - name: Fetch pinned OpenTUI source
+        run: |
+          set -euo pipefail
+          mkdir -p work/opentui-x86_64
+          git -C work/opentui-x86_64 init .
+          git -C work/opentui-x86_64 remote add origin https://github.com/anomalyco/opentui.git
+          git -C work/opentui-x86_64 fetch --depth=1 origin "$OPENTUI_COMMIT"
+          git -C work/opentui-x86_64 checkout --detach FETCH_HEAD
+          test "$(git -C work/opentui-x86_64 rev-parse HEAD)" = "$OPENTUI_COMMIT"
+
+      - name: Apply x86_64 Bionic compatibility patches
+        run: |
+          set -euo pipefail
+          python3 tools/patch-opentui-android.py --target-arch x86_64 work/opentui-x86_64
+          git -C work/opentui-x86_64 diff --check
+          test ! -e work/opentui-x86_64/packages/native/src/tlsdesc-shim.c
+          ! grep -Fq 'tlsdesc-shim.c' work/opentui-x86_64/packages/native/build.zig
+
+      - name: Build x86_64 Bionic OpenTUI library
+        run: |
+          set -euo pipefail
+          SYSROOT="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          LIBDIR="$SYSROOT/usr/lib/x86_64-linux-android/$ANDROID_API"
+          test -d "$LIBDIR"
+          {
+            echo "include_dir=$SYSROOT/usr/include/x86_64-linux-android"
+            echo "sys_include_dir=$SYSROOT/usr/include"
+            echo "crt_dir=$LIBDIR"
+            echo "msvc_lib_dir="
+            echo "kernel32_lib_dir="
+            echo "gcc_dir=$LIBDIR"
+            echo "darwin_sdk_dir="
+          } > work/android-x86_64-libc.txt
+          sh work/opentui-x86_64/packages/native/scripts/prepare-zig-deps.sh
+          (
+            cd work/opentui-x86_64/packages/native
+            OPENTUI_C_REMAP="-ffile-prefix-map=$GITHUB_WORKSPACE=/usr/src -D__ANDROID_MIN_SDK_VERSION__=28 -D__ANDROID_API__=28" \
+            BIONIC_ARCH_INCLUDE="$SYSROOT/usr/include/x86_64-linux-android" \
+            BIONIC_SYS_INCLUDE="$SYSROOT/usr/include" \
+            BIONIC_LIB_DIR="$LIBDIR" \
+              zig build -Dlibrary-target=x86_64-linux-android.28 \
+                -Doptimize=ReleaseSafe --libc "$GITHUB_WORKSPACE/work/android-x86_64-libc.txt"
+          )
+          SO=work/opentui-x86_64/packages/native/lib/x86_64-linux-android.28/libopentui.so
+          test -s "$SO"
+          python3 tools/remap-binary-prefix.py "$SO" "$GITHUB_WORKSPACE" /usr/src
+          mkdir -p artifacts/transplant/opentui-bionic-x86_64
+          cp "$SO" artifacts/transplant/opentui-bionic-x86_64/libopentui.so
+
+      - name: Verify x86_64 Bionic OpenTUI
+        run: |
+          set -euo pipefail
+          SO=artifacts/transplant/opentui-bionic-x86_64/libopentui.so
+          file "$SO" | grep -q 'x86-64'
+          readelf -h "$SO" | grep -q 'Type:.*DYN'
+          readelf -d "$SO" | grep -q 'NEEDED.*libc.so'
+          if readelf -d "$SO" | grep -q 'libc.so.6'; then
+            echo "glibc dependency found in x86_64 OpenTUI" >&2
+            exit 1
+          fi
+          # Bionic currently implements TLSDESC only for AArch64. x86_64 must
+          # use the traditional TLS ABI and must not ship TLSDESC relocations.
+          if readelf -rW "$SO" | grep -q 'TLSDESC'; then
+            echo "x86_64 OpenTUI unexpectedly contains unsupported Bionic TLSDESC relocations" >&2
+            exit 1
+          fi
+          if readelf -Ws "$SO" | grep -E 'UND[[:space:]]+pthread_tryjoin_np' >/dev/null; then
+            echo "glibc-only pthread_tryjoin_np import found in x86_64 OpenTUI" >&2
+            exit 1
+          fi
+          if grep -aFq "$GITHUB_WORKSPACE" "$SO"; then
+            echo "build workspace path leaked into x86_64 OpenTUI" >&2
+            exit 1
+          fi
+          echo "PASS: x86_64 OpenTUI ELF and Bionic TLS contract."
+
   build-native:
     name: Build and verify Android ARM64 runtime
     needs: [static-checks, native-runtime]
