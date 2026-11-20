@@ -535,19 +535,23 @@ jobs:
           # the program-header columns and is not safe for positional awk fields.
           readelf -lW "$SO"
           readelf -rW "$SO" | grep -E 'TLS|TLSDESC' || true
-          # The API-28 TLSDESC fallback allocates zero-filled per-thread blocks.
-          # Fail closed if OpenTUI starts shipping initialized (.tdata) TLS.
-          readelf -lW "$SO" | awk '
-            $1 == "TLS" {
-              found = 1
-              if ($5 !~ /^0x0+$/) {
-                print "OpenTUI PT_TLS has initialized data; TLSDESC fallback cannot copy it." > "/dev/stderr"
-                exit 1
-              }
-            }
-            # No PT_TLS segment is valid: this build may contain no TLS.
-            # If present, FileSiz must be zero so the fallback only needs BSS.
-          '
+          # The API-28 TLSDESC fallback can emulate only zero-filled TLS.
+          # A missing PT_TLS is valid only when there are no TLSDESC relocations.
+          mapfile -t TLS_FILE_SIZES < <(readelf -lW "$SO" | awk '$1 == "TLS" { print $5 }')
+          if (("${#TLS_FILE_SIZES[@]}" > 1)); then
+            echo "OpenTUI has multiple PT_TLS segments; refusing an ambiguous TLS layout." >&2
+            exit 1
+          elif (("${#TLS_FILE_SIZES[@]}" == 1)); then
+            if [[ ! "${TLS_FILE_SIZES[0]}" =~ ^0x0+$ ]]; then
+              echo "OpenTUI PT_TLS has initialized data; TLSDESC fallback cannot copy it." >&2
+              exit 1
+            fi
+          elif readelf -rW "$SO" | grep -q 'TLSDESC'; then
+            echo "OpenTUI has TLSDESC relocations but no PT_TLS segment; fallback cannot resolve them." >&2
+            exit 1
+          else
+            echo "OpenTUI has no PT_TLS segment or TLSDESC relocations; no TLS fallback is required."
+          fi
           if readelf -d "$SO" | grep -q 'libc.so.6'; then
             echo "glibc dependency found in OpenTUI" >&2
             exit 1
