@@ -5,13 +5,28 @@ PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 ARCHIVE="${1:-}"
 
 if [[ -z "$ARCHIVE" || ! -f "$ARCHIVE" ]]; then
-  echo "Usage: bash scripts/test-termux-device.sh /path/to/opencode-VERSION-android-aarch64-bundle.tar.gz" >&2
+  echo "Usage: bash scripts/test-termux-device.sh /path/to/opencode-VERSION-android-ARCH-bundle.tar.gz" >&2
   exit 2
 fi
-[[ "$(uname -m)" == "aarch64" ]] || {
-  echo "Error: this test requires a physical ARM64 Termux device." >&2
-  exit 1
-}
+DEVICE_ARCH="$(uname -m)"
+case "$DEVICE_ARCH" in
+  aarch64)
+    TARGET_ARCH="aarch64"
+    ARCHIVE_ARCH="aarch64"
+    PTY_LIBRARY="librust_pty_arm64.so"
+    EXPECTED_ELF_MACHINE="AArch64"
+    ;;
+  x86_64)
+    TARGET_ARCH="x86_64"
+    ARCHIVE_ARCH="x86_64"
+    PTY_LIBRARY="librust_pty_x86_64.so"
+    EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"
+    ;;
+  *)
+    echo "Error: unsupported device architecture '$DEVICE_ARCH'; supported: aarch64, x86_64." >&2
+    exit 1
+    ;;
+esac
 for cmd in bun rg tar; do
   command -v "$cmd" >/dev/null 2>&1 || {
     echo "Missing dependency: $cmd. Install it with: pkg install bun ripgrep libc++" >&2
@@ -27,7 +42,7 @@ done
   exit 1
 }
 
-VERSION="$(basename "$ARCHIVE" | sed -n 's/^opencode-\([0-9][0-9.]*\)-android-aarch64-bundle\.tar\.gz$/\1/p')"
+VERSION="$(basename "$ARCHIVE" | sed -n "s/^opencode-\\([0-9][0-9.]*\\)-android-$ARCHIVE_ARCH-bundle\\.tar\\.gz$/\\1/p")"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
   echo "Error: archive filename does not contain a valid OpenCode version." >&2
   exit 1
@@ -69,7 +84,7 @@ if command -v readelf >/dev/null 2>&1; then
   native_count=0
   while IFS= read -r -d '' native_file; do
     header="$(readelf -h "$native_file")"
-    grep -q "AArch64" <<<"$header" || {
+    grep -Fq "$EXPECTED_ELF_MACHINE" <<<"$header" || {
       echo "Error: native module is not AArch64: $native_file" >&2
       exit 1
     }
@@ -83,12 +98,12 @@ if command -v readelf >/dev/null 2>&1; then
     echo "Error: no native ELF modules were found." >&2
     exit 1
   }
-  echo "Verified $native_count Android ARM64 native modules."
+  echo "Verified $native_count Android $TARGET_ARCH native modules."
 else
   echo "Note: readelf is not installed; device-side ELF inspection was skipped."
 fi
 
-echo "Testing OpenCode $VERSION with the real Termux Bun runtime..."
+echo "Testing OpenCode $VERSION ($TARGET_ARCH) with the real Termux Bun runtime..."
 VERSION_OUTPUT="$("$CANDIDATE/bin/opencode" --version 2>&1)"
 printf '%s\n' "$VERSION_OUTPUT"
 grep -Fq "$VERSION" <<<"$VERSION_OUTPUT" || {
