@@ -156,5 +156,9 @@ if [ "$ACTUAL_INTERPRETER" != "$TERMUX_INTERPRETER" ]; then
   exit 1
 fi
 
+# Termux rejects ET_EXEC binaries with "unexpected e_type: 2". Changing PT_INTERP
+# alone does not make a binary PIE; require a real dynamic ET_DYN executable.
+bash "$(dirname "$0")/validate-android-elf.sh" "$WORKDIR/stage/opencode" "$TERMUX_INTERPRETER"
+
 tar -C "$WORKDIR/stage" -czf "$OUTPUT" \
   opencode ld-musl-aarch64.so.1 libc.musl-aarch64.so.1 libgcc_s.so.1 libstdc++.so.6 libstdc++.so.6.runtime
