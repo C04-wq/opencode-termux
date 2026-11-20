@@ -29,18 +29,18 @@ The final `.deb` must be built and measured before declaring the size requiremen
 
 ### 2. Architecture support
 
-The current runtime is ARM64-only. The intended Termux target matrix is:
+The current shipped runtime is ARM64-only. The intended Termux target matrix is:
 
 | Termux architecture | Android target | Current status |
 | --- | --- | --- |
 | `aarch64` | `aarch64-linux-android` | Existing project target; needs continued validation |
-| `x86_64` | `x86_64-linux-android` | Potential 64-bit expansion; not implemented or validated |
+| `x86_64` | `x86_64-linux-android` | PTY shared library cross-build passes CI; full runtime remains unsupported |
 | `arm` | `armv7a-linux-androideabi` | Blocked by Termux's Bun package excluding 32-bit ARM |
 | `i686` | `i686-linux-android` | Blocked by Termux's Bun package excluding 32-bit x86 |
 
 Termux itself supports all four architectures, but that does not mean every dependency does. Bun is a required runtime dependency of this project, and the official Termux Bun build recipe excludes `arm` and `i686`. Do not claim 32-bit support unless a compatible, maintainable Android/Bionic Bun runtime becomes available or OpenCode is ported to a different runtime.
 
-The first practical expansion target is `x86_64`, while retaining `aarch64`. The official Termux Bun recipe supports x86_64, so the JavaScript runtime itself is available there. The remaining native chain is not ready: the current OpenCode lock contains only `@parcel/watcher-android-arm64` and `@ff-labs/fff-bin-android-arm64`; OpenTUI is built only for AArch64; and the bundle/installer are AArch64-specific. FFF is an optimization and may be disabled on x86_64 to retain the ripgrep fallback, but the watcher must be built from source for Android x86_64 (or replaced with a compatible implementation). The PTY build helper now has an x86_64 cross-build path, which CI is testing independently. No x86_64 support claim is valid until all of these pieces are integrated and the resulting runtime is launched on a real x86_64 Termux device.
+The first practical expansion target is `x86_64`, while retaining `aarch64`. The official Termux Bun recipe supports x86_64, so the JavaScript runtime itself is available there. The remaining native chain is not ready: the current OpenCode lock contains only `@parcel/watcher-android-arm64` and `@ff-labs/fff-bin-android-arm64`; OpenTUI is built only for AArch64; and the bundle/installer are AArch64-specific. FFF is an optimization and may be disabled on x86_64 to retain the ripgrep fallback, but the watcher must be built from source for Android x86_64 (or replaced with a compatible implementation). The PTY build helper now has an x86_64 cross-build path, and CI has successfully produced and ELF-verified the x86_64 Bionic shared library. This validates only that one component, not the complete runtime. No x86_64 support claim is valid until all of these pieces are integrated and the resulting runtime is launched on a real x86_64 Termux device.
 
 ### 3. Termux build-system integration
 
