@@ -2,6 +2,12 @@
 set -Eeuo pipefail
 ARCHIVE="${1:?Usage: validate-runtime-archive.sh ARCHIVE DESTINATION}"
 DESTINATION="${2:?Usage: validate-runtime-archive.sh ARCHIVE DESTINATION}"
+TARGET_ARCH="${TARGET_ARCH:-aarch64}"
+case "$TARGET_ARCH" in
+  aarch64) PTY_LIBRARY="librust_pty_arm64.so" ;;
+  x86_64) PTY_LIBRARY="librust_pty_x86_64.so" ;;
+  *) echo "Error: unsupported TARGET_ARCH '$TARGET_ARCH' (supported: aarch64, x86_64)." >&2; exit 2 ;;
+esac
 [[ -f "$ARCHIVE" ]] || { echo "Error: native runtime archive not found." >&2; exit 1; }
 [[ ! -e "$DESTINATION" && ! -L "$DESTINATION" ]] || { echo "Error: extraction destination already exists." >&2; exit 1; }
 
@@ -40,7 +46,7 @@ printf '%s\n' "$VERBOSE" | awk '
   }
 ' || exit 1
 
-for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml lib/opencode/librust_pty_arm64.so lib/opencode/watcher.node; do
+for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml lib/opencode/$PTY_LIBRARY lib/opencode/watcher.node; do
   printf '%s\n' "$LISTING" | grep -Fxq "$required" || {
     echo "Error: required runtime entry is missing: $required" >&2
     exit 1
@@ -57,7 +63,7 @@ if ! tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE" -C "$DESTINATION"
   echo "Error: native runtime extraction failed." >&2
   exit 1
 fi
-for path in bin/opencode lib/opencode/index.js lib/opencode/librust_pty_arm64.so lib/opencode/watcher.node; do
+for path in bin/opencode lib/opencode/index.js "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node; do
   if [[ ! -f "$DESTINATION/$path" || -L "$DESTINATION/$path" || ! -s "$DESTINATION/$path" ]]; then
     rm -rf "$DESTINATION"
     echo "Error: required runtime file is missing or invalid: $path" >&2
