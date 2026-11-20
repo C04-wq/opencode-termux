@@ -358,23 +358,30 @@ chmod 755 "$STAGE/opencode-launcher"
 cp "$REPO_DIR/manager.sh" "$STAGE/opencode-termux-manager"
 chmod 755 "$STAGE/opencode-termux-manager"
 
-cat > "$STAGE/opencode-termux-update" <<UPDATER
+cat > "$STAGE/opencode-termux-update" <<'UPDATER'
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
-REPO_DIR="$REPO_DIR"
+# OPENCODE_TERMUX_UPDATER=1
+PREFIX="/data/data/com.termux/files/usr"
+RUNTIME="$PREFIX/lib/opencode-termux"
+REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
+if [[ -z "$REPO_DIR" || ! -f "$REPO_DIR/install.sh" ]]; then
+  echo "Error: managed repository checkout was not found." >&2
+  exit 1
+fi
 # Termux filesystems may report chmod-only changes even when tracked content
 # is untouched. Ignore permission-bit drift, while Git still detects content edits.
-git -C "\$REPO_DIR" config core.filemode false
-LOG="\$(mktemp)"
-if git -C "\$REPO_DIR" pull --ff-only >"\$LOG" 2>&1; then
-  rm -f "\$LOG"
+git -C "$REPO_DIR" config core.filemode false
+LOG="$(mktemp)"
+if git -C "$REPO_DIR" pull --ff-only >"$LOG" 2>&1; then
+  rm -f "$LOG"
 else
-  STATUS=\$?
-  cat "\$LOG" >&2
-  rm -f "\$LOG"
-  exit "\$STATUS"
+  STATUS=$?
+  cat "$LOG" >&2
+  rm -f "$LOG"
+  exit "$STATUS"
 fi
-exec bash "\$REPO_DIR/install.sh"
+exec bash "$REPO_DIR/install.sh"
 UPDATER
 chmod 755 "$STAGE/opencode-termux-update"
 
@@ -436,7 +443,7 @@ fi
 # Protect the updater path too: never back up or replace an unrelated file.
 if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
   if [[ ! -f "$UPDATER" ]] ||
-    ! grep -Fq 'git -C' "$UPDATER" ||
+    ! grep -Fq 'OPENCODE_TERMUX_UPDATER=1' "$UPDATER" ||
     ! grep -Fq 'install.sh' "$UPDATER"; then
     echo "Error: an unrecognized command already exists at $UPDATER." >&2
     echo "It has been left untouched. Identify its source, then rerun this installer." >&2
