@@ -113,7 +113,7 @@ python3 tools/patch-opencode-bundle.py "$src"
 cd "$src"
 "$host_bun" install \
   --ignore-scripts \
-  --filter '@opencode/cli' --filter '@opencode/app' \
+  --filter 'opencode' --filter '@opencode/cli' --filter '@opencode/app' \
   --os='*' --cpu='*' --libc='*'
 
 # The TUI shim must hand Bionic's tagged pointers to the FFI unchanged, and
