@@ -62,9 +62,9 @@ ui_finish() {
   (( UI_ENABLED == 1 )) || return 0
   printf '\n\n'
   if [[ "$INSTALL_ACTION" == "updated" ]]; then
-    printf 'OpenCode updated successfully. The update process completed successfully.\n'
+    printf '\033[32mOpenCode updated successfully. The update process completed successfully.\033[0m\n'
   else
-    printf 'OpenCode installed successfully.\n'
+    printf '\033[32mOpenCode installed successfully.\033[0m\n'
   fi
   printf '  Version: %s\n' "$VERSION"
   printf '  Run: opencode\n\n'
@@ -496,9 +496,9 @@ rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
 ui_finish
 if (( UI_ENABLED == 0 )); then
   if [[ "$INSTALL_ACTION" == "updated" ]]; then
-    printf "OpenCode updated successfully. The update process completed successfully.\\n"
+    printf 'OpenCode updated successfully. The update process completed successfully.\n'
   else
-    printf "OpenCode installed successfully.\\n"
+    printf 'OpenCode installed successfully.\n'
   fi
   printf 'Version: %s | Start: opencode | Manage: opencode-termux --help\n' "$VERSION"
 fi
