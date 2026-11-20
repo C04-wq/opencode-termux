@@ -48,7 +48,7 @@ case "$TARGET_ARCH" in
     ;;
 esac
 
-for tool in cargo git readelf file; do
+for tool in cargo git readelf file python3; do
   command -v "$tool" >/dev/null 2>&1 || { echo "missing command: $tool" >&2; exit 1; }
 done
 
@@ -70,15 +70,22 @@ echo "bun-pty: $ACTUAL_COMMIT ($REF; lock verified)"
 # portable-pty 0.8.1 -> serial -> termios 0.2.2, whose crates.io release has no
 # Android os module, so the build dies on cfg(target_os = "android").
 manifest="$SRC/rust-pty/Cargo.toml"
+portable_pty_version="$(python3 tools/ocver.py bunpty portable_pty)"
+[ "$portable_pty_version" = "0.9.0" ] || {
+  echo "bun-pty: unsupported locked portable-pty version '$portable_pty_version'" >&2
+  exit 1
+}
 if grep -q 'portable-pty = { version = "0.8.1"' "$manifest"; then
-  sed -i 's/portable-pty = { version = "0.8.1"/portable-pty = { version = "0.9"/' "$manifest"
+  sed -i 's/portable-pty = { version = "0.8.1"/portable-pty = { version = "=0.9.0"/' "$manifest"
 fi
-grep -q 'portable-pty = { version = "0.9"' "$manifest" || {
+grep -q 'portable-pty = { version = "=0.9.0"' "$manifest" || {
   echo "bun-pty: portable-pty pin changed upstream; update this script" >&2
   exit 1
 }
 
 if [ -n "${NDK:-}" ]; then
+  command -v rustup >/dev/null 2>&1 || { echo "missing command: rustup (required for Android cross-compilation)" >&2; exit 1; }
+  [[ "$ANDROID_API" =~ ^[0-9]+$ ]] || { echo "bun-pty: ANDROID_API must be a numeric API level" >&2; exit 1; }
   host_tag="${ANDROID_NDK_HOST_TAG:-linux-x86_64}"
   toolchain="$NDK/toolchains/llvm/prebuilt/$host_tag/bin"
   linker="$toolchain/${linker_prefix}${ANDROID_API}-clang"
@@ -89,7 +96,12 @@ if [ -n "${NDK:-}" ]; then
   printf -v ar_var 'AR_%s' "$cc_env"
   export "$cargo_linker_var=$linker"
   export "$cc_var=$linker"
+  test -x "$toolchain/llvm-ar" || { echo "bun-pty: missing NDK archiver $toolchain/llvm-ar" >&2; exit 1; }
   export "$ar_var=$toolchain/llvm-ar"
+  # portable-pty 0.9 replaces serial/termios with serial2, which supports
+  # Android. Update only this dependency to the exact lockfile version, then
+  # require Cargo.lock to remain fixed for the actual build.
+  cargo update --manifest-path "$SRC/rust-pty/Cargo.toml" -p portable-pty --precise "$portable_pty_version"
   echo "bun-pty: cross building for $target with $linker"
 elif [ "$TARGET_ARCH" = aarch64 ] && [ "$(uname -m)" = aarch64 ]; then
   echo "bun-pty: native bionic build (no NDK)"
@@ -99,7 +111,7 @@ else
   exit 1
 fi
 
-build_args=(build --release --manifest-path "$SRC/rust-pty/Cargo.toml")
+build_args=(build --locked --release --manifest-path "$SRC/rust-pty/Cargo.toml")
 [ -n "$target" ] && build_args+=(--target "$target")
 cargo "${build_args[@]}"
 
