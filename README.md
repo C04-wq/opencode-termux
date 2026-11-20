@@ -40,29 +40,21 @@
 
 ## 📱 Acerca del proyecto
 
-[OpenCode](https://opencode.ai/) es un agente de programación de código abierto que funciona en la terminal. Este repositorio empaqueta la versión oficial **Linux ARM64 musl** de OpenCode y adapta su entorno de ejecución para que pueda ejecutarse directamente en **Android [Termux](https://termux.dev/)**.
+OpenCode es un agente de programación con IA de código abierto que funciona en la terminal. Este repositorio lo empaqueta para Android Termux utilizando el entorno nativo Bionic de Termux y Bun.
 
-Android no es una distribución Linux convencional: su biblioteca C, la estructura del sistema de archivos, los certificados y la configuración DNS difieren del entorno esperado por un binario Linux estándar. Este proyecto resuelve esas diferencias mediante un entorno musl incluido, una ruta de resolución DNS adaptada a Termux, un lanzador y un gestor de instalación y actualización.
-
-El resultado es una instalación directa en Termux. No requiere contenedor proot, máquina virtual, distribución Linux de escritorio, Node.js ni npm en el dispositivo.
+El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, acompañado de bibliotecas Android nativas para la interfaz de terminal, PTY y vigilancia de archivos. Ya no ejecuta el binario ELF Linux/musl original y no requiere PRoot, una máquina virtual Linux, Node.js ni npm en el dispositivo.
 
 > [!IMPORTANT]
-> Esta es una **adaptación comunitaria no oficial para Termux**. OpenCode es desarrollado por el proyecto original [anomalyco/opencode](https://github.com/anomalyco/opencode). Este repositorio se encarga del empaquetado para Android/Termux, la integración del entorno de ejecución y el instalador; no desarrolla la aplicación OpenCode original ni sus proveedores de IA.
+> Esta es una adaptación comunitaria no oficial para Termux. OpenCode es desarrollado por anomalyco/opencode. Este repositorio mantiene el instalador de Termux, la integración, el gestor de actualizaciones y las validaciones.
 
 ### Características principales
 
-- **Actualizaciones interactivas con consentimiento:** comprueba si existe una versión más reciente al iniciar OpenCode en una terminal interactiva y pregunta antes de instalarla.
-
-- **Ejecución nativa en Termux:** funciona directamente en Termux, sin proot ni máquina virtual Linux.
-- **Compatibilidad ARM64:** dispositivos Android cuyo entorno Termux informa `aarch64`.
-- **Detección de versiones entre ramas principales:** selecciona la versión estable más reciente de OpenCode entre todas las versiones principales (por ejemplo, de 1.x a 2.x).
-- **Paquete verificado:** comprueba el archivo descargado con el hash SHA-256 registrado en este repositorio antes de extraerlo.
-- **Entorno musl incluido:** incorpora el cargador y las bibliotecas necesarias; no necesita `patchelf`, Node.js ni npm en el teléfono.
-- **Integración de red con Termux:** utiliza la configuración DNS y el paquete de certificados CA de Termux.
-
-- **Comando de administración:** permite instalar, actualizar, desinstalar, inspeccionar y diagnosticar la instalación gestionada.
-- **Instalación defensiva:** valida el paquete, prepara los archivos antes de activarlos, conserva el entorno anterior durante el reemplazo e intenta restaurarlo si falla la activación o la comprobación final.
-- **Protección de datos:** el desinstalador elimina únicamente el entorno gestionado y sus lanzadores.
+- Runtime Android/Bionic nativo para Termux ARM64 (Android 9 / API 28 o posterior).
+- Bundle JavaScript basado en Bun con módulos Bionic para OpenTUI, PTY y vigilancia de archivos.
+- Release fijada mediante SHA-256 y validada antes de extraerla.
+- Instalación automática de bun, ripgrep y libc++ si faltan.
+- Menú interactivo con Install update now y Wait for the next version.
+- CLI opencode-termux y sustitución transaccional del runtime con reversión en caso de error.
 
 ## 📸 Capturas de pantalla
 
@@ -79,25 +71,18 @@ El resultado es una instalación directa en Termux. No requiere contenedor proot
 
 | Requisito | Detalles |
 | --- | --- |
-| Dispositivo | Android con Termux |
-| Arquitectura | **Solo ARM64 / `aarch64`** |
-| Red | Internet para instalar, descargar releases de GitHub, comprobar actualizaciones y acceder a proveedores de IA |
-| Comando inicial | `curl` debe estar disponible para ejecutar el instalador de una línea |
-| Herramientas | Bash, Git, curl, tar y `sha256sum` (de `coreutils`) |
-| Archivos de soporte | Paquete de certificados CA y configuración de resolución DNS de Termux |
+| Dispositivo | Android 9 (API 28) o posterior con Termux |
+| Arquitectura | Solo ARM64 / aarch64 |
+| Dependencias | Paquetes Termux bun, ripgrep y libc++ (se instalan automáticamente si faltan) |
+| Herramientas | Bash, Git, curl, tar, sed y sha256sum |
+| Archivos de soporte | Certificados CA y configuración DNS de Termux |
+| Red | Internet para instalar, descargar el bundle fijado, comprobar actualizaciones y acceder a proveedores de IA |
 
-Cuando es necesario, el instalador utiliza el gestor de paquetes `pkg` de Termux para instalar herramientas y paquetes de soporte, incluidos Git, `ca-certificates` y `resolv-conf`. El propio comando de instalación requiere que `curl` ya esté instalado.
+El instalador de una línea requiere que curl ya esté instalado. Utiliza pkg de Termux para instalar las dependencias y los paquetes de soporte que falten.
 
 ### Entornos no compatibles
 
-Actualmente este paquete **no es compatible** con:
-
-- ARM de 32 bits (`arm` / `armv7`)
-- Dispositivos Android x86 o x86_64
-- Shells de Android que no sean Termux ni otros entornos de terminal Android
-- Linux de escritorio, macOS o Windows
-
-La compilación y la automatización de releases están diseñadas específicamente para Termux ARM64.
+No es compatible con ARM de 32 bits, Android x86/x86_64, shells Android distintos de Termux, Linux de escritorio, macOS ni Windows.
 
 ## 🚀 Instalación
 
@@ -284,133 +269,49 @@ Muestra resultados individuales `OK` / `FAIL` y devuelve un código de salida di
 
 ## 🧩 Descripción técnica
 
-Este proyecto empaqueta el ejecutable upstream de OpenCode con un pequeño entorno musl adaptado a Termux.
+### Arquitectura del runtime
 
-### Construcción del entorno
+El runtime se instala en $PREFIX/lib/opencode-termux/lib/opencode y se inicia mediante $PREFIX/lib/opencode-termux/bin/opencode. El lanzador ejecuta Bun de Termux. El bundle incluye módulos Android/Bionic para OpenTUI, Rust PTY y @parcel/watcher.
 
-1. **Binario upstream:** descarga el recurso oficial `opencode-linux-arm64-musl.tar.gz` desde las [releases de OpenCode](https://github.com/anomalyco/opencode/releases).
-2. **Integridad upstream:** el constructor verifica el archivo oficial mediante el hash SHA-256 proporcionado por los metadatos de la release upstream.
-3. **musl:** compila musl 1.2.6 para AArch64 con la ruta de configuración del resolver cambiada de `/etc/resolv.conf` a `/data/data/com.termux/files/usr/etc/resolv.conf`.
-4. **Bibliotecas:** empaqueta el cargador musl, musl libc, `libgcc_s.so.1` y `libstdc++.so.6`.
-5. **Intérprete ELF:** ajusta el `PT_INTERP` del ELF de OpenCode para apuntar a la ruta absoluta del cargador musl incluido.
-6. **Ejecución directa:** el lanzador ejecuta directamente el ELF de OpenCode. Es intencionado: OpenCode 2.x vuelve a ejecutar `/proc/self/exe` al iniciar su servidor en segundo plano. Si se iniciara el cargador como envoltorio, esa ruta apuntaría al cargador y no al ejecutable OpenCode.
-7. **Entorno Termux:** el lanzador limpia el `LD_PRELOAD` heredado, establece `SSL_CERT_FILE` al paquete CA de Termux y añade el directorio del entorno incluido a `LD_LIBRARY_PATH`.
-8. **Actualizaciones gestionadas:** `OPENCODE_DISABLE_AUTOUPDATE=1` desactiva el actualizador propio de OpenCode para que el reemplazo del entorno siga bajo control del instalador del proyecto.
+Esto sustituye el enfoque anterior basado en Linux/musl: el instalador ya no parchea ni ejecuta un binario ELF de Linux. Las bibliotecas Android deben ser objetos compartidos ELF AArch64 (ET_DYN) y no deben depender de glibc.
 
-### Contenido del archivo de runtime
+### Origen fijado
 
-La release contiene una estructura plana y estricta:
+El runtime actual es OpenCode 2.3.2, procedente del release v2.3.2 de Spectra010s/opencode-termux. El repositorio, la etiqueta y el hash SHA-256 están fijados en release-checksums.json. El instalador solo acepta ese repositorio y la etiqueta correspondiente a la versión.
 
-| Entrada | Función |
-| --- | --- |
-| `opencode` | Ejecutable upstream OpenCode AArch64, adaptado al intérprete incluido |
-| `ld-musl-aarch64.so.1` | Cargador dinámico musl |
-| `libc.musl-aarch64.so.1` | Biblioteca C de musl |
-| `libgcc_s.so.1` | Biblioteca de soporte del runtime GCC |
-| `libstdc++.so.6.runtime` | Biblioteca runtime GNU C++ incluida |
-| `libstdc++.so.6` | Enlace simbólico relativo a `libstdc++.so.6.runtime` |
+El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador Bionic OpenTUI, una biblioteca PTY Android y un módulo Android para vigilar archivos.
 
-El validador exige exactamente estas seis entradas. Rechaza rutas adicionales, duplicados, directorios, enlaces duros, enlaces simbólicos inesperados, destinos inseguros y traversal de rutas antes de extraer nada.
+### Instalación y reversión
 
-### Estructura del repositorio
+1. Comprueba la arquitectura ARM64 y la versión mínima de Android.
+2. Instala con pkg las dependencias que falten: bun, ripgrep y libc++.
+3. Descarga por HTTPS el bundle Android fijado y verifica su SHA-256.
+4. Valida las rutas y los tipos de los miembros antes de extraer; rechaza traversal, enlaces y archivos especiales.
+5. Sustituye la ruta de compilación por la ruta real del runtime gestionado.
+6. Prepara el bundle y conserva el runtime y los lanzadores anteriores hasta activar el nuevo.
+7. Ejecuta --version y restaura la instalación anterior si falla.
 
-```text
-.
-├── .github/
-│   ├── dependabot.yml
-│   └── workflows/
-│       ├── validate.yml
-│       ├── release.yml
-│       └── toolchain-updates.yml
-├── scripts/
-│   ├── build-android-release.sh
-│   ├── setup-alpine-chroot.sh
-│   ├── resolve-opencode-release.mjs
-│   ├── validate-runtime-archive.sh
-│   ├── smoke-test-runtime-archive.sh
-│   └── pruebas y herramientas de toolchain
-├── screenshots/
-├── install.sh
-├── manager.sh
-├── opencode-termux
-├── uninstall.sh
-├── release-checksums.json
-├── opencode-logo.svg
-├── README.md
-├── README.en.md
-├── README.es.md
-└── README.fr.md
-```
-
-- `install.sh`: bootstrap, preparación de dependencias, instalación verificada y generación de lanzadores.
-- `manager.sh` / `opencode-termux`: CLI de administración. El punto de entrada del repositorio y la implementación canónica se mantienen sincronizados y CI lo comprueba.
-- `uninstall.sh`: eliminación con confirmación del entorno gestionado y sus lanzadores.
-- `release-checksums.json`: versión actual del entorno y hash esperado.
-- `scripts/build-android-release.sh`: construye el archivo Termux ARM64.
-- `scripts/validate-runtime-archive.sh`: valida la estructura antes de extraer.
-- `scripts/smoke-test-runtime-archive.sh`: prueba el ejecutable AArch64 empaquetado bajo QEMU.
-- `scripts/resolve-opencode-release.mjs`: encuentra y valida la release estable upstream más reciente.
-- `scripts/setup-alpine-chroot.sh`: prepara el entorno Alpine de verificación de paquetes utilizado por CI.
+El gestor, el actualizador, el menú interactivo y el desinstalador siguen separados del bundle de runtime.
 
 ## 🔐 Seguridad e integridad
 
-El proceso de instalación está diseñado para detenerse si no puede establecer la integridad del paquete o la propiedad de los archivos.
+- Las descargas utilizan HTTPS y se verifican contra el hash SHA-256 guardado en este repositorio.
+- El repositorio de origen y la etiqueta están permitidos explícitamente y deben coincidir con la versión fijada.
+- Las rutas y tipos del archivo se comprueban antes de extraer; se rechazan enlaces simbólicos, hardlinks, traversal y archivos especiales.
+- CI comprueba que los módulos nativos sean bibliotecas ELF AArch64 y que no dependan de glibc.
+- El instalador no sobrescribe comandos desconocidos de Termux.
+- La activación del runtime y de los lanzadores es transaccional; se intenta restaurar la instalación anterior si falla la comprobación final.
+- El desinstalador verifica la propiedad de los archivos antes de eliminarlos.
 
-- El archivo de runtime se descarga mediante HTTPS; curl está restringido a HTTPS para la solicitud inicial y sus redirecciones.
-- El archivo debe coincidir con el hash SHA-256 de `release-checksums.json`.
-- El constructor de releases comprueba por separado el hash del archivo oficial upstream antes de empaquetarlo.
-- El validador inspecciona cada entrada antes de extraer y solo permite el enlace simbólico relativo esperado para la biblioteca C++.
-- El instalador no sobrescribe comandos desconocidos en el directorio `bin` de Termux.
-- La limpieza de npm heredado depende de metadatos y propiedad del enlace simbólico; la limpieza de paquetes Termux depende de dpkg y de una lista permitida explícita.
-- La instalación prepara el nuevo entorno y conserva el anterior durante la activación, con recuperación ante fallos.
-- El desinstalador comprueba el marcador del entorno y la identidad de los lanzadores antes de eliminarlos.
-- GitHub Actions utiliza permisos explícitos, SHA de commits fijados para acciones de terceros y evita exponer credenciales de escritura a los pasos de compilación y pruebas.
-
-**Lo que esto no garantiza:** la verificación SHA-256 confirma que el archivo descargado coincide con el hash publicado por este repositorio; no constituye una firma digital independiente. El proyecto tampoco puede garantizar la seguridad o disponibilidad de OpenCode upstream, proveedores de IA externos, servicios API ni paquetes Termux instalados por el usuario. Si necesitas una auditoría independiente, revisa las releases y los cambios de código antes de instalar.
+Límite de confianza: el bundle lo produce el proyecto externo fijado Spectra010s/opencode-termux. SHA-256 confirma que el archivo coincide con el hash fijado, pero no constituye una firma independiente ni sustituye la auditoría del código y del proceso de compilación. Cada dependencia conserva su licencia.
 
 ## 🤖 Automatización de releases y CI
 
-GitHub Actions compila las releases y valida el instalador y el entorno.
+El workflow de validación comprueba la sintaxis de shell, ShellCheck, la sincronización del gestor, la seguridad del archivo, los metadatos y el bundle nativo fijado. Descarga exactamente la versión y etiqueta indicadas en release-checksums.json, verifica SHA-256, inspecciona las bibliotecas ELF Android y prueba el lanzador con un Bun de prueba controlado.
 
-| Flujo | Activación | Función |
-| --- | --- | --- |
-| [Validate Termux installer](.github/workflows/validate.yml) | Push, pull requests y ejecución manual | Comprobaciones de sintaxis, ShellCheck, YAML, metadatos, regresiones, seguridad del archivo y pruebas ARM64 bajo QEMU. |
-| [Build and publish GitHub release](.github/workflows/release.yml) | Cada 6 horas, pushes relevantes a `main` o ejecución manual | Busca la última release estable upstream, construye y prueba el archivo Termux, publica los recursos y actualiza los hashes. |
-| [Check toolchain updates](.github/workflows/toolchain-updates.yml) | Programación diaria, pushes/PR relevantes o ejecución manual | Comprueba ramas estables de Alpine, valida una compilación candidata y abre un PR revisable cuando avanza la rama fijada. |
+Estas comprobaciones no sustituyen las pruebas en un dispositivo físico. Antes de considerar una release completamente verificada, también debe probarse en Termux ARM64 real: interfaz TUI interactiva, comandos PTY, vigilancia de archivos y arranque del servidor en segundo plano.
 
-### Selección de releases
-
-El resolvedor de releases:
-
-- Recupera todas las páginas de releases de GitHub upstream.
-- Compara versiones semánticas estables numéricamente, incluso entre versiones principales.
-- Excluye borradores, versiones preliminares y etiquetas que no sigan el formato estable `vMAJOR.MINOR.PATCH`.
-- Exige que la release estable más reciente publique el archivo oficial ARM64 musl y un hash SHA-256 válido.
-- Falla en vez de seleccionar silenciosamente una versión anterior si la release estable más reciente no incluye el recurso o el hash requeridos.
-
-Cada release del proyecto publica:
-
-- `opencode-termux-aarch64.tar.gz`: entorno empaquetado.
-- `opencode-termux-aarch64.tar.gz.sha256`: suma de comprobación.
-
-El flujo actualiza `release-checksums.json` con la versión y el hash utilizados por el instalador.
-
-### Cobertura de validación
-
-CI incluye:
-
-- Comprobaciones de sintaxis Bash y ShellCheck.
-- Comprobaciones de sintaxis Node.js y pruebas unitarias/regresión para los scripts de releases y toolchain.
-- Análisis YAML de workflows y configuración de Dependabot.
-- Comprobaciones de sincronización entre el punto de entrada del gestor y su implementación canónica.
-- Pruebas de detección de propietarios de paquetes dpkg.
-- Pruebas de archivos válidos, archivos inesperados, traversal, enlaces simbólicos inseguros, destinos incorrectos y enlaces duros.
-- Prueba de ejecución ARM64 bajo QEMU: inspecciona la arquitectura ELF y el intérprete, ejecuta `opencode --version` y verifica que `opencode serve` siga activo hasta el límite de tiempo de la prueba.
-
-> **Limitación de las pruebas:** QEMU ofrece una cobertura automatizada ARM64 útil, pero no sustituye las pruebas de cada release en un dispositivo Android físico con Termux. CI no demuestra compatibilidad con todas las versiones de Android, dispositivos, redes, proveedores o configuraciones.
-
-Node.js solo se utiliza en scripts de GitHub Actions alojados. No es necesario en el dispositivo Android.
-
+Los cambios de versión actualizan juntos la etiqueta de origen y su hash mediante un cambio revisado del repositorio. Este proyecto ya no compila ni publica el ejecutable Linux/musl incompatible.
 ## 🛠️ Solución de problemas
 
 ### `opencode: command not found`
