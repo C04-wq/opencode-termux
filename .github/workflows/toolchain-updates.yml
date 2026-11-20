@@ -119,7 +119,7 @@ jobs:
       - name: Resolve newest stable OpenCode release
         id: upstream
         env:
-          GH_TOKEN: ${{ github.event_name != 'pull_request' && github.token || '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           node scripts/resolve-opencode-release.mjs > "$RUNNER_TEMP/upstream-release.json"
