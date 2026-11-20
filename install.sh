@@ -246,7 +246,6 @@ cleanup() {
   local status=$?
   trap - EXIT
   ui_animation_stop
-  ui_restore_cursor
   rm -rf "$STAGE"
   if [[ -n "$NEW" ]]; then rm -rf "$NEW"; fi
   if (( status != 0 )); then
@@ -285,6 +284,7 @@ cleanup() {
       fi
     fi
   fi
+  ui_restore_cursor
   exit "$status"
 }
 trap cleanup EXIT
