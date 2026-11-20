@@ -18,6 +18,8 @@ case "$TARGET_ARCH" in
     exit 64
     ;;
 esac
+# The validator runs in a child shell; pass through the architecture selection.
+export TARGET_ARCH
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 64; }
 [[ ! -e "$WORKDIR" && "$WORKDIR" != / ]] || { echo "Work directory must be new" >&2; exit 64; }
 for cmd in bash sh readelf sha256sum; do command -v "$cmd" >/dev/null || { echo "Missing command: $cmd" >&2; exit 1; }; done
