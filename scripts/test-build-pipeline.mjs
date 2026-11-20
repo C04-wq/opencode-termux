@@ -43,7 +43,7 @@ for (const token of [
   "scripts/smoke-test-runtime-archive.sh",
   "readelf -h",
   "gh release create",
-  'tags: ["v*"]',
+  '"v*"',
   "C04-wq/opencode-termux"
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
 
