@@ -34,7 +34,7 @@ jobs:
           refs = json.load(sys.stdin)
           candidates = []
           for item in refs:
-              match = re.fullmatch(r"refs/tags/(v2\\.\\d+\\.\\d+)", item.get("ref", ""))
+              match = re.fullmatch(r"refs/tags/(v2[.][0-9]+[.][0-9]+)", item.get("ref", ""))
               if not match:
                   continue
               obj = item.get("object", {})
