@@ -21,7 +21,6 @@
 <p align="center">
   <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?display_name=tag&style=for-the-badge" alt="Latest release"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Validation workflow"></a>
-  <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/release.yml?branch=main&label=Release%20build&style=for-the-badge" alt="Release workflow"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="MIT license"></a>
 </p>
 
@@ -118,8 +117,8 @@ The installer performs the following operations:
 6. **Downloads the release.** It retrieves `opencode-termux-aarch64.tar.gz` from this repository's GitHub Release over HTTPS.
 7. **Verifies the download.** It calculates SHA-256 and refuses to continue if the digest does not match the pinned metadata.
 8. **Validates the archive layout.** It rejects unexpected files, duplicate entries, path traversal, unsafe links and incorrect file types before extraction.
-9. **Stages the runtime.** It prepares the executable, musl loader and runtime libraries in a temporary location.
-10. **Activates and tests.** It replaces the managed runtime, installs the launchers and checks that the installed binary reports the expected version.
+9. **Stages the native bundle.** It prepares the Bun launcher, JavaScript module graph and Android libraries in a temporary location.
+10. **Activates and tests.** It installs the native bundle and project launchers, then checks the version through Termux Bun.
 11. **Protects the previous installation.** The old runtime and launchers are retained during activation and restored when the final activation/test path fails.
 
 Successful setup commands are kept quiet to make the output readable. If a command fails, its captured output is printed to help diagnose the problem.
@@ -258,9 +257,10 @@ opencode-termux doctor
 The diagnostic checks:
 
 - The device architecture is `aarch64`.
-- Required commands (`git`, `curl`, `tar` and `sha256sum`) are available.
-- All expected runtime files exist and are non-empty.
-- The OpenCode executable and musl loader have executable permissions.
+- Required commands (`git`, `curl`, `tar`, `sha256sum`, `bun` and `rg`) are available.
+- The Termux libc++ shared library is installed.
+- The native launcher, JavaScript entry point, PTY library and watcher module exist.
+- The native launcher has executable permissions.
 - The installed version marker exists and has a valid version format.
 - The OpenCode launcher is recognizable as the project-managed launcher.
 - The manager command exists, is executable and contains the project ownership marker.
@@ -457,14 +457,11 @@ From a checkout of the repository, run the relevant checks:
 ```bash
 # Shell syntax
 bash -n install.sh uninstall.sh manager.sh opencode-termux
-bash -n scripts/build-android-release.sh scripts/setup-alpine-chroot.sh
 bash -n scripts/validate-runtime-archive.sh scripts/smoke-test-runtime-archive.sh
 
 # JavaScript syntax and tests
-node --check scripts/resolve-opencode-release.mjs
-node --check scripts/check-toolchain-updates.mjs
-node scripts/test-opencode-release-resolver.mjs
-node scripts/test-toolchain-updates.mjs
+node --check scripts/test-native-runtime-contract.mjs
+node scripts/test-native-runtime-contract.mjs
 
 # Shell regression tests
 bash scripts/test-package-owner.sh
@@ -474,14 +471,14 @@ bash scripts/test-runtime-archive.sh
 shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux scripts/*.sh
 ```
 
-The GitHub Actions validation workflow runs these checks plus YAML validation and the ARM64 QEMU smoke test.
+The GitHub Actions workflow also downloads the pinned Android bundle, verifies its checksum, inspects its ELF modules and exercises the launcher contract.
 
 ### Contribution guidelines
 
 - Keep the repository's manager entry point (`opencode-termux`) synchronized with `manager.sh`.
 - Keep the release archive layout and checksum metadata consistent with the installer and validator.
 - Do not introduce unverified downloads or bypass upstream/project checksum checks.
-- Preserve the Termux resolver path, ELF interpreter configuration and direct execution behavior required by OpenCode's background server.
+- Preserve the Bionic runtime layout, pinned dependency hashes, PTY and background-server behavior.
 - Document user-visible behavior changes in this README.
 - Never include API keys, access tokens, personal credentials or private user data in commits or issue reports.
 
