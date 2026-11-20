@@ -206,14 +206,6 @@ jobs:
           cat dist/release-checksums.json
           (cd dist && sha256sum -c SHA256SUMS)
 
-      - name: Upload verified release candidate
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: opencode-${{ steps.lock.outputs.version }}-android-aarch64-candidate
-          path: dist/
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Publish immutable GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
