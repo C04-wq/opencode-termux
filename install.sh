@@ -236,7 +236,7 @@ set -e
 unset LD_PRELOAD
 export OPENCODE_DISABLE_AUTOUPDATE=1
 export SSL_CERT_FILE="/data/data/com.termux/files/usr/etc/tls/cert.pem"
-PREFIX="/data/data/com.termux/files/usr"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 RUNTIME="$PREFIX/lib/opencode-termux"
 REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
 UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
