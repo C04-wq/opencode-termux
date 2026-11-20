@@ -331,7 +331,7 @@ ui_animation_start() {
   (
     local shade=241
     while :; do
-      printf '\033[s\033[21A'
+      printf '\033[s\033[27A'
       ui_draw_logo "$shade"
       printf '\033[u'
       if [[ "$shade" == 241 ]]; then shade=255; else shade=241; fi
@@ -345,7 +345,7 @@ ui_animation_stop() {
   kill "$UI_ANIMATION_PID" 2>/dev/null || true
   wait "$UI_ANIMATION_PID" 2>/dev/null || true
   UI_ANIMATION_PID=""
-  printf '\033[s\033[21A'
+  printf '\033[s\033[27A'
   ui_draw_logo 241
   printf '\033[u'
 }
@@ -362,7 +362,6 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       ui_draw_logo 241
       printf '\n'
       UI_ANIMATION_PID=""
-      ui_animation_start
       printf 'A new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
       CURSOR_HIDDEN=0
       restore_cursor() {
@@ -393,6 +392,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       printf '  Install update now\n'
       printf '  Wait for the next version\n'
       draw_update_menu
+      ui_animation_start
       while true; do
         KEY=""
         if ! read -rsn1 KEY </dev/tty; then
