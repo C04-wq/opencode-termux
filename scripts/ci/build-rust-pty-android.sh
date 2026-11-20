@@ -83,6 +83,12 @@ grep -q 'portable-pty = { version = "=0.9.0"' "$manifest" || {
   exit 1
 }
 
+# portable-pty 0.9 replaces serial/termios with serial2, which supports
+# Android. Update only this dependency to the exact lockfile version, then
+# require Cargo.lock to remain fixed for the actual build. Do this for native
+# Termux builds as well as NDK cross-builds.
+cargo update --manifest-path "$SRC/rust-pty/Cargo.toml" -p portable-pty --precise "$portable_pty_version"
+
 if [ -n "${NDK:-}" ]; then
   command -v rustup >/dev/null 2>&1 || { echo "missing command: rustup (required for Android cross-compilation)" >&2; exit 1; }
   [[ "$ANDROID_API" =~ ^[0-9]+$ ]] || { echo "bun-pty: ANDROID_API must be a numeric API level" >&2; exit 1; }
@@ -98,10 +104,6 @@ if [ -n "${NDK:-}" ]; then
   export "$cc_var=$linker"
   test -x "$toolchain/llvm-ar" || { echo "bun-pty: missing NDK archiver $toolchain/llvm-ar" >&2; exit 1; }
   export "$ar_var=$toolchain/llvm-ar"
-  # portable-pty 0.9 replaces serial/termios with serial2, which supports
-  # Android. Update only this dependency to the exact lockfile version, then
-  # require Cargo.lock to remain fixed for the actual build.
-  cargo update --manifest-path "$SRC/rust-pty/Cargo.toml" -p portable-pty --precise "$portable_pty_version"
   echo "bun-pty: cross building for $target with $linker"
 elif [ "$TARGET_ARCH" = aarch64 ] && [ "$(uname -m)" = aarch64 ]; then
   echo "bun-pty: native bionic build (no NDK)"
