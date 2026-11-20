@@ -58,17 +58,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-/* Bionic has no glibc pthread_tryjoin_np. OpenTUI uses it only as a
- * nonblocking completion probe. */
-#if defined(__ANDROID__)
-int pthread_tryjoin_np(pthread_t thread, void **retval) {
-  int rc = pthread_kill(thread, 0);
-  if (rc == 0) return EBUSY;
-  if (rc == ESRCH) return pthread_join(thread, retval);
-  return rc;
-}
-#endif
-
 typedef struct {
   uintptr_t resolver;
   uintptr_t arg;
