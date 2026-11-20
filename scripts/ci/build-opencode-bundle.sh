@@ -9,7 +9,7 @@
 #
 #   lib/opencode/index.js + hashed assets   module graph (this build)
 #   lib/opencode/libopentui-*.so            bionic OpenTUI (zig + NDK)
-#   lib/opencode/librust_pty_arm64.so       bionic bun-pty (cargo)
+#   lib/opencode/librust_pty_<architecture>.so       bionic bun-pty (cargo)
 #   lib/opencode/watcher.node               bionic @parcel/watcher
 #   bin/opencode                            shell wrapper, execs bun
 #
@@ -22,6 +22,28 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+
+TARGET_ARCH="${TARGET_ARCH:-aarch64}"
+case "$TARGET_ARCH" in
+  aarch64)
+    OPENCODE_ARCH="arm64"
+    EXPECTED_TUI_MACHINE="ARM aarch64"
+    TUI_ARTIFACT="$ROOT/artifacts/transplant/opentui-bionic/libopentui.so"
+    TUI_SLOT="core-linux-arm64-musl"
+    FFF_ANDROID=1
+    ;;
+  x86_64)
+    OPENCODE_ARCH="x64"
+    EXPECTED_TUI_MACHINE="x86-64"
+    TUI_ARTIFACT="$ROOT/artifacts/transplant/opentui-bionic-x86_64/libopentui.so"
+    TUI_SLOT="core-linux-x64-musl"
+    FFF_ANDROID=0
+    ;;
+  *)
+    echo "unsupported TARGET_ARCH '$TARGET_ARCH' (supported: aarch64, x86_64)" >&2
+    exit 2
+    ;;
+esac
 
 : "${OPENCODE_VERSION:=$(python3 tools/ocver.py current)}"
 BUN_VERSION="$(python3 tools/ocver.py field bun_version "$OPENCODE_VERSION")"
@@ -44,7 +66,13 @@ PY
 test "${#locked[@]}" -eq 2
 commit="${locked[0]}"
 
-work="$ROOT/work/bundle/$OPENCODE_VERSION"
+if [ "$TARGET_ARCH" = aarch64 ]; then
+  work="$ROOT/work/bundle/$OPENCODE_VERSION"
+  out="$ROOT/artifacts/bundle/$OPENCODE_VERSION"
+else
+  work="$ROOT/work/bundle/$OPENCODE_VERSION-$TARGET_ARCH"
+  out="$ROOT/artifacts/bundle/$OPENCODE_VERSION-$TARGET_ARCH"
+fi
 mkdir -p "$work"
 
 # ---- host Bun: the builder, never shipped -----------------------------------
@@ -121,14 +149,16 @@ cd "$src"
 # installed @opentui/core chunks, so they run before Bun bundles them.
 python3 "$ROOT/tools/patch-opentui-ffi.py" "$src"
 python3 "$ROOT/tools/patch-opentui-loader.py" "$src"
-python3 "$ROOT/tools/patch-fff-android.py" "$src"
+if [ "$FFF_ANDROID" = 1 ]; then
+  python3 "$ROOT/tools/patch-fff-android.py" "$src"
+fi
 
 # Typecheck the patched CLI so updater/launcher integration errors fail CI
 # before the JavaScript bundle is emitted.
 "$host_bun" run --filter '@opencode/cli' typecheck
 
 # ---- natives ---------------------------------------------------------------
-tui="$ROOT/artifacts/transplant/opentui-bionic/libopentui.so"
+tui="$TUI_ARTIFACT"
 test -f "$tui" || {
   echo "missing bionic OpenTUI: $tui (run the libopentui build first)" >&2
   exit 1
@@ -146,8 +176,8 @@ test "$(stat -c %s "$tui_ship")" -lt "$(stat -c %s "$tui")" || {
   echo "stripping libopentui did not shrink it" >&2
   exit 1
 }
-file "$tui_ship" | grep -q 'ARM aarch64' || {
-  echo "stripped libopentui is not aarch64" >&2
+file "$tui_ship" | grep -q "$EXPECTED_TUI_MACHINE" || {
+  echo "stripped libopentui has the wrong architecture for $TARGET_ARCH" >&2
   exit 1
 }
 # Bun bundles a native slot for every platform; identical bytes collapse into
@@ -158,8 +188,8 @@ test "${#tui_slots[@]}" -ge 2 || {
   echo "expected several @opentui/core-* slots, got: ${tui_slots[*]:-none}" >&2
   exit 1
 }
-printf '%s\n' "${tui_slots[@]}" | grep -q 'core-linux-arm64-musl' || {
-  echo "the bionic slot (@opentui/core-linux-arm64-musl) is missing from: ${tui_slots[*]}" >&2
+printf '%s\n' "${tui_slots[@]}" | grep -q "$TUI_SLOT" || {
+  echo "the bionic slot (@opentui/$TUI_SLOT) is missing from: ${tui_slots[*]}" >&2
   exit 1
 }
 for slot in "${tui_slots[@]}"; do
@@ -172,27 +202,38 @@ for slot in "${tui_slots[@]}"; do
 done
 echo "opentui: installed the stripped bionic build in ${#tui_slots[@]} slots"
 
-# fff's bionic build is a plain aarch64 shared object; Bun copies it into the
-# bundle as an asset, so it only has to exist at build time.
-fff_lib="$(find "$src/node_modules" -path '*@ff-labs/fff-bin-android-arm64/libfff_c.so')"
-test "$(printf '%s\n' "$fff_lib" | wc -l)" -eq 1 && [ -f "$fff_lib" ] || {
-  echo "expected one fff android arm64 build, got: ${fff_lib:-none}" >&2
-  exit 1
-}
-file "$fff_lib" | grep -q 'ARM aarch64' || {
-  echo "fff android build is not aarch64: $fff_lib" >&2
-  exit 1
-}
-echo "fff: $(basename "$fff_lib")"
+# FFF currently ships an Android native binary only for ARM64. On x86_64,
+# leave its Android backend unavailable so OpenCode selects its ripgrep layer.
+if [ "$FFF_ANDROID" = 1 ]; then
+  fff_lib="$(find "$src/node_modules" -path '*@ff-labs/fff-bin-android-arm64/libfff_c.so')"
+  test "$(printf '%s\n' "$fff_lib" | wc -l)" -eq 1 && [ -f "$fff_lib" ] || {
+    echo "expected one fff android arm64 build, got: ${fff_lib:-none}" >&2
+    exit 1
+  }
+  file "$fff_lib" | grep -q 'ARM aarch64' || {
+    echo "fff android build is not aarch64: $fff_lib" >&2
+    exit 1
+  }
+  echo "fff: $(basename "$fff_lib")"
+else
+  echo "fff: disabled for x86_64; ripgrep fallback will be used"
+fi
 
-pty="$work/librust_pty_arm64.so"
-NDK="${NDK:-}" ANDROID_API="$api" bash "$ROOT/scripts/ci/build-rust-pty-android.sh" "$pty"
+pty="$work/librust_pty_$TARGET_ARCH.so"
+TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
+  bash "$ROOT/scripts/ci/build-rust-pty-android.sh" "$pty"
 
-watcher="$(find "$src/node_modules/.bun" -path '*@parcel+watcher-android-arm64@*/node_modules/@parcel/watcher-android-arm64/watcher.node')"
-test "$(printf '%s\n' "$watcher" | wc -l)" -eq 1 && [ -f "$watcher" ] || {
-  echo "expected one @parcel/watcher-android-arm64, got: $watcher" >&2
-  exit 1
-}
+if [ "$TARGET_ARCH" = aarch64 ]; then
+  watcher="$(find "$src/node_modules/.bun" -path '*@parcel+watcher-android-arm64@*/node_modules/@parcel/watcher-android-arm64/watcher.node')"
+  test "$(printf '%s\n' "$watcher" | wc -l)" -eq 1 && [ -f "$watcher" ] || {
+    echo "expected one @parcel/watcher-android-arm64, got: $watcher" >&2
+    exit 1
+  }
+else
+  watcher="$work/watcher.node"
+  TARGET_ARCH=x86_64 NDK="${NDK:-}" ANDROID_API="$api" \
+    bash "$ROOT/scripts/ci/build-parcel-watcher-android.sh" "$src" "$watcher"
+fi
 
 # ---- bundle ----------------------------------------------------------------
 # The TUI banner is embedded at build time from .release/v<version>-highlights.md.
@@ -209,12 +250,12 @@ fi
 
 cd "$src/packages/cli"
 OPENCODE_CHANNEL=latest OPENCODE_VERSION="$OPENCODE_VERSION" \
-OPENCODE_TARGET=linux-arm64-android \
+OPENCODE_TARGET=linux-$OPENCODE_ARCH-android \
 OPENCODE_INSTALL_DIR="$install_dir" \
   "$host_bun" run script/build.ts --skip-install
 cd "$ROOT"
 
-lib="$src/packages/cli/dist/cli-linux-arm64-android/lib"
+lib="$src/packages/cli/dist/cli-linux-$OPENCODE_ARCH-android/lib"
 test -f "$lib/index.js" || {
   echo "bundle not produced: $lib/index.js" >&2
   exit 1
@@ -244,17 +285,16 @@ print(f"highlights embedded: {len(titles)}")
 PY
 fi
 
-out="$ROOT/artifacts/bundle/$OPENCODE_VERSION"
 rm -rf "$out"
 mkdir -p "$out/lib"
 cp -a "$lib/." "$out/lib/"
-install -m 0755 "$pty" "$out/lib/librust_pty_arm64.so"
+install -m 0755 "$pty" "$out/lib/librust_pty_$TARGET_ARCH.so"
 install -m 0644 "$watcher" "$out/lib/watcher.node"
 # Empty bunfig: the wrapper points bun at it so a project's bunfig.toml or
 # .env in the user's cwd never changes how the CLI starts.
 : > "$out/lib/bunfig.toml"
 find "$out/lib" -type f -exec chmod 0644 {} +
-chmod 0755 "$out/lib/librust_pty_arm64.so"
+chmod 0755 "$out/lib/librust_pty_$TARGET_ARCH.so"
 
 # Every asset the bundle references by absolute path must exist in the tree;
 # a missing one only shows up on device otherwise.
