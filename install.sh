@@ -488,6 +488,10 @@ if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
 rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
 ui_finish
 if (( UI_ENABLED == 0 )); then
-  printf "OpenCode %s installed successfully.\\n" "$VERSION"
-  printf "Start: opencode | Manage: opencode-termux --help\\n"
+  if [[ "$INSTALL_ACTION" == "updated" ]]; then
+    printf "OpenCode updated successfully. The update process completed successfully.\\n"
+  else
+    printf "OpenCode installed successfully.\\n"
+  fi
+  printf "Version: %s | Start: opencode | Manage: opencode-termux --help\\n" "$VERSION"
 fi
