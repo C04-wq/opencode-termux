@@ -31,14 +31,12 @@ The final `.deb` must be built and measured before declaring the size requiremen
 
 The current shipped runtime is ARM64-only. The intended Termux target matrix is:
 
-| Termux architecture | Android target | Current status |
+| Termux architecture | OpenCode upstream target | Current status |
 | --- | --- | --- |
-| `aarch64` | `aarch64-linux-android` | Existing project target; needs continued validation |
-| `x86_64` | `x86_64-linux-android` | PTY shared library cross-build passes CI; full runtime remains unsupported |
-| `arm` | `armv7a-linux-androideabi` | Blocked by Termux's Bun package excluding 32-bit ARM |
-| `i686` | `i686-linux-android` | Blocked by Termux's Bun package excluding 32-bit x86 |
+| `aarch64` | ARM64 | Existing project target; needs continued validation |
+| `x86_64` | x64 | PTY shared library cross-build passes CI; full runtime remains unsupported |
 
-Although Termux itself supports 32-bit architectures, upstream OpenCode does not publish official 32-bit ARM or x86 targets. This project will not build or advertise `arm` or `i686`; those architectures are outside the supported target matrix.
+Although Termux itself supports 32-bit architectures, those targets are not in OpenCode's official release matrix. This project will not build or advertise `arm` or `i686`; they are explicitly excluded.
 
 The first practical expansion target is `x86_64`, while retaining `aarch64`. The official Termux Bun recipe supports x86_64, so the JavaScript runtime itself is available there. The remaining native chain is not ready: the current OpenCode lock contains only `@parcel/watcher-android-arm64` and `@ff-labs/fff-bin-android-arm64`; OpenTUI is built only for AArch64; and the bundle/installer are AArch64-specific. FFF is an optimization and may be disabled on x86_64 to retain the ripgrep fallback, but the watcher must be built from source for Android x86_64 (or replaced with a compatible implementation). The PTY build helper now has an x86_64 cross-build path, and CI has successfully produced and ELF-verified the x86_64 Bionic shared library. This validates only that one component, not the complete runtime. No x86_64 support claim is valid until all of these pieces are integrated and the resulting runtime is launched on a real x86_64 Termux device.
 
@@ -62,7 +60,7 @@ The current bundle pipeline is still AArch64-only. `scripts/ci/build-rust-pty-an
 1. Keep `aarch64` as the known project target and establish a complete baseline test suite.
 2. Make the build pipeline architecture-parameterized rather than copying the AArch64 workflow: toolchain triples, NDK sysroots, Rust targets, OpenTUI target, native addon selection, archive names, checksums and release metadata must all derive from one validated architecture definition.
 3. Add `x86_64` end-to-end first: Bun runtime availability, OpenTUI, PTY, watcher, FFF, bundle, launcher, installer detection, release assets and CI/device tests.
-4. Investigate a maintainable Android/Bionic JavaScript runtime for `arm` and `i686`. Evaluate upstream Bun support and viable alternatives; do not assume Node.js is a drop-in replacement because OpenCode currently relies on Bun APIs and package behavior. Until a complete runtime path exists, fail clearly rather than publishing broken packages.
+4. Keep `arm` and `i686` outside the project target matrix and reject them clearly rather than publishing binaries for unsupported targets.
 5. Reduce the installed and compressed package size; identify the largest files and determine which are essential.
 6. Implement a real Termux `packages/opencode/build.sh` recipe using source builds and declared dependencies.
 7. Add CI that runs the official `termux-packages` build tooling and validates the resulting `.deb` metadata, contents, ELF architecture, dependencies, size and license notices.
@@ -73,8 +71,8 @@ The current bundle pipeline is still AArch64-only. `scripts/ci/build-rust-pty-an
 
 - [ ] Final `.deb` is below 100 MiB, or Termux maintainers explicitly approve an exception.
 - [ ] Architecture support is explicit and accepted by maintainers.
-- [ ] The intended four-architecture Termux matrix has been evaluated; every advertised architecture has a compatible Android/Bionic JavaScript runtime and all native modules.
-- [ ] `aarch64` and `x86_64` are validated first; `arm` and `i686` remain explicit blockers until their runtime and native dependency chains are proven.
+- [ ] Only the two official OpenCode 64-bit targets are in scope: Termux `aarch64` (ARM64) and `x86_64` (x64).
+- [ ] Both advertised architectures have a compatible Android/Bionic JavaScript runtime and all native modules; no 32-bit architecture is advertised.
 - [ ] Build is reproducible from pinned source in the Termux package build system.
 - [ ] No prebuilt upstream ELF, glibc binary, npm install, or curl-based installer is used by the package install process.
 - [ ] Runtime dependencies are declared in package metadata.
