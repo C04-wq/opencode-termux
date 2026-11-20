@@ -58,7 +58,12 @@ if ! grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"; then
 fi
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
 cp "$BUN_TEST_LOG.launcher" "$BUN_TEST_LOG.launcher.managed"
-grep -Fxq "$WORKDIR/prefix/bin/opencode" "$BUN_TEST_LOG.launcher.managed"
+if ! grep -Fxq "$WORKDIR/prefix/bin/opencode" "$BUN_TEST_LOG.launcher.managed"; then
+  echo "Managed launcher path mismatch:" >&2
+  printf 'expected: %s\\nactual: ' "$WORKDIR/prefix/bin/opencode" >&2
+  cat "$BUN_TEST_LOG.launcher.managed" >&2
+  exit 1
+fi
 env -u OPENCODE_LAUNCHER bash "$ROOT/bin/opencode" --version > "$WORKDIR/candidate-version.txt"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
 grep -Fxq "$ROOT/lib/opencode/librust_pty_arm64.so" "$BUN_TEST_LOG.pty"
