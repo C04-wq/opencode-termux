@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/C04-wq/opencode-termux/releases/latest"><img src="https://img.shields.io/github/v/release/C04-wq/opencode-termux?display_name=tag&style=for-the-badge" alt="Dernière version"></a>
+  <a href="https://github.com/Spectra010s/opencode-termux/releases/tag/v2.3.2"><img src="https://img.shields.io/badge/Android%20runtime-2.3.2-blue?style=for-the-badge" alt="Pinned Android runtime 2.3.2"></a>
   <a href="https://github.com/C04-wq/opencode-termux/actions/workflows/validate.yml"><img src="https://img.shields.io/github/actions/workflow/status/C04-wq/opencode-termux/validate.yml?branch=main&label=CI&style=for-the-badge" alt="Workflow de validation"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/C04-wq/opencode-termux?style=for-the-badge" alt="Licence MIT"></a>
 </p>
@@ -302,7 +302,7 @@ Le gestionnaire, le programme de mise à jour, le menu interactif et le désinst
 - L’activation du runtime et des lanceurs est transactionnelle ; l’installation précédente est restaurée si le contrôle final échoue.
 - Le désinstallateur vérifie la propriété des fichiers avant leur suppression.
 
-Limite de confiance : le bundle est produit par le projet tiers épinglé Spectra010s/opencode-termux. SHA-256 confirme que le fichier correspond au condensat épinglé, mais ce n’est pas une signature indépendante et cela ne remplace pas l’audit du code et de la chaîne de compilation. Chaque dépendance conserve sa propre licence.
+Limite de confiance : le bundle est produit par le projet tiers épinglé Spectra010s/opencode-termux. SHA-256 confirme que le fichier correspond au condensat épinglé, mais ce n’est pas une signature indépendante et cela ne remplace pas l’audit du code et de la chaîne de compilation. Les mentions de licence du runtime épinglé et d’OpenCode figurent dans THIRD_PARTY_NOTICES.md ; chaque dépendance conserve sa propre licence.
 
 ## 🤖 Automatisation des releases et CI
 
