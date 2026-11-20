@@ -182,6 +182,19 @@ jobs:
           if (!installer.includes('run_quiet()') || !installer.includes('ui_start') || !installer.includes('OpenCode installed successfully.')) {
             throw new Error('installer must keep setup output concise and show the terminal UI and English success message');
           }
+          if (!installer.includes('ui_animation_start') || !installer.includes('ui_animation_stop') ||
+              !installer.includes('sleep 0.7') || !installer.includes('curl --fail --location --progress-bar')) {
+            throw new Error('installer must animate the logo during the real download progress and stop the animation afterwards');
+          }
+          const updateLogoIndex = installer.indexOf('ui_draw_logo 241', installer.indexOf('UPDATE_URL='));
+          const updateOptionsIndex = installer.indexOf("printf '  Install update now\\n'");
+          const updateAnimationIndex = installer.indexOf('ui_animation_start', updateOptionsIndex);
+          const updateClearIndex = installer.indexOf("printf '\\033[6A\\033[J'");
+          const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
+          if (updateLogoIndex < 0 || updateOptionsIndex < 0 || updateAnimationIndex < updateOptionsIndex ||
+              updateClearIndex < 0 || updateCommandIndex < updateClearIndex) {
+            throw new Error('update menu must show the animated logo above its options and clear the options before displaying download progress');
+          }
           if (!installer.includes('LOG="$(mktemp)"')) {
             throw new Error('generated updater must preserve its temporary log variable');
           }
