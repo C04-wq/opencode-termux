@@ -54,7 +54,7 @@ CANDIDATE="$PREFIX/opt/opencode-termux-candidate-$VERSION"
   echo "Remove it first if you want to repeat this test." >&2
   exit 1
 }
-mkdir -p "$PREFIX/opt" "$CANDIDATE"
+mkdir -p "$PREFIX/opt"
 cleanup_failed_candidate() {
   local status=$?
   if (( status != 0 )); then
@@ -63,7 +63,7 @@ cleanup_failed_candidate() {
 }
 trap cleanup_failed_candidate EXIT
 
-tar -xzf "$ARCHIVE" -C "$CANDIDATE"
+TARGET_ARCH="$TARGET_ARCH" bash "$(dirname "$0")/validate-runtime-archive.sh" "$ARCHIVE" "$CANDIDATE"
 for required in \
   bin/opencode \
   lib/opencode/index.js \
@@ -85,7 +85,7 @@ if command -v readelf >/dev/null 2>&1; then
   while IFS= read -r -d '' native_file; do
     header="$(readelf -h "$native_file")"
     grep -Fq "$EXPECTED_ELF_MACHINE" <<<"$header" || {
-      echo "Error: native module is not AArch64: $native_file" >&2
+      echo "Error: native module does not match $TARGET_ARCH: $native_file" >&2
       exit 1
     }
     grep -q "DYN" <<<"$header" || {
