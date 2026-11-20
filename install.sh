@@ -251,11 +251,26 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
   REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
   LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
   LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  DEFERRED_VERSION="$(cat "$RUNTIME/.opencode-termux-deferred-version" 2>/dev/null || true)"
+  DEFERRED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-deferred-runtime-id" 2>/dev/null || true)"
   if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
     NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
-    if { [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]] ||
-         [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && -n "$LATEST_RUNTIME_ID" && "$LATEST_RUNTIME_ID" != "$INSTALLED_RUNTIME_ID" ]]; }; then
-      printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
+    UPDATE_AVAILABLE=0
+    if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
+      UPDATE_AVAILABLE=1
+    elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && -n "$LATEST_RUNTIME_ID" && "$LATEST_RUNTIME_ID" != "$INSTALLED_RUNTIME_ID" ]]; then
+      UPDATE_AVAILABLE=1
+    fi
+    # "Wait for the next version" suppresses this exact target, not later releases.
+    if [[ "$LATEST_VERSION" == "$DEFERRED_VERSION" && "$LATEST_RUNTIME_ID" == "$DEFERRED_RUNTIME_ID" ]]; then
+      UPDATE_AVAILABLE=0
+    fi
+    if [[ "$UPDATE_AVAILABLE" == 1 ]]; then
+      if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" ]]; then
+        printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
+      else
+        printf '\nA new Termux runtime is available for OpenCode %s.\n\n' "$LATEST_VERSION"
+      fi
       CURSOR_HIDDEN=0
       restore_cursor() {
         if [[ "$CURSOR_HIDDEN" == 1 ]]; then
@@ -315,11 +330,13 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
         else
           printf 'Update failed. Starting the currently installed version.\n' >&2
         fi
+      else
+        printf '%s\n' "$LATEST_VERSION" > "$RUNTIME/.opencode-termux-deferred-version"
+        printf '%s\n' "$LATEST_RUNTIME_ID" > "$RUNTIME/.opencode-termux-deferred-runtime-id"
+        chmod 600 "$RUNTIME/.opencode-termux-deferred-version" "$RUNTIME/.opencode-termux-deferred-runtime-id"
       fi
     fi
   fi
-fi
-
 exec "$RUNTIME/bin/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
