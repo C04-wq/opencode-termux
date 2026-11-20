@@ -171,6 +171,11 @@ jobs:
           if (!installer.includes('find "$HOME" -maxdepth 5') || !installer.includes('status --porcelain --untracked-files=all')) {
             throw new Error('installer must discover existing clones and protect dirty checkouts');
           }
+          const filemodeConfigIndex = installer.indexOf('git -C "$REPO_DIR" config core.filemode false');
+          const checkoutChmodIndex = installer.indexOf('chmod 755 "$REPO_DIR/opencode-termux" "$REPO_DIR/manager.sh"');
+          if (filemodeConfigIndex < 0 || checkoutChmodIndex < 0 || filemodeConfigIndex > checkoutChmodIndex) {
+            throw new Error('installer must make checkout manager entry points executable without creating Git mode-only dirt');
+          }
           if (!installer.includes('mv "$REPO_DIR" "$SOURCE_REPO"')) {
             throw new Error('installer must migrate an existing clean clone to the managed checkout');
           }
