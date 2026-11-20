@@ -368,6 +368,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       printf 'A new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
       CURSOR_HIDDEN=0
       restore_cursor() {
+        ui_animation_stop
         if [[ "$CURSOR_HIDDEN" == 1 ]]; then
           printf '\033[?25h'
           CURSOR_HIDDEN=0
