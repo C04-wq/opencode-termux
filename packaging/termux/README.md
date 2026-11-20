@@ -13,6 +13,7 @@ The official package recipe ultimately belongs at `packages/opencode/build.sh` i
 - OpenCode source is pinned in `tools/supply-chain-lock.json`; the existing CI fetches the exact upstream commit from `https://github.com/anomalyco/opencode.git`.
 - The existing pipeline builds the JavaScript bundle from source with a hash-verified host Bun, and builds Android/Bionic native components rather than shipping the upstream glibc/musl executable.
 - Runtime dependencies already available as Termux packages are `bun`, `ripgrep` and `libc++`. The package recipe should declare runtime dependencies instead of downloading or installing them itself.
+- The official Termux `bun` recipe builds Bun for Android/Bionic but explicitly excludes `arm` and `i686`; its current supported Termux architectures are therefore `aarch64` and `x86_64`. This is a hard blocker for a package that requires Bun on all four Termux architectures.
 - `packing/launcher/opencode` is already relocatable relative to its own location and uses Termux's Bun.
 - The current source pipeline is not yet a Termux package build: it assumes a Linux x86_64 GitHub Actions host, a separately provisioned Android NDK, Zig, Rust targets, and generated artifacts under `artifacts/transplant`.
 
@@ -26,9 +27,18 @@ The final `.deb` must be built and measured before declaring the size requiremen
 
 ### 2. Architecture support
 
-The current runtime is ARM64-only. The build pipeline explicitly targets `aarch64-linux-android`; the PTY library, file watcher and FFF Android native dependency are ARM64-specific. The OpenTUI build is also hard-coded to AArch64.
+The current runtime is ARM64-only. The intended Termux target matrix is:
 
-Termux builds packages for `aarch64`, `arm`, `i686` and `x86_64`. Before proposing architecture exclusions, confirm with Termux maintainers whether an ARM64-only package is acceptable. Do not advertise support for other architectures or silently ship incompatible native assets.
+| Termux architecture | Android target | Current status |
+| --- | --- | --- |
+| `aarch64` | `aarch64-linux-android` | Existing project target; needs continued validation |
+| `x86_64` | `x86_64-linux-android` | Potential 64-bit expansion; not implemented or validated |
+| `arm` | `armv7a-linux-androideabi` | Blocked by Termux's Bun package excluding 32-bit ARM |
+| `i686` | `i686-linux-android` | Blocked by Termux's Bun package excluding 32-bit x86 |
+
+Termux itself supports all four architectures, but that does not mean every dependency does. Bun is a required runtime dependency of this project, and the official Termux Bun build recipe excludes `arm` and `i686`. Do not claim 32-bit support unless a compatible, maintainable Android/Bionic Bun runtime becomes available or OpenCode is ported to a different runtime.
+
+The first practical expansion target is `x86_64`, while retaining `aarch64`. This is only a feasibility target: the project's PTY library, file watcher, FFF Android native dependency, OpenTUI native library, and every transitive native module must each be built and tested for x86_64 before it can be marked supported.
 
 ### 3. Termux build-system integration
 
@@ -43,28 +53,30 @@ The existing GitHub Actions pipeline must be made reproducible through Termux's 
 
 ### 4. Native dependency portability
 
-The current scripts are not architecture-generic. In particular, `scripts/ci/build-rust-pty-android.sh`, `scripts/ci/build-opencode-bundle.sh`, and the OpenTUI build workflow assume AArch64. The FFF and watcher packages are selected as Android ARM64 dependencies. These need either genuine per-architecture builds or an explicit, maintainer-approved architecture restriction.
+The current scripts are not architecture-generic. In particular, `scripts/ci/build-rust-pty-android.sh`, `scripts/ci/build-opencode-bundle.sh`, and the OpenTUI build workflow assume AArch64. The FFF and watcher packages are selected as Android ARM64 dependencies. These need genuine per-architecture builds; a matching CPU label alone is not sufficient.
 
 ## Implementation sequence
 
-1. Reduce the installed and compressed package size; identify the largest files and determine which are essential.
-2. Generalize the native build scripts around Termux target architecture, NDK and staging-prefix variables.
-3. Verify that each required native dependency exists and builds for each proposed architecture.
-4. Implement a real Termux `packages/opencode/build.sh` recipe using source builds and declared dependencies.
-5. Add CI that runs the official `termux-packages` build tooling and validates the resulting `.deb` metadata, contents, ELF architecture, dependencies, size and license notices.
-6. Test installation, upgrade, downgrade/rollback where supported, removal and a real OpenCode launch in Termux.
-7. Only after those gates pass, prepare a separate pull request to `termux/termux-packages`. A pull request is not an acceptance guarantee; maintainers decide policy exceptions and repository inclusion.
+1. Keep `aarch64` as the known project target and establish a complete baseline test suite.
+2. Add `x86_64` support end-to-end: Bun runtime availability, OpenTUI, PTY, watcher, FFF, bundle, launcher, installer detection, release assets and CI/device tests.
+3. Investigate a maintainable Android/Bionic Bun runtime for `arm` and `i686`. Until then, mark these architectures as unsupported rather than publishing broken packages.
+4. Reduce the installed and compressed package size; identify the largest files and determine which are essential.
+5. Implement a real Termux `packages/opencode/build.sh` recipe using source builds and declared dependencies.
+6. Add CI that runs the official `termux-packages` build tooling and validates the resulting `.deb` metadata, contents, ELF architecture, dependencies, size and license notices.
+7. Test installation, upgrade, downgrade/rollback where supported, removal and a real OpenCode launch in Termux on every claimed architecture.
+8. Only after those gates pass, prepare a separate pull request to `termux/termux-packages`. A pull request is not an acceptance guarantee; maintainers decide policy exceptions and repository inclusion.
 
 ## Acceptance gates
 
 - [ ] Final `.deb` is below 100 MiB, or Termux maintainers explicitly approve an exception.
 - [ ] Architecture support is explicit and accepted by maintainers.
+- [ ] Every advertised architecture has a compatible Android/Bionic Bun runtime and all native modules.
 - [ ] Build is reproducible from pinned source in the Termux package build system.
 - [ ] No prebuilt upstream ELF, glibc binary, npm install, or curl-based installer is used by the package install process.
 - [ ] Runtime dependencies are declared in package metadata.
 - [ ] Package staging contains no files outside the intended package.
 - [ ] Package build, lint, ELF, dependency, license and size checks pass.
-- [ ] Real-device installation and runtime smoke tests pass.
+- [ ] Real-device installation and runtime smoke tests pass on every advertised architecture.
 - [ ] Existing curl installation path remains unchanged and independently tested.
 
 ## Upstream policy references
@@ -72,3 +84,4 @@ The current scripts are not architecture-generic. In particular, `scripts/ci/bui
 - [Termux packaging policy and contribution checklist](https://github.com/termux/termux-packages/blob/master/CONTRIBUTING.md)
 - [Creating a new Termux package](https://github.com/termux/termux-packages/wiki/Creating-new-package)
 - [Termux package build instructions](https://github.com/termux/termux-packages/wiki/Building-packages)
+- [Official Termux Bun build recipe](https://github.com/termux/termux-packages/blob/master/packages/bun/build.sh)
