@@ -49,14 +49,21 @@ case "${1:---help}" in
     printf 'Runtime: %s\nLauncher: %s\nCheckout: %s\n' "$RUNTIME" "$PREFIX/bin/opencode" "${REPO_DIR:-not found}" ;;
   doctor|--doctor)
     failed=0
-    [[ "$(uname -m)" == aarch64 ]] || { echo "FAIL: architecture must be aarch64"; failed=1; }
+    case "$(uname -m)" in
+      aarch64) PTY_LIBRARY="librust_pty_arm64.so" ;;
+      x86_64) PTY_LIBRARY="librust_pty_x86_64.so" ;;
+      *) echo "FAIL: unsupported architecture (supported: aarch64, x86_64)"; failed=1; PTY_LIBRARY="" ;;
+    esac
     for cmd in git curl tar sha256sum bun rg; do command -v "$cmd" >/dev/null 2>&1 || { echo "FAIL: missing $cmd"; failed=1; }; done
     [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "FAIL: Termux libc++ shared library missing"; failed=1; }
     [[ "$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)" == "android-bionic-bun-v1" ]] || { echo "FAIL: native runtime generation marker missing or invalid"; failed=1; }
     [[ "$(cat "$RUNTIME/.opencode-termux-archive-sha256" 2>/dev/null || true)" =~ ^[a-f0-9]{64}$ ]] || { echo "FAIL: runtime archive checksum marker missing or invalid"; failed=1; }
-    for file in bin/opencode lib/opencode/index.js lib/opencode/librust_pty_arm64.so lib/opencode/watcher.node THIRD_PARTY_NOTICES.md; do
+    for file in bin/opencode lib/opencode/index.js lib/opencode/watcher.node THIRD_PARTY_NOTICES.md; do
       [[ -s "$RUNTIME/$file" ]] || { echo "FAIL: runtime file missing: $file"; failed=1; }
     done
+    if [[ -n "$PTY_LIBRARY" ]]; then
+      [[ -s "$RUNTIME/lib/opencode/$PTY_LIBRARY" ]] || { echo "FAIL: runtime PTY library missing: $PTY_LIBRARY"; failed=1; }
+    fi
     [[ -x "$RUNTIME/bin/opencode" ]] || { echo "FAIL: native runtime launcher is not executable"; failed=1; }
     [[ -f "$RUNTIME/lib/opencode/bunfig.toml" && ! -L "$RUNTIME/lib/opencode/bunfig.toml" ]] || { echo "FAIL: Bun configuration file missing"; failed=1; }
     if [[ -s "$RUNTIME/.opencode-termux-version" ]]; then

@@ -30,10 +30,48 @@ for (const token of [
 ]) assert.ok(build.includes(token), "native build script missing " + token);
 assert.ok(build.includes("--filter 'opencode'"), "native typecheck must install root workspace development tools");
 assert.ok(build.includes('export PATH="$work/host/bun-linux-x64:$PATH"'), "verified host Bun must be available to lifecycle subprocesses");
+assert.ok(build.includes('TARGET_ARCH="${TARGET_ARCH:-aarch64}"'), "runtime bundle builder must select an explicit supported architecture");
+assert.ok(build.includes('OPENCODE_ARCH="x64"'), "x86_64 must map to OpenCode x64 target naming");
+assert.ok(build.includes("build-parcel-watcher-android.sh"), "x86_64 bundle must use the Bionic watcher source build");
+assert.ok(build.includes("fff: disabled for x86_64"), "x86_64 must fall back from unavailable Android FFF to ripgrep");
+const bundlePatch = fs.readFileSync("tools/patch-opencode-bundle.py", "utf8");
+assert.ok(bundlePatch.includes('choices=("aarch64", "x86_64")'), "bundle patcher must expose only the official 64-bit architecture targets");
+assert.ok(bundlePatch.includes('opencode_arch = "arm64" if args.target_arch == "aarch64" else "x64"'), "bundle patcher must map Termux architectures to OpenCode target names");
+assert.ok(bundlePatch.includes('arch: "{opencode_arch}", abi: "android"'), "bundle patcher must register the selected Android architecture");
 
 const pty = fs.readFileSync("scripts/ci/build-rust-pty-android.sh", "utf8");
 assert.ok(pty.includes("EXPECTED_COMMIT"), "bun-pty source commit must be pinned and verified");
 assert.ok(pty.includes("tools/ocver.py bunpty commit"));
+assert.ok(pty.includes("x86_64-linux-android"), "PTY cross-build must map x86_64 to the Android Rust target");
+assert.ok(pty.includes('portable-pty = { version = "=0.9.0"'), "Android PTY dependency must be exact-pinned");
+assert.ok(pty.includes('cargo update --manifest-path "$SRC/rust-pty/Cargo.toml" -p portable-pty --precise "$portable_pty_version"'), "Cargo lock must be updated only to the exact portable-pty pin");
+assert.ok(pty.includes("build --locked --release"), "the PTY build must reject unrecorded dependency resolution");
+assert.equal(lock.bun_pty.portable_pty, "0.9.0", "portable-pty Android compatibility pin must be exact");
+
+const watcherBuild = fs.readFileSync("scripts/ci/build-parcel-watcher-android.sh", "utf8");
+for (const token of [
+  "x86_64-linux-android",
+  "src/linux/InotifyBackend.cc",
+  "src/unix/legacy.cc",
+  "NAPI_VERSION=4",
+  "NODE_GYP_MODULE_NAME=watcher",
+  "-fvisibility=default",
+  "-Wl,--export-dynamic",
+  "napi_register_module_v1",
+  "readelf -h",
+  "glibc-linked dependency found"
+]) assert.ok(watcherBuild.includes(token), "Android watcher cross-build missing " + token);
+assert.ok(watcherBuild.includes("unsupported TARGET_ARCH"), "watcher builder must reject unsupported targets");
+const smoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
+assert.ok(smoke.includes("export TARGET_ARCH"), "archive smoke test must pass the selected architecture to the validator");
+for (const token of [
+  "N-API constructor registration import",
+  "napi_module_register",
+  ".init_array",
+  "napi_register_module_v1",
+  "node_api_module_get_api_version_v1"
+]) assert.ok(smoke.includes(token), "archive smoke test must validate watcher N-API registration: " + token);
+
 
 const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
 assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must target this repository");
@@ -46,9 +84,24 @@ assert.ok(sourcePatch.includes("isCurlMethod(method)"), "curl installation detec
 assert.ok(!sourcePatch.includes("'    if (prefix) return\\n'"), "Termux must not suppress detection of legacy package-managed installations");
 assert.ok(!sourcePatch.includes('exec(["sh", installer]'), "Bash installer must never be invoked through sh");
 
+const opentuiPatch = fs.readFileSync("tools/patch-opentui-android.py", "utf8");
+assert.ok(opentuiPatch.includes("builtin.abi == .android"), "Android OpenTUI must avoid glibc-only pthread_tryjoin_np");
+assert.ok(opentuiPatch.includes("thread.join();"), "Android clipboard worker must be joined only after its completion flag is observed");
+assert.ok(opentuiPatch.includes("wayland_conversion_started"), "Android blocking join safety must remain tied to the worker completion flag");
+assert.ok(opentuiPatch.includes('choices=("aarch64", "x86_64")'), "OpenTUI patcher must explicitly support the two official 64-bit targets");
+assert.ok(opentuiPatch.includes('if args.target_arch == "aarch64"'), "AArch64-only TLSDESC fallback must be conditional");
+assert.ok(opentuiPatch.includes("x86_64 build still references the AArch64 TLSDESC shim"), "x86_64 patch path must fail if the AArch64 shim remains");
+const tlsShim = fs.readFileSync("patches/opentui/tlsdesc-shim.c", "utf8");
+assert.ok(!tlsShim.includes("int pthread_tryjoin_np("), "unsafe pthread_tryjoin_np emulation must not be shipped");
+
 const workflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
 assert.ok(workflow.includes("group: validate-native-${{ github.event.pull_request.number || github.ref }}"), "validation runs for the same PR must share one concurrency group");
 assert.ok(workflow.includes("cancel-in-progress: true"), "new PR validation must cancel superseded runs");
+assert.ok(workflow.includes("build-x86_64-native:"), "CI must build the x86_64 OpenTUI native library independently");
+assert.ok(workflow.includes("libnode-dev"), "CI must install Node-API headers for the x86_64 Parcel watcher build");
+assert.ok(workflow.includes("patch-opentui-android.py --target-arch x86_64"), "x86_64 CI must select the architecture-specific OpenTUI patch path");
+assert.ok(workflow.includes("x86_64 OpenTUI unexpectedly contains unsupported Bionic TLSDESC relocations"), "x86_64 CI must reject unsupported TLSDESC relocations");
+assert.ok(workflow.includes("test ! -e work/opentui-x86_64/packages/native/src/tlsdesc-shim.c"), "x86_64 CI must not compile the AArch64 TLS shim");
 
 for (const token of [
   "https://github.com/anomalyco/opentui.git",
@@ -57,6 +110,9 @@ for (const token of [
   "scripts/validate-runtime-archive.sh",
   "scripts/smoke-test-runtime-archive.sh",
   "readelf -h",
+  "OpenTUI PT_TLS has initialized data",
+  "no PT_TLS segment or TLSDESC relocations",
+  "TLSDESC relocations but no PT_TLS segment",
   "gh release create",
   "actions/upload-artifact",
   "gzip -n",
@@ -99,12 +155,19 @@ assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'),
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
 assert.ok(launcher.includes('OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"'), "launcher must preserve the managed public path or fall back to itself");
 assert.ok(!launcher.includes('if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/opencode" ]; then'), "candidate bundles must not hijack an existing production launcher");
+assert.ok(launcher.includes('aarch64) BUN_PTY_LIB="$root/librust_pty_arm64.so"'), "ARM64 launcher must preserve the shipped PTY library name");
+assert.ok(launcher.includes('x86_64) BUN_PTY_LIB="$root/librust_pty_x86_64.so"'), "x86_64 launcher must select its matching PTY library");
 for (const token of ["OPENCODE_ROOT", "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
   assert.ok(launcher.includes(token), "Termux Bun launcher missing " + token);
 }
 
+const archiveValidator = fs.readFileSync("scripts/validate-runtime-archive.sh", "utf8");
+assert.ok(archiveValidator.includes('PTY_LIBRARY="librust_pty_x86_64.so"'), "archive validator must require the x86_64 PTY library for x86_64 bundles");
+assert.ok(archiveValidator.includes("OTHER_PTY_LIBRARY"), "archive validator must reject a mismatched architecture PTY library");
+const archiveSmoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
+assert.ok(archiveSmoke.includes('EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"'), "archive smoke test must validate x86_64 ELF machines");
 const deviceTest = fs.readFileSync("scripts/test-termux-device.sh", "utf8");
-for (const token of ["uname -m", "librust_pty_arm64.so", "watcher.node", "--version", "--help", "existing OpenCode installation was not modified"]) {
+for (const token of ["uname -m", "librust_pty_arm64.so", "librust_pty_x86_64.so", "x86_64", "watcher.node", "--version", "--help", "existing OpenCode installation was not modified"]) {
   assert.ok(deviceTest.includes(token), "physical Termux smoke test missing " + token);
 }
 

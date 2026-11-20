@@ -37,11 +37,12 @@ jobs:
         run: |
           set -euo pipefail
           bash -n install.sh uninstall.sh manager.sh opencode-termux
-          bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/test-termux-device.sh
+          bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/ci/build-parcel-watcher-android.sh scripts/test-termux-device.sh
           bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
           bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh
           bash scripts/test-package-owner.sh
           bash scripts/test-runtime-archive.sh
+          bash scripts/test-rust-pty-build.sh
           bash manager.sh help >/dev/null
           bash manager.sh version | grep -Fq 'opencode-termux manager'
           bash manager.sh status | grep -Fq 'Status: not installed'
@@ -50,9 +51,10 @@ jobs:
       - name: Validate native runtime contract
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/ocver.py tools/upstream_tags.py tools/test_upstream_tags.py tools/patch-opencode-source.py tools/patch-opencode-bundle.py tools/patch-opentui-ffi.py tools/patch-opentui-loader.py tools/patch-fff-android.py tools/patch-opentui-android.py tools/remap-binary-prefix.py tools/transplant/swap_tui.py
+          python3 -m py_compile tools/analyze-runtime-size.py tools/test-runtime-size.py tools/ocver.py tools/upstream_tags.py tools/test_upstream_tags.py tools/patch-opencode-source.py tools/patch-opencode-bundle.py tools/patch-opentui-ffi.py tools/patch-opentui-loader.py tools/patch-fff-android.py tools/patch-opentui-android.py tools/remap-binary-prefix.py tools/transplant/swap_tui.py
           python3 -m json.tool tools/supply-chain-lock.json >/dev/null
           python3 tools/test_upstream_tags.py
+          python3 tools/test-runtime-size.py
           python3 -m json.tool tools/transplant/config/bun-bind.json >/dev/null
           node --check scripts/test-native-runtime-contract.mjs
           node scripts/test-native-runtime-contract.mjs
@@ -183,6 +185,215 @@ jobs:
           grep -Fq 'A new OpenCode version is available: 2.3.3' "$RUNNER_TEMP/next-version-prompt.txt"
           echo "PASS: installer, dependency bootstrap, manager doctor, migration/defer prompts and same-version archive rebuild detection."
 
+  build-x86_64-native:
+    name: Build and verify Android x86_64 OpenTUI
+    needs: [static-checks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      ANDROID_API: "28"
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --yes binutils build-essential clang file git libnode-dev llvm patch python3 curl xz-utils
+          command -v cargo
+          command -v rustup
+
+      - name: Resolve pinned source and toolchain
+        run: |
+          set -euo pipefail
+          mapfile -t locked < <(python3 - <<'PY'
+          import json
+          lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
+          version = lock["current"]
+          opentui_version = lock["opencode"][version]["opentui_version"]
+          opentui = lock["opentui"][opentui_version]
+          print(opentui_version)
+          print(opentui["commit"])
+          print(opentui["zig_version"])
+          print(opentui["zig_x86_64_linux_sha256"])
+          print(lock["android_ndk_version"])
+          PY
+          )
+          test "${#locked[@]}" -eq 5
+          OPENTUI_VERSION="${locked[0]}"
+          OPENTUI_COMMIT="${locked[1]}"
+          ZIG_VERSION="${locked[2]}"
+          ZIG_SHA256="${locked[3]}"
+          NDK_VERSION="${locked[4]}"
+          {
+            echo "OPENTUI_VERSION=$OPENTUI_VERSION"
+            echo "OPENTUI_COMMIT=$OPENTUI_COMMIT"
+            echo "ZIG_VERSION=$ZIG_VERSION"
+            echo "NDK_VERSION=$NDK_VERSION"
+          } >> "$GITHUB_ENV"
+          mkdir -p work
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz" \
+            -o work/zig.tar.xz
+          echo "$ZIG_SHA256  work/zig.tar.xz" | sha256sum -c -
+          tar -xJf work/zig.tar.xz -C work
+          ZIG_ROOT="$GITHUB_WORKSPACE/work/zig-x86_64-linux-$ZIG_VERSION"
+          echo "$ZIG_ROOT" >> "$GITHUB_PATH"
+          export PATH="$ZIG_ROOT:$PATH"
+          NDK="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
+          test -d "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          ACTUAL_NDK_VERSION="$(sed -n 's/^Pkg.Revision = //p' "$NDK/source.properties" | tr -d '\r')"
+          test "$ACTUAL_NDK_VERSION" = "$NDK_VERSION"
+          echo "NDK=$NDK" >> "$GITHUB_ENV"
+          echo "LLVM_STRIP=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> "$GITHUB_ENV"
+          test -x "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          test "$(zig version)" = "$ZIG_VERSION"
+
+      - name: Fetch pinned OpenTUI source
+        run: |
+          set -euo pipefail
+          mkdir -p work/opentui-x86_64
+          git -C work/opentui-x86_64 init .
+          git -C work/opentui-x86_64 remote add origin https://github.com/anomalyco/opentui.git
+          git -C work/opentui-x86_64 fetch --depth=1 origin "$OPENTUI_COMMIT"
+          git -C work/opentui-x86_64 checkout --detach FETCH_HEAD
+          test "$(git -C work/opentui-x86_64 rev-parse HEAD)" = "$OPENTUI_COMMIT"
+
+      - name: Apply x86_64 Bionic compatibility patches
+        run: |
+          set -euo pipefail
+          python3 tools/patch-opentui-android.py --target-arch x86_64 work/opentui-x86_64
+          git -C work/opentui-x86_64 diff --check
+          test ! -e work/opentui-x86_64/packages/native/src/tlsdesc-shim.c
+          ! grep -Fq 'tlsdesc-shim.c' work/opentui-x86_64/packages/native/build.zig
+
+      - name: Build x86_64 Bionic OpenTUI library
+        run: |
+          set -euo pipefail
+          SYSROOT="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          LIBDIR="$SYSROOT/usr/lib/x86_64-linux-android/$ANDROID_API"
+          test -d "$LIBDIR"
+          {
+            echo "include_dir=$SYSROOT/usr/include/x86_64-linux-android"
+            echo "sys_include_dir=$SYSROOT/usr/include"
+            echo "crt_dir=$LIBDIR"
+            echo "msvc_lib_dir="
+            echo "kernel32_lib_dir="
+            echo "gcc_dir=$LIBDIR"
+            echo "darwin_sdk_dir="
+          } > work/android-x86_64-libc.txt
+          sh work/opentui-x86_64/packages/native/scripts/prepare-zig-deps.sh
+          (
+            cd work/opentui-x86_64/packages/native
+            OPENTUI_C_REMAP="-ffile-prefix-map=$GITHUB_WORKSPACE=/usr/src -D__ANDROID_MIN_SDK_VERSION__=28 -D__ANDROID_API__=28" \
+            BIONIC_ARCH_INCLUDE="$SYSROOT/usr/include/x86_64-linux-android" \
+            BIONIC_SYS_INCLUDE="$SYSROOT/usr/include" \
+            BIONIC_LIB_DIR="$LIBDIR" \
+              zig build -Dlibrary-target=x86_64-linux-android.28 \
+                -Doptimize=ReleaseSafe --libc "$GITHUB_WORKSPACE/work/android-x86_64-libc.txt"
+          )
+          SO=work/opentui-x86_64/packages/native/lib/x86_64-linux-android.28/libopentui.so
+          test -s "$SO"
+          python3 tools/remap-binary-prefix.py "$SO" "$GITHUB_WORKSPACE" /usr/src
+          mkdir -p artifacts/transplant/opentui-bionic-x86_64
+          cp "$SO" artifacts/transplant/opentui-bionic-x86_64/libopentui.so
+
+      - name: Verify x86_64 Bionic OpenTUI
+        run: |
+          set -euo pipefail
+          SO=artifacts/transplant/opentui-bionic-x86_64/libopentui.so
+          file "$SO" | grep -q 'x86-64'
+          readelf -h "$SO" | grep -q 'Type:.*DYN'
+          readelf -d "$SO" | grep -q 'NEEDED.*libc.so'
+          if readelf -d "$SO" | grep -q 'libc.so.6'; then
+            echo "glibc dependency found in x86_64 OpenTUI" >&2
+            exit 1
+          fi
+          # Bionic currently implements TLSDESC only for AArch64. x86_64 must
+          # use the traditional TLS ABI and must not ship TLSDESC relocations.
+          if readelf -rW "$SO" | grep -q 'TLSDESC'; then
+            echo "x86_64 OpenTUI unexpectedly contains unsupported Bionic TLSDESC relocations" >&2
+            exit 1
+          fi
+          if readelf -Ws "$SO" | grep -E 'UND[[:space:]]+pthread_tryjoin_np' >/dev/null; then
+            echo "glibc-only pthread_tryjoin_np import found in x86_64 OpenTUI" >&2
+            exit 1
+          fi
+          if grep -aFq "$GITHUB_WORKSPACE" "$SO"; then
+            echo "build workspace path leaked into x86_64 OpenTUI" >&2
+            exit 1
+          fi
+          echo "PASS: x86_64 OpenTUI ELF and Bionic TLS contract."
+
+      - name: Build full x86_64 OpenCode runtime bundle
+        run: |
+          set -euo pipefail
+          command -v cargo
+          command -v rustup
+          rustup target add x86_64-linux-android
+          TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" LLVM_STRIP="$LLVM_STRIP" \
+            bash scripts/ci/build-opencode-bundle.sh
+          STAGED="artifacts/bundle/$(python3 tools/ocver.py current)-x86_64"
+          test -s "$STAGED/lib/index.js"
+          test -s "$STAGED/lib/librust_pty_x86_64.so"
+          test -s "$STAGED/lib/watcher.node"
+          mapfile -t TUI_ASSETS < <(find "$STAGED/lib" -maxdepth 1 -type f -name 'libopentui*.so')
+          test "${#TUI_ASSETS[@]}" -ge 1
+
+      - name: Package and smoke-test x86_64 candidate
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 tools/ocver.py current)"
+          STAGED="artifacts/bundle/$VERSION-x86_64"
+          test -s "$STAGED/lib/index.js"
+          mkdir -p dist/bin dist/lib/opencode
+          cp -a "$STAGED/lib/." dist/lib/opencode/
+          sed "s/__OPENCODE_VERSION__/$VERSION/g" packing/launcher/opencode > dist/bin/opencode
+          chmod 0755 dist/bin/opencode
+          ARCHIVE="dist/opencode-$VERSION-android-x86_64-bundle.tar.gz"
+          tar --sort=name --mtime='UTC 2020-01-01' --owner=0 --group=0 --numeric-owner \
+            -C dist -cf - bin lib | gzip -n > "$ARCHIVE"
+          TARGET_ARCH=x86_64 bash scripts/validate-runtime-archive.sh "$ARCHIVE" "$RUNNER_TEMP/x86_64-archive"
+          TARGET_ARCH=x86_64 bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/x86_64-smoke"
+          (cd dist && sha256sum "opencode-$VERSION-android-x86_64-bundle.tar.gz" > SHA256SUMS)
+          cp "$STAGED/report.json" dist/report.json
+          cp tools/supply-chain-lock.json dist/supply-chain-lock.json
+          RELEASE_TAG="$(python3 tools/ocver.py tag)"
+          python3 - "$VERSION" "$ARCHIVE" "$RELEASE_TAG" > dist/release-checksums.json <<'PY'
+          import hashlib, json, sys
+          version, path, release_tag = sys.argv[1:]
+          digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          print(json.dumps({
+              "version": version,
+              "sourceRepo": "C04-wq/opencode-termux",
+              "sourceTag": "v" + version,
+              "releaseTag": release_tag,
+              "archiveSha256": digest,
+              "runtimeId": "android-bionic-bun-v1"
+          }, indent=2))
+          PY
+          python3 tools/analyze-runtime-size.py "$ARCHIVE" --top 25
+          (cd dist && sha256sum -c SHA256SUMS)
+          cat dist/release-checksums.json
+
+      - name: Upload x86_64 candidate for physical Termux validation
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: android-x86_64-candidate-${{ github.sha }}
+          path: |
+            dist/opencode-*-android-x86_64-bundle.tar.gz
+            dist/SHA256SUMS
+            dist/report.json
+            dist/release-checksums.json
+            dist/supply-chain-lock.json
+          if-no-files-found: error
+          retention-days: 14
+
   build-native:
     name: Build and verify Android ARM64 runtime
     needs: [static-checks, native-runtime]
@@ -204,7 +415,7 @@ jobs:
           set -euo pipefail
           sudo apt-get -o Acquire::Retries=3 update
           sudo apt-get -o Acquire::Retries=3 install --yes \
-            binutils build-essential clang file git libssl-dev llvm patch python3 \
+            binutils build-essential clang file git libnode-dev libssl-dev llvm patch python3 \
             unzip zip curl xz-utils
           command -v cargo
           command -v rustup
@@ -320,6 +531,27 @@ jobs:
           file "$SO" | grep -q 'ARM aarch64'
           readelf -h "$SO" | grep -q 'Type:.*DYN'
           readelf -d "$SO" | grep -q 'NEEDED.*libc.so'
+          # Inspect PT_TLS using wide output: the default readelf layout wraps
+          # the program-header columns and is not safe for positional awk fields.
+          readelf -lW "$SO"
+          readelf -rW "$SO" | grep -E 'TLS|TLSDESC' || true
+          # The API-28 TLSDESC fallback can emulate only zero-filled TLS.
+          # A missing PT_TLS is valid only when there are no TLSDESC relocations.
+          mapfile -t TLS_FILE_SIZES < <(readelf -lW "$SO" | awk '$1 == "TLS" { print $5 }')
+          if (("${#TLS_FILE_SIZES[@]}" > 1)); then
+            echo "OpenTUI has multiple PT_TLS segments; refusing an ambiguous TLS layout." >&2
+            exit 1
+          elif (("${#TLS_FILE_SIZES[@]}" == 1)); then
+            if [[ ! "${TLS_FILE_SIZES[0]}" =~ ^0x0+$ ]]; then
+              echo "OpenTUI PT_TLS has initialized data; TLSDESC fallback cannot copy it." >&2
+              exit 1
+            fi
+          elif readelf -rW "$SO" | grep -q 'TLSDESC'; then
+            echo "OpenTUI has TLSDESC relocations but no PT_TLS segment; fallback cannot resolve them." >&2
+            exit 1
+          else
+            echo "OpenTUI has no PT_TLS segment or TLSDESC relocations; no TLS fallback is required."
+          fi
           if readelf -d "$SO" | grep -q 'libc.so.6'; then
             echo "glibc dependency found in OpenTUI" >&2
             exit 1
@@ -339,6 +571,14 @@ jobs:
           set -euo pipefail
           rustup target add aarch64-linux-android
           bash scripts/ci/build-opencode-bundle.sh
+          # Build and verify the first x86_64 native dependency independently.
+          # This does not imply that the complete OpenCode bundle supports x86_64.
+          TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" \
+            bash scripts/ci/build-rust-pty-android.sh "$RUNNER_TEMP/librust_pty_x86_64.so"
+          readelf -h "$RUNNER_TEMP/librust_pty_x86_64.so" | grep -Eq 'Machine:.*Advanced Micro Devices X86-64'
+          readelf -d "$RUNNER_TEMP/librust_pty_x86_64.so" | grep -q 'NEEDED.*libc.so'
+          TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" \
+            bash scripts/ci/build-parcel-watcher-android.sh "work/bundle/$OPENCODE_VERSION/opencode" "$RUNNER_TEMP/watcher_x86_64.node"
 
       - name: Package and verify the Termux runtime archive
         run: |
@@ -354,6 +594,7 @@ jobs:
           tar --sort=name --mtime='UTC 2020-01-01' --owner=0 --group=0 --numeric-owner \
             -C dist -cf - bin lib | gzip -n > "$ARCHIVE"
           bash scripts/validate-runtime-archive.sh "$ARCHIVE" "$RUNNER_TEMP/archive-validation"
+          python3 tools/analyze-runtime-size.py "$ARCHIVE" --top 25
           bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
           (cd dist && sha256sum "opencode-$VERSION-android-aarch64-bundle.tar.gz" > SHA256SUMS)
           cp "$STAGED/report.json" dist/report.json

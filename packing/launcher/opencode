@@ -54,8 +54,22 @@ OPENCODE_ROOT=$root
 export OPENCODE_LAUNCHER OPENCODE_ROOT
 export OPENCODE_DISABLE_AUTOUPDATE=1
 
-# bun-pty dlopens this at import time; the npm package only ships glibc/musl.
-BUN_PTY_LIB=${BUN_PTY_LIB:-$root/librust_pty_arm64.so}
+# bun-pty dlopens this at import time; upstream npm packages ship glibc/musl.
+# Select only the native library built for this exact Android architecture.
+if [ -z "${BUN_PTY_LIB:-}" ]; then
+  case "$(uname -m)" in
+    aarch64) BUN_PTY_LIB="$root/librust_pty_arm64.so" ;;
+    x86_64) BUN_PTY_LIB="$root/librust_pty_x86_64.so" ;;
+    *)
+      echo "opencode: unsupported architecture $(uname -m); supported: aarch64, x86_64" >&2
+      exit 1
+      ;;
+  esac
+fi
+if [ ! -f "$BUN_PTY_LIB" ]; then
+  echo "opencode: native PTY library is missing: $BUN_PTY_LIB" >&2
+  exit 1
+fi
 export BUN_PTY_LIB
 
 # @parcel/watcher needs an OpenCode-owned bionic build; upstream resolves the

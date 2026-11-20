@@ -3,6 +3,23 @@ set -Eeuo pipefail
 trap 'status=$?; printf "ERROR: smoke test failed at line %s: %s (exit %s)\n" "$LINENO" "$BASH_COMMAND" "$status" >&2; exit "$status"' ERR
 if [[ $# -ne 3 ]]; then echo "Usage: $0 <native-bundle.tar.gz> <version> <new-workdir>" >&2; exit 64; fi
 ARCHIVE=$1 VERSION=$2 WORKDIR=$3
+TARGET_ARCH="${TARGET_ARCH:-aarch64}"
+case "$TARGET_ARCH" in
+  aarch64)
+    EXPECTED_ELF_MACHINE="AArch64"
+    PTY_LIBRARY="librust_pty_arm64.so"
+    ;;
+  x86_64)
+    EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"
+    PTY_LIBRARY="librust_pty_x86_64.so"
+    ;;
+  *)
+    echo "Unsupported TARGET_ARCH '$TARGET_ARCH' (supported: aarch64, x86_64)" >&2
+    exit 64
+    ;;
+esac
+# The validator runs in a child shell; pass through the architecture selection.
+export TARGET_ARCH
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 64; }
 [[ ! -e "$WORKDIR" && "$WORKDIR" != / ]] || { echo "Work directory must be new" >&2; exit 64; }
 for cmd in bash sh readelf sha256sum; do command -v "$cmd" >/dev/null || { echo "Missing command: $cmd" >&2; exit 1; }; done
@@ -22,11 +39,37 @@ for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
   header="$(readelf -h "$native")"
   grep -q 'Class:.*ELF64' <<<"$header"
   grep -q 'Type:.*DYN' <<<"$header"
-  grep -q 'Machine:.*AArch64' <<<"$header"
+  grep -Eq "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$header"
   if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
 done
+# Check that the watcher exposes a registration mechanism understood by the
+# N-API loader. The ARM64 prebuilt addon uses NODE_API_MODULE's constructor
+# registration; the x86_64 source build exports the explicit N-API entry points.
+watcher="$ROOT/lib/opencode/watcher.node"
+watcher_symbols="$(readelf --dyn-syms --wide "$watcher")"
+case "$TARGET_ARCH" in
+  aarch64)
+    if ! grep -Eq 'UND[[:space:]]+napi_module_register' <<<"$watcher_symbols"; then
+      echo "ARM64 watcher is missing the N-API constructor registration import." >&2
+      exit 1
+    fi
+    if ! readelf -SW "$watcher" | grep -Eq '\.init_array[[:space:]]+INIT_ARRAY'; then
+      echo "ARM64 watcher is missing its N-API registration constructor table." >&2
+      exit 1
+    fi
+    ;;
+  x86_64)
+    for symbol in napi_register_module_v1 node_api_module_get_api_version_v1; do
+      if ! grep -Eq "GLOBAL[[:space:]]+DEFAULT[[:space:]]+[0-9]+[[:space:]]+$symbol([[:space:]]|$)" <<<"$watcher_symbols"; then
+        echo "x86_64 watcher is missing exported N-API entry point: $symbol" >&2
+        exit 1
+      fi
+    done
+    ;;
+esac
+
 # Exercise the shipped shell launcher without loading Android/Bionic modules
 # on the Linux CI host. The stub verifies the module path and argument contract.
 mkdir -p "$WORKDIR/prefix/bin"
@@ -41,7 +84,15 @@ printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
 if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
 BUN
 chmod 755 "$WORKDIR/prefix/bin/bun"
+mkdir -p "$WORKDIR/stubs"
+cat > "$WORKDIR/stubs/uname" <<'UNAME'
+#!/usr/bin/env sh
+printf '%s\n' "$BUN_TEST_ARCH"
+UNAME
+chmod 755 "$WORKDIR/stubs/uname"
 export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
+export BUN_TEST_ARCH="$TARGET_ARCH"
+export PATH="$WORKDIR/stubs:$PATH"
 env -u OPENCODE_LAUNCHER bash "$ROOT/bin/opencode" --version > "$WORKDIR/version.txt"
 if ! grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"; then
   echo "Unexpected launcher version output:" >&2
@@ -52,11 +103,11 @@ if ! grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"; then
 fi
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
-grep -Fxq "$ROOT/lib/opencode/librust_pty_arm64.so" "$BUN_TEST_LOG.pty"
+grep -Fxq "$ROOT/lib/opencode/$PTY_LIBRARY" "$BUN_TEST_LOG.pty"
 grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
 grep -Fq -- '--smol' "$BUN_TEST_LOG.args"
 grep -Fq -- "$ROOT/lib/opencode/index.js --version" "$BUN_TEST_LOG.args"
-echo "PASS: Android ELF modules are AArch64 shared libraries without glibc dependencies."
+echo "PASS: Android $TARGET_ARCH ELF modules are Bionic shared libraries without glibc dependencies."
 echo "PASS: native launcher resolves the installed bundle, selects Bun and forwards arguments."
 cat "$WORKDIR/version.txt"
 sha256sum "$ARCHIVE"
