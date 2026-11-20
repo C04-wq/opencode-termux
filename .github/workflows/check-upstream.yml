@@ -28,28 +28,7 @@ jobs:
           TAGS="$(curl --fail --location --silent --show-error \
             --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
             "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v2.")"
-          read -r LATEST_TAG LATEST LATEST_SHA < <(
-            printf '%s' "$TAGS" | python3 -c '
-          import json, re, sys
-          refs = json.load(sys.stdin)
-          candidates = []
-          for item in refs:
-              match = re.fullmatch(r"refs/tags/(v2[.][0-9]+[.][0-9]+)", item.get("ref", ""))
-              if not match:
-                  continue
-              obj = item.get("object", {})
-              sha = obj.get("sha", "")
-              if obj.get("type") != "commit" or not re.fullmatch(r"[0-9a-f]{40}", sha):
-                  continue
-              tag = match.group(1)
-              version = tag[1:]
-              candidates.append((tuple(map(int, version.split("."))), tag, version, sha))
-          if not candidates:
-              raise SystemExit("No stable official v2.x.y OpenCode tags were found")
-          _, tag, version, sha = max(candidates)
-          print(tag, version, sha)
-          '
-          )
+          read -r LATEST_TAG LATEST LATEST_SHA < <(printf '%s' "$TAGS" | python3 tools/upstream_tags.py)
           [[ "$LATEST_TAG" == "v$LATEST" && "$LATEST_SHA" =~ ^[0-9a-f]{40}$ ]]
 
           UPDATE_AVAILABLE="$(python3 - "$CURRENT" "$LATEST" <<'PY'
