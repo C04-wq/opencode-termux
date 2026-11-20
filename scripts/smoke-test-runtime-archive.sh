@@ -43,7 +43,7 @@ chmod 755 "$WORKDIR/prefix/bin/bun"
 cat > "$WORKDIR/prefix/bin/opencode" <<'OUTER'
 #!/usr/bin/env sh
 export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"
-exec "$ROOT/bin/opencode" "$@"
+exec bash "$ROOT/bin/opencode" "$@"
 OUTER
 chmod 755 "$WORKDIR/prefix/bin/opencode"
 export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
@@ -52,7 +52,7 @@ grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
 cp "$BUN_TEST_LOG.launcher" "$BUN_TEST_LOG.launcher.managed"
 grep -Fxq "$WORKDIR/prefix/bin/opencode" "$BUN_TEST_LOG.launcher.managed"
-env -u OPENCODE_LAUNCHER "$ROOT/bin/opencode" --version > "$WORKDIR/candidate-version.txt"
+env -u OPENCODE_LAUNCHER bash "$ROOT/bin/opencode" --version > "$WORKDIR/candidate-version.txt"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
 grep -Fxq "$ROOT/lib/opencode/librust_pty_arm64.so" "$BUN_TEST_LOG.pty"
 grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
