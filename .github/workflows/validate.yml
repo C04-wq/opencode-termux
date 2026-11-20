@@ -100,6 +100,8 @@ jobs:
         run: |
           set -euo pipefail
           export OPENCODE_TEST_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).version')"
+          export OPENCODE_TEST_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).archiveSha256')"
+          export OPENCODE_TEST_REMOTE_SHA256="$OPENCODE_TEST_SHA256"
           mkdir -p "$PREFIX/etc/tls" "$PREFIX/etc" "$RUNNER_TEMP/termux-stubs"
           printf 'test CA bundle\n' > "$PREFIX/etc/tls/cert.pem"
           printf 'nameserver 1.1.1.1\n' > "$PREFIX/etc/resolv.conf"
@@ -119,9 +121,10 @@ jobs:
             fi
             shift
           done
-          printf '{"version":"%s","runtimeId":"%s"}\n' \
-            "${OPENCODE_TEST_REMOTE_VERSION:-$OPENCODE_TEST_VERSION}" \
-            "${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}"
+          printf '{"version":"%s","runtimeId":"%s","archiveSha256":"%s"}\n' \\
+            "${OPENCODE_TEST_REMOTE_VERSION:-$OPENCODE_TEST_VERSION}" \\
+            "${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}" \\
+            "${OPENCODE_TEST_REMOTE_SHA256:-$OPENCODE_TEST_SHA256}"
           STUB
           cat > "$RUNNER_TEMP/termux-stubs/pkg" <<'STUB'
           #!/usr/bin/env bash
@@ -150,6 +153,7 @@ jobs:
           test -f "$PREFIX/lib/opencode-termux/lib/opencode/bunfig.toml"
           test -s "$PREFIX/lib/opencode-termux/THIRD_PARTY_NOTICES.md"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
+          test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256")" = "$OPENCODE_TEST_SHA256"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
           bash "$PREFIX/bin/opencode-termux" doctor
           # Existing 2.3.2 musl installs must be offered the Bionic migration
@@ -160,16 +164,23 @@ jobs:
           grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/migration-prompt.txt"
           grep -Fxq '2.3.2' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version"
           grep -Fxq 'android-bionic-bun-v1' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id"
+          grep -Fxq "$OPENCODE_TEST_SHA256" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
           script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/deferred-prompt.txt"
           if grep -Fq 'A new Termux runtime is available' "$RUNNER_TEMP/deferred-prompt.txt"; then
             echo "Deferred runtime prompt was shown again for the same target." >&2
             exit 1
           fi
+          # A same-version rebuild with the same runtime ID must prompt when its archive hash changes.
+          OPENCODE_TEST_REMOTE_SHA256="$(printf 'a%.0s' {1..64})"
+          export OPENCODE_TEST_REMOTE_SHA256
+          printf '\\033[B\\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
+          grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
+          grep -Fxq "$OPENCODE_TEST_REMOTE_SHA256" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
           OPENCODE_TEST_REMOTE_VERSION=2.3.3
           export OPENCODE_TEST_REMOTE_VERSION
           printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/next-version-prompt.txt"
           grep -Fq 'A new OpenCode version is available: 2.3.3' "$RUNNER_TEMP/next-version-prompt.txt"
-          echo "PASS: installer, dependency bootstrap, manager doctor and same-version migration/defer prompts."
+          echo "PASS: installer, dependency bootstrap, manager doctor, migration/defer prompts and same-version archive rebuild detection."
 
   build-native:
     name: Build and verify Android ARM64 runtime
