@@ -186,10 +186,17 @@ jobs:
               !installer.includes('sleep 0.7') || !installer.includes('curl --fail --location --progress-bar')) {
             throw new Error('installer must animate the logo during the real download progress and stop the animation afterwards');
           }
+          const installerAnimation = installer.slice(installer.indexOf('ui_animation_start() {'), installer.indexOf('ui_animation_stop() {'));
+          const launcherAnimationStart = installer.indexOf('ui_animation_start() {', installer.indexOf('UPDATE_URL='));
+          const launcherAnimationStop = installer.indexOf('ui_animation_stop() {', launcherAnimationStart);
+          const launcherAnimation = installer.slice(launcherAnimationStart, launcherAnimationStop);
+          if (!installerAnimation.includes('\\\\033[21A') || !launcherAnimation.includes('\\\\033[28A')) {
+            throw new Error('logo animation cursor offsets must match the installer and update-menu layouts');
+          }
           const updateLogoIndex = installer.indexOf('ui_draw_logo 241', installer.indexOf('UPDATE_URL='));
           const updateOptionsIndex = installer.indexOf("printf '  Install update now\\n'");
           const updateAnimationIndex = installer.indexOf('ui_animation_start', updateOptionsIndex);
-          const updateClearIndex = installer.indexOf("printf '\\033[6A\\033[J'");
+          const updateClearIndex = installer.indexOf("printf '\\033[7A\\033[J'");
           const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
           if (updateLogoIndex < 0 || updateOptionsIndex < 0 || updateAnimationIndex < updateOptionsIndex ||
               updateClearIndex < 0 || updateCommandIndex < updateClearIndex) {
