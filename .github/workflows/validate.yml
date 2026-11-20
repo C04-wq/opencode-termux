@@ -3,9 +3,12 @@ on:
   push:
     branches:
       - main
+      - "release/**"
     tags:
       - "v*"
   pull_request:
+  repository_dispatch:
+    types: [runtime-metadata-updated]
   workflow_dispatch:
 
 permissions:
@@ -350,21 +353,31 @@ jobs:
           (cd dist && sha256sum -c SHA256SUMS)
 
       - name: Publish immutable GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/heads/release/* ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME#release/}"
+          else
+            RELEASE_TAG="$GITHUB_REF_NAME"
+          fi
           EXPECTED="$(python3 tools/ocver.py tag)"
-          test "$GITHUB_REF_NAME" = "$EXPECTED" || {
-            echo "Refusing to publish $GITHUB_REF_NAME; source lock expects $EXPECTED" >&2
+          test "$RELEASE_TAG" = "$EXPECTED" || {
+            echo "Refusing to publish $RELEASE_TAG; source lock expects $EXPECTED" >&2
             exit 1
           }
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME already exists; refusing to overwrite it." >&2
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || {
+            echo "Refusing to publish a commit that is not contained in main." >&2
+            exit 1
+          }
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to overwrite it." >&2
             exit 1
           fi
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$RELEASE_TAG" \
             "dist/opencode-$OPENCODE_VERSION-android-aarch64-bundle.tar.gz" \
             dist/SHA256SUMS dist/report.json dist/supply-chain-lock.json dist/release-checksums.json \
             --repo "$GITHUB_REPOSITORY" \
@@ -378,3 +391,4 @@ jobs:
             -f content="$CONTENT" \
             -f sha="$META_SHA" \
             -f branch=main
+          gh api --method POST "repos/$GITHUB_REPOSITORY/dispatches" -f event_type=runtime-metadata-updated
