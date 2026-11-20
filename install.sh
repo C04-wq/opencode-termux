@@ -213,7 +213,7 @@ chmod 755 "$STAGE/files/bin/opencode"
 echo "Native runtime package prepared; executable test will run after activation."
 
 mkdir -p "$PREFIX/lib" "$PREFIX/bin"
-NEW="$PREFIX/lib/.opencode-termux-new-$"
+NEW="$PREFIX/lib/.opencode-termux-new-$$"
 rm -rf "$NEW"; mkdir -p "$NEW"
 cp -a "$STAGE/files/bin" "$NEW/bin"
 mkdir -p "$NEW/lib"
