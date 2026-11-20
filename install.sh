@@ -146,6 +146,12 @@ if ! is_project_checkout "$REPO_DIR"; then
   exec bash "$REPO_DIR/install.sh" "$@"
 fi
 
+# Keep executable entry points runnable in the managed checkout. Termux may
+# report chmod-only changes as Git modifications, so disable filemode tracking
+# before changing permissions; content changes remain detectable.
+run_quiet git -C "$REPO_DIR" config core.filemode false
+chmod 755 "$REPO_DIR/opencode-termux" "$REPO_DIR/manager.sh"
+
 META="$REPO_DIR/release-checksums.json"
 RUNTIME="$PREFIX/lib/opencode-termux"
 INSTALL_ACTION="installed"
