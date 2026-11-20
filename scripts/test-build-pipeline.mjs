@@ -48,7 +48,7 @@ for (const token of [
   "NAPI_VERSION=3",
   "napi_register_module_v1",
   "readelf -h",
-  "libc.so"
+  "glibc-linked dependency found"
 ]) assert.ok(watcherBuild.includes(token), "Android watcher cross-build missing " + token);
 assert.ok(watcherBuild.includes("unsupported TARGET_ARCH"), "watcher builder must reject unsupported targets");
 
