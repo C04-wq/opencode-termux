@@ -208,25 +208,40 @@ jobs:
       - name: Resolve pinned source and toolchain
         run: |
           set -euo pipefail
-          python3 - <<'PY' >> "$GITHUB_ENV"
+          mapfile -t locked < <(python3 - <<'PY'
           import json
           lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
           version = lock["current"]
           opentui_version = lock["opencode"][version]["opentui_version"]
           opentui = lock["opentui"][opentui_version]
-          print(f"OPENTUI_VERSION={opentui_version}")
-          print(f"OPENTUI_COMMIT={opentui['commit']}")
-          print(f"ZIG_VERSION={opentui['zig_version']}")
-          print(f"ZIG_SHA256={opentui['zig_x86_64_linux_sha256']}")
-          print(f"NDK_VERSION={lock['android_ndk_version']}")
+          print(opentui_version)
+          print(opentui["commit"])
+          print(opentui["zig_version"])
+          print(opentui["zig_x86_64_linux_sha256"])
+          print(lock["android_ndk_version"])
           PY
+          )
+          test "${#locked[@]}" -eq 5
+          OPENTUI_VERSION="${locked[0]}"
+          OPENTUI_COMMIT="${locked[1]}"
+          ZIG_VERSION="${locked[2]}"
+          ZIG_SHA256="${locked[3]}"
+          NDK_VERSION="${locked[4]}"
+          {
+            echo "OPENTUI_VERSION=$OPENTUI_VERSION"
+            echo "OPENTUI_COMMIT=$OPENTUI_COMMIT"
+            echo "ZIG_VERSION=$ZIG_VERSION"
+            echo "NDK_VERSION=$NDK_VERSION"
+          } >> "$GITHUB_ENV"
           mkdir -p work
           curl --fail --location --retry 3 --retry-all-errors \
             "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz" \
             -o work/zig.tar.xz
           echo "$ZIG_SHA256  work/zig.tar.xz" | sha256sum -c -
           tar -xJf work/zig.tar.xz -C work
-          echo "$GITHUB_WORKSPACE/work/zig-x86_64-linux-$ZIG_VERSION" >> "$GITHUB_PATH"
+          ZIG_ROOT="$GITHUB_WORKSPACE/work/zig-x86_64-linux-$ZIG_VERSION"
+          echo "$ZIG_ROOT" >> "$GITHUB_PATH"
+          export PATH="$ZIG_ROOT:$PATH"
           NDK="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
           test -d "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
           ACTUAL_NDK_VERSION="$(sed -n 's/^Pkg.Revision = //p' "$NDK/source.properties" | tr -d '\r')"
