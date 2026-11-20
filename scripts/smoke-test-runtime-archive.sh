@@ -59,7 +59,7 @@ chmod 755 "$WORKDIR/prefix/bin/bun"
 mkdir -p "$WORKDIR/stubs"
 cat > "$WORKDIR/stubs/uname" <<'UNAME'
 #!/usr/bin/env sh
-printf '%s\\n' "$BUN_TEST_ARCH"
+printf '%s\n' "$BUN_TEST_ARCH"
 UNAME
 chmod 755 "$WORKDIR/stubs/uname"
 export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
