@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-trap 'status=$?; printf "ERROR: smoke test failed at line %s: %s (exit %s)\\n" "$LINENO" "$BASH_COMMAND" "$status" >&2; exit "$status"' ERR
+trap 'status=$?; printf "ERROR: smoke test failed at line %s: %s (exit %s)\n" "$LINENO" "$BASH_COMMAND" "$status" >&2; exit "$status"' ERR
 if [[ $# -ne 3 ]]; then echo "Usage: $0 <native-bundle.tar.gz> <version> <new-workdir>" >&2; exit 64; fi
 ARCHIVE=$1 VERSION=$2 WORKDIR=$3
-[[ "$VERSION" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 64; }
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version" >&2; exit 64; }
 [[ ! -e "$WORKDIR" && "$WORKDIR" != / ]] || { echo "Work directory must be new" >&2; exit 64; }
 for cmd in bash sh readelf sha256sum; do command -v "$cmd" >/dev/null || { echo "Missing command: $cmd" >&2; exit 1; }; done
 mkdir -p "$(dirname "$WORKDIR")"; mkdir "$WORKDIR"
@@ -23,7 +23,7 @@ for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
   grep -q 'Class:.*ELF64' <<<"$header"
   grep -q 'Type:.*DYN' <<<"$header"
   grep -q 'Machine:.*AArch64' <<<"$header"
-  if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\\.so\\.6'; then
+  if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
 done
@@ -33,12 +33,12 @@ mkdir -p "$WORKDIR/prefix/bin" "$WORKDIR/prefix/lib"
 cat > "$WORKDIR/prefix/bin/bun" <<'BUN'
 #!/usr/bin/env bash
 set -e
-printf '%s\\n' "$OPENCODE_ROOT" > "$BUN_TEST_LOG.root"
-printf '%s\\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
-printf '%s\\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
-printf '%s\\n' "$OPENCODE_DISABLE_AUTOUPDATE" > "$BUN_TEST_LOG.autoupdate"
-printf '%s\\n' "$*" > "$BUN_TEST_LOG.args"
-if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
+printf '%s\n' "$OPENCODE_ROOT" > "$BUN_TEST_LOG.root"
+printf '%s\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
+printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
+printf '%s\n' "$OPENCODE_DISABLE_AUTOUPDATE" > "$BUN_TEST_LOG.autoupdate"
+printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
+if [[ "\${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
 BUN
 chmod 755 "$WORKDIR/prefix/bin/bun"
 cat > "$WORKDIR/prefix/bin/opencode" <<'OUTER'
