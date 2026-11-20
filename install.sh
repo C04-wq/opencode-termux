@@ -341,6 +341,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       fi
     fi
   fi
+fi
 exec "$RUNTIME/bin/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
