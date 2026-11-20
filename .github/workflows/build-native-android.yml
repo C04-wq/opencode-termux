@@ -26,7 +26,7 @@ jobs:
       version: ${{ steps.lock.outputs.version }}
     steps:
       - name: Check out this repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v6.1.0
         with:
           persist-credentials: false
           fetch-depth: 1
@@ -226,7 +226,7 @@ jobs:
       contents: write
     steps:
       - name: Check out the tagged source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v6.1.0
         with:
           persist-credentials: false
 
@@ -265,8 +265,8 @@ jobs:
             exit 1
           fi
           gh release create "$GITHUB_REF_NAME" \
-            "opencode-$VERSION-android-aarch64-bundle.tar.gz" \
-            SHA256SUMS report.json supply-chain-lock.json release-checksums.json \
+            "dist/opencode-$VERSION-android-aarch64-bundle.tar.gz" \
+            dist/SHA256SUMS dist/report.json dist/supply-chain-lock.json dist/release-checksums.json \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "OpenCode $VERSION for Termux (Android/Bionic)" \
