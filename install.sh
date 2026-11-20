@@ -50,8 +50,31 @@ ui_draw_logo() {
     printf '\033[0m\n'
   done
 }
+UI_CURSOR_HIDDEN=0
+ui_hide_cursor() {
+  (( UI_ENABLED == 1 )) || return 0
+  [[ "$UI_CURSOR_HIDDEN" == 1 ]] && return 0
+  printf '\033[?25l' >/dev/tty 2>/dev/null || return 0
+  UI_CURSOR_HIDDEN=1
+}
+ui_restore_cursor() {
+  [[ "$UI_CURSOR_HIDDEN" == 1 ]] || return 0
+  printf '\033[?25h' >/dev/tty 2>/dev/null || true
+  UI_CURSOR_HIDDEN=0
+}
+ui_handle_signal() {
+  local status="$1"
+  ui_animation_stop
+  ui_restore_cursor
+  exit "$status"
+}
+trap 'ui_restore_cursor' EXIT
+trap 'ui_handle_signal 130' INT
+trap 'ui_handle_signal 143' TERM
+trap 'ui_handle_signal 129' HUP
 ui_start() {
   (( UI_ENABLED == 1 )) || return 0
+  ui_hide_cursor
   [[ "$UI_STARTED" == 1 ]] && return 0
   printf '\n'
   ui_draw_logo 241
@@ -223,6 +246,7 @@ cleanup() {
   local status=$?
   trap - EXIT
   ui_animation_stop
+  ui_restore_cursor
   rm -rf "$STAGE"
   if [[ -n "$NEW" ]]; then rm -rf "$NEW"; fi
   if (( status != 0 )); then
@@ -418,17 +442,23 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
           break
         fi
       done
-      restore_cursor
-      trap - EXIT INT TERM HUP
       ui_animation_stop
       if [[ "$SELECTED" == 1 ]]; then
+        # Keep the cursor hidden through the updater and installer hand-off.
         # Remove the decision menu and leave the cursor directly below the logo.
         printf '\033[7A\033[J'
         if OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"; then
+          restore_cursor
+          trap - EXIT INT TERM HUP
           exec "$0" "$@"
         else
+          restore_cursor
+          trap - EXIT INT TERM HUP
           printf 'Update failed. Starting the currently installed version.\n' >&2
         fi
+      else
+        restore_cursor
+        trap - EXIT INT TERM HUP
       fi
     fi
   fi
