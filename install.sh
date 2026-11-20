@@ -413,11 +413,11 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
         printf ' '
         for (( index=0; index<length; index++ )); do
           progress=$(( index * 100 / (length > 1 ? length - 1 : 1) ))
-          red=$(( 5 + progress * 10 / 100 ))
-          green=$(( 38 + progress * 82 / 100 ))
-          blue=$(( 20 + progress * 38 / 100 ))
+          red=$(( 62 + progress * 150 / 100 ))
+          green=$(( 62 + progress * 150 / 100 ))
+          blue=$(( 62 + progress * 150 / 100 ))
           char="${label:index:1}"
-          printf '\033[48;2;%d;%d;%dm\033[1;97m%s' "$red" "$green" "$blue" "$char"
+          printf '\033[48;2;%d;%d;%dm\033[1;30m%s' "$red" "$green" "$blue" "$char"
         done
         printf '\033[0m '
       }
