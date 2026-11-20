@@ -20,9 +20,9 @@ The official package recipe ultimately belongs at `packages/opencode/build.sh` i
 
 ### 1. Package size
 
-The latest published ARM64 runtime archive is 122,380,887 bytes (about 116.7 MiB compressed). Termux's packaging policy says the resulting package should be below 100 MiB. This is a hard submission blocker until the package is reduced or Termux maintainers explicitly accept an exception.
+The latest published ARM64 runtime archive is 122,380,887 bytes (about 116.7 MiB compressed). This is a warning sign, not proof that the final `.deb` exceeds the limit: Termux's policy applies to the resulting package, whose compression and metadata differ from this tarball.
 
-The package-size gate must measure the final `.deb`, not just a source archive or an intermediate bundle. Do not hide files from the package merely to pass the size check if they are required at runtime.
+The final `.deb` must be built and measured before declaring the size requirement passed or failed. If it exceeds 100 MiB, reduce the package or request an explicit exception from maintainers. Do not hide files from the package merely to pass the size check if they are required at runtime.
 
 ### 2. Architecture support
 
