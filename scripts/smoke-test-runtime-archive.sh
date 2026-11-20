@@ -44,6 +44,32 @@ for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
 done
+# Check that the watcher exposes a registration mechanism understood by the
+# N-API loader. The ARM64 prebuilt addon uses NODE_API_MODULE's constructor
+# registration; the x86_64 source build exports the explicit N-API entry points.
+watcher="$ROOT/lib/opencode/watcher.node"
+watcher_symbols="$(readelf --dyn-syms --wide "$watcher")"
+case "$TARGET_ARCH" in
+  aarch64)
+    if ! grep -Eq 'UND[[:space:]]+napi_module_register' <<<"$watcher_symbols"; then
+      echo "ARM64 watcher is missing the N-API constructor registration import." >&2
+      exit 1
+    fi
+    if ! readelf -SW "$watcher" | grep -Eq '\.init_array[[:space:]]+INIT_ARRAY'; then
+      echo "ARM64 watcher is missing its N-API registration constructor table." >&2
+      exit 1
+    fi
+    ;;
+  x86_64)
+    for symbol in napi_register_module_v1 node_api_module_get_api_version_v1; do
+      if ! grep -Eq "GLOBAL[[:space:]]+DEFAULT[[:space:]]+[0-9]+[[:space:]]+$symbol([[:space:]]|$)" <<<"$watcher_symbols"; then
+        echo "x86_64 watcher is missing exported N-API entry point: $symbol" >&2
+        exit 1
+      fi
+    done
+    ;;
+esac
+
 # Exercise the shipped shell launcher without loading Android/Bionic modules
 # on the Linux CI host. The stub verifies the module path and argument contract.
 mkdir -p "$WORKDIR/prefix/bin"

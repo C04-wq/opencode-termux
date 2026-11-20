@@ -64,6 +64,14 @@ for (const token of [
 assert.ok(watcherBuild.includes("unsupported TARGET_ARCH"), "watcher builder must reject unsupported targets");
 const smoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
 assert.ok(smoke.includes("export TARGET_ARCH"), "archive smoke test must pass the selected architecture to the validator");
+for (const token of [
+  "N-API constructor registration import",
+  "napi_module_register",
+  ".init_array",
+  "napi_register_module_v1",
+  "node_api_module_get_api_version_v1"
+]) assert.ok(smoke.includes(token), "archive smoke test must validate watcher N-API registration: " + token);
+
 
 const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
 assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must target this repository");
