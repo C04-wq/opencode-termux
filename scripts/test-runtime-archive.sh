@@ -6,13 +6,13 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 make_fixture() {
   local dir="$1"
-  mkdir -p "$dir/bin" "$dir/lib/opencode"
+  mkdir -p "$dir/bin" "$dir/lib"
   printf '#!/bin/sh\nexec bun "$@"\n' > "$dir/bin/opencode"
-  printf 'console.log("fixture")\n' > "$dir/lib/opencode/index.js"
-  printf 'smol = true\n' > "$dir/lib/opencode/bunfig.toml"
-  printf 'native\n' > "$dir/lib/opencode/libopentui.so"
-  printf 'native\n' > "$dir/lib/opencode/librust_pty_arm64.so"
-  printf 'native\n' > "$dir/lib/opencode/watcher.node"
+  printf 'console.log("fixture")\n' > "$dir/lib/index.js"
+  printf 'smol = true\n' > "$dir/lib/bunfig.toml"
+  printf 'native\n' > "$dir/lib/libopentui.so"
+  printf 'native\n' > "$dir/lib/librust_pty_arm64.so"
+  printf 'native\n' > "$dir/lib/watcher.node"
 }
 expect_rejected() {
   local archive="$1" name="$2" dest="$TMP/out-$2"
@@ -25,7 +25,7 @@ expect_rejected() {
 make_fixture "$TMP/good"
 tar -czf "$TMP/good.tar.gz" -C "$TMP/good" bin lib
 bash "$VALIDATOR" "$TMP/good.tar.gz" "$TMP/extracted"
-[[ -x "$TMP/extracted/bin/opencode" || -f "$TMP/extracted/bin/opencode" ]]
+[[ -s "$TMP/extracted/bin/opencode" && -s "$TMP/extracted/lib/index.js" ]]
 echo "PASS: accepted valid native bundle"
 mkdir -p "$TMP/extra"; cp -a "$TMP/good/." "$TMP/extra/"; printf bad > "$TMP/extra/outside"
 tar -czf "$TMP/extra.tar.gz" -C "$TMP/extra" bin lib outside
@@ -35,6 +35,6 @@ expect_rejected "$TMP/traversal.tar.gz" traversal
 mkdir -p "$TMP/link"; cp -a "$TMP/good/." "$TMP/link/"; rm "$TMP/link/bin/opencode"; ln -s /etc/passwd "$TMP/link/bin/opencode"
 tar -czf "$TMP/link.tar.gz" -C "$TMP/link" bin lib
 expect_rejected "$TMP/link.tar.gz" symlink
-mkdir -p "$TMP/missing"; cp -a "$TMP/good/." "$TMP/missing/"; rm "$TMP/missing/lib/opencode/watcher.node"
+mkdir -p "$TMP/missing"; cp -a "$TMP/good/." "$TMP/missing/"; rm "$TMP/missing/lib/watcher.node"
 tar -czf "$TMP/missing.tar.gz" -C "$TMP/missing" bin lib
 expect_rejected "$TMP/missing.tar.gz" missing-file
