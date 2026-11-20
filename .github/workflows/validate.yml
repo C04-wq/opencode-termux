@@ -221,6 +221,12 @@ jobs:
               !installer.includes("printf '\\033[2K\\n'")) {
             throw new Error('update choices must have a blank line between them and redraw as a three-row menu');
           }
+          if (!installer.includes("printf '○ Install update now\\\\n'") ||
+              !installer.includes("printf '○ Wait for the next version\\\\n'") ||
+              !installer.includes("printf '\\\\033[2K○ Install update now\\\\n'") ||
+              !installer.includes("printf '\\\\033[2K○ Wait for the next version\\\\n'")) {
+            throw new Error('update menu must show empty radio circles for unselected choices');
+          }
           const updateClearIndex = installer.indexOf("printf '\\033[8A\\033[J'");
           const updateCommandIndex = installer.indexOf('OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"');
           if (updateLogoIndex < 0 || updateOptionsIndex < 0 || updateAnimationIndex < updateOptionsIndex ||
