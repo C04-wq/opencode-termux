@@ -29,6 +29,7 @@ for (const token of [
   "artifacts/bundle/"
 ]) assert.ok(build.includes(token), "native build script missing " + token);
 assert.ok(build.includes("--filter 'opencode'"), "native typecheck must install root workspace development tools");
+assert.ok(build.includes('export PATH="$work/host/bun-linux-x64:$PATH"'), "verified host Bun must be available to lifecycle subprocesses");
 
 const pty = fs.readFileSync("scripts/ci/build-rust-pty-android.sh", "utf8");
 assert.ok(pty.includes("EXPECTED_COMMIT"), "bun-pty source commit must be pinned and verified");
