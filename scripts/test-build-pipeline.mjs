@@ -66,7 +66,9 @@ assert.ok(watcher.includes("gh issue create"));
 const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
-for (const token of ["OPENCODE_ROOT", 'OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"', "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
+assert.ok(launcher.includes('OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"'), "launcher must preserve the managed public path or fall back to itself");
+assert.ok(!launcher.includes('if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/opencode" ]; then'), "candidate bundles must not hijack an existing production launcher");
+for (const token of ["OPENCODE_ROOT", "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
   assert.ok(launcher.includes(token), "Termux Bun launcher missing " + token);
 }
 
