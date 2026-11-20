@@ -408,16 +408,19 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       printf 'Use ↑/↓ to choose and Enter to confirm.\n'
       printf '\n'
       draw_update_menu() {
-        printf '\033[2A'
+        printf '\033[3A'
         if [[ "$SELECTED" == 1 ]]; then
           printf '\033[2K\033[32m●\033[0m Install update now\n'
+          printf '\033[2K\n'
           printf '\033[2K  Wait for the next version\n'
         else
           printf '\033[2K  Install update now\n'
+          printf '\033[2K\n'
           printf '\033[2K\033[32m●\033[0m Wait for the next version\n'
         fi
       }
       printf '  Install update now\n'
+      printf '\n'
       printf '  Wait for the next version\n'
       draw_update_menu
       ui_animation_start
@@ -446,7 +449,7 @@ if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && co
       if [[ "$SELECTED" == 1 ]]; then
         # Keep the cursor hidden through the updater and installer hand-off.
         # Remove the decision menu and leave the cursor directly below the logo.
-        printf '\033[7A\033[J'
+        printf '\033[8A\033[J'
         if OPENCODE_TERMUX_UI_STARTED=1 "$PREFIX/bin/opencode-termux-update"; then
           restore_cursor
           trap - EXIT INT TERM HUP
