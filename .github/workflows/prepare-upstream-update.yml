@@ -36,7 +36,7 @@ jobs:
           refs = json.load(sys.stdin)
           candidates = []
           for item in refs:
-              match = re.fullmatch(r"refs/tags/(v2\\.\\d+\\.\\d+)", item.get("ref", ""))
+              match = re.fullmatch(r"refs/tags/(v2[.][0-9]+[.][0-9]+)", item.get("ref", ""))
               if not match:
                   continue
               obj = item.get("object", {})
@@ -89,7 +89,7 @@ jobs:
             {
               echo "## No newer upstream version"
               echo
-              echo "The upstream default branch currently declares OpenCode $VERSION; this repository is locked to $CURRENT."
+              echo "The latest official upstream tag is $UPSTREAM_TAG ($VERSION); this repository is locked to $CURRENT."
               echo "No candidate artifact was generated and no repository files were changed."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
