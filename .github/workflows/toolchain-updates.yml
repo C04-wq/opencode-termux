@@ -76,7 +76,7 @@ jobs:
     needs: check-alpine
     if: github.event_name != 'schedule' || needs.check-alpine.outputs.changed == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -93,11 +93,11 @@ jobs:
           set -euo pipefail
           retry_apt() {
             local attempt=1
-            local max_attempts=3
+            local max_attempts=2
             local delay=10
             while true; do
               local status=0
-              if timeout --signal=TERM --kill-after=30s 8m "$@"; then
+              if timeout --signal=TERM --kill-after=60s 20m "$@"; then
                 return 0
               else
                 status=$?
