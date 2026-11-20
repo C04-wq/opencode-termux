@@ -95,7 +95,7 @@ jobs:
               ]
           }
           pathlib.Path("candidate/upstream-update-candidate.json").write_text(
-              json.dumps(result, indent=2, sort_keys=True) + "\\n",
+              json.dumps(result, indent=2, sort_keys=True) + chr(10),
               encoding="utf-8"
           )
           PY
