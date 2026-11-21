@@ -81,6 +81,14 @@ if not re.search(rf'^version\s*=\s*"{re.escape(version)}"', manifest, re.M):
 PY
 [[ -s "$SRC/Cargo.lock" ]] || { echo "FFF: upstream Cargo.lock is missing" >&2; exit 1; }
 
+manifest="$SRC/Cargo.toml"
+(
+  cd "$SRC"
+  # Exercise the official crate tests natively before setting cross-compiler
+  # variables; otherwise CMake/cc would try to use the Android linker on host.
+  cargo test --locked -p "$FFF_CRATE" --manifest-path "$manifest"
+)
+
 toolchain="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/bin"
 linker="$toolchain/${linker_prefix}${ANDROID_API}-clang"
 cxx="$toolchain/${linker_prefix}${ANDROID_API}-clang++"
@@ -105,11 +113,9 @@ export ANDROID_PLATFORM="android-$ANDROID_API"
 export CMAKE_BUILD_TYPE=Release
 export PKG_CONFIG_ALLOW_CROSS=1
 
-manifest="$SRC/crates/fff-c/Cargo.toml"
 (
   cd "$SRC"
-  cargo test --locked -p "$FFF_CRATE" --manifest-path "$SRC/Cargo.toml"
-  cargo build --locked --release -p "$FFF_CRATE" --target "$target" --manifest-path "$SRC/Cargo.toml"
+  cargo build --locked --release -p "$FFF_CRATE" --target "$target" --manifest-path "$manifest"
   cargo test --locked --no-run -p "$FFF_CRATE" --target "$target" --manifest-path "$SRC/Cargo.toml"
 )
 
