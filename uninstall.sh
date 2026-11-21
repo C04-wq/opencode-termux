@@ -35,5 +35,7 @@ elif [[ -L "$LEGACY_LAUNCHER2" ]]; then
 fi
 rm -rf "$RUNTIME"
 rm -f "$LAUNCHER"
-[[ "$REMOVE_LEGACY_LAUNCHER2" == 1 ]] && rm -f "$LEGACY_LAUNCHER2"
+if [[ "$REMOVE_LEGACY_LAUNCHER2" == 1 ]]; then
+  rm -f "$LEGACY_LAUNCHER2"
+fi
 echo "Runtime and launchers removed. User data was left untouched."
