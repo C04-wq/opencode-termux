@@ -111,7 +111,11 @@ set -e
 printf '%s\n' "$OPENCODE_ROOT" > "$BUN_TEST_LOG.root"
 printf '%s\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
 printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
-printf '%s\n' "$OPENCODE_DISABLE_AUTOUPDATE" > "$BUN_TEST_LOG.autoupdate"
+if [[ ${OPENCODE_DISABLE_AUTOUPDATE+x} ]]; then
+  printf '%s\\n' set > "$BUN_TEST_LOG.autoupdate"
+else
+  printf '%s\\n' unset > "$BUN_TEST_LOG.autoupdate"
+fi
 printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
 if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
 BUN
@@ -136,7 +140,7 @@ fi
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
 grep -Fxq "$ROOT/lib/opencode/$PTY_LIBRARY" "$BUN_TEST_LOG.pty"
-grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
+grep -Fxq unset "$BUN_TEST_LOG.autoupdate"
 grep -Fq -- '--smol' "$BUN_TEST_LOG.args"
 grep -Fq -- "$ROOT/lib/opencode/index.js --version" "$BUN_TEST_LOG.args"
 echo "PASS: Android $TARGET_ARCH ELF modules are Bionic shared libraries without glibc dependencies."
