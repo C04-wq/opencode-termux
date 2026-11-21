@@ -233,17 +233,9 @@ pty_daemon="$work/opencode-pty"
 TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
   bash "$ROOT/scripts/ci/build-opencode-pty-android.sh" "$src" "$pty_daemon"
 
-if [ "$TARGET_ARCH" = aarch64 ]; then
-  watcher="$(find "$src/node_modules/.bun" -path '*@parcel+watcher-android-arm64@*/node_modules/@parcel/watcher-android-arm64/watcher.node')"
-  test "$(printf '%s\n' "$watcher" | wc -l)" -eq 1 && [ -f "$watcher" ] || {
-    echo "expected one @parcel/watcher-android-arm64, got: $watcher" >&2
-    exit 1
-  }
-else
-  watcher="$work/watcher.node"
-  TARGET_ARCH=x86_64 NDK="${NDK:-}" ANDROID_API="$api" \
-    bash "$ROOT/scripts/ci/build-parcel-watcher-android.sh" "$src" "$watcher"
-fi
+watcher="$work/watcher.node"
+TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
+  bash "$ROOT/scripts/ci/build-parcel-watcher-android.sh" "$src" "$watcher"
 
 # ---- bundle ----------------------------------------------------------------
 # The TUI banner is embedded at build time from .release/v<version>-highlights.md.
