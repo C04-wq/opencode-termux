@@ -291,17 +291,17 @@ PY
 fi
 
 rm -rf "$out"
-mkdir -p "$out/lib/opencode"
+mkdir -p "$out/lib"
 cp -a "$lib/." "$out/lib/"
 install -m 0755 "$pty" "$out/lib/$PTY_LIB_NAME"
-install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"
-printf '%s\n' "$commit" > "$out/lib/opencode/opencode-pty.required"
+install -m 0755 "$pty_daemon" "$out/lib/opencode-pty"
+printf '%s\n' "$commit" > "$out/lib/opencode-pty.required"
 install -m 0644 "$watcher" "$out/lib/watcher.node"
 # Empty bunfig: the wrapper points bun at it so a project's bunfig.toml or
 # .env in the user's cwd never changes how the CLI starts.
 : > "$out/lib/bunfig.toml"
 find "$out/lib" -type f -exec chmod 0644 {} +
-chmod 0755 "$out/lib/$PTY_LIB_NAME" "$out/lib/opencode/opencode-pty"
+chmod 0755 "$out/lib/$PTY_LIB_NAME" "$out/lib/opencode-pty"
 
 # Every asset the bundle references by absolute path must exist in the tree;
 # a missing one only shows up on device otherwise.
