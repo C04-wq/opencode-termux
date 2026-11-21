@@ -99,7 +99,9 @@ for required in \
   lib/opencode/index.js \
   lib/opencode/bunfig.toml \
   lib/opencode/$PTY_LIBRARY \
-  lib/opencode/watcher.node; do
+  lib/opencode/watcher.node \
+  lib/opencode/opencode-pty \
+  lib/opencode/opencode-pty.required; do
   [[ -f "$CANDIDATE/$required" ]] || {
     echo "Error: candidate archive is missing $required" >&2
     exit 1
@@ -133,6 +135,7 @@ else
   echo "Note: readelf is not installed; device-side ELF inspection was skipped."
 fi
 
+"$CANDIDATE/lib/opencode/opencode-pty" --version
 echo "Testing OpenCode $VERSION ($TARGET_ARCH) with the real Termux Bun runtime..."
 VERSION_OUTPUT="$("$CANDIDATE/bin/opencode" --version 2>&1)"
 printf '%s\n' "$VERSION_OUTPUT"
