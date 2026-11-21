@@ -87,6 +87,25 @@ def main() -> None:
         '  if (process.platform === "linux" || process.platform === "android") return "inotify"\n',
     )
 
+    # Android exposes the same per-process /proc metadata used by the
+    # official Linux foreground-process detector. Keep that upstream behavior
+    # on Termux instead of silently disabling terminal process titles.
+    daemon_service = root / "packages/process-daemon/src/service.rs"
+    service_text = daemon_service.read_text(encoding="utf-8")
+    linux_gate = '#[cfg(target_os = "linux")]'
+    android_gate = '#[cfg(any(target_os = "linux", target_os = "android"))]'
+    if linux_gate in service_text:
+        service_text = service_text.replace(linux_gate, android_gate)
+    elif android_gate not in service_text:
+        raise SystemExit("patch-opencode-source: process-daemon Linux cfg anchors changed")
+    fallback_gate = '#[cfg(not(any(windows, target_os = "linux")))]'
+    android_fallback = '#[cfg(not(any(windows, target_os = "linux", target_os = "android")))]'
+    if fallback_gate in service_text:
+        service_text = service_text.replace(fallback_gate, android_fallback)
+    elif android_fallback not in service_text:
+        raise SystemExit("patch-opencode-source: process-daemon foreground fallback cfg changed")
+    daemon_service.write_text(service_text, encoding="utf-8")
+
     # The CLI aliases `update` to `upgrade`; the TUI's /update calls Updater.apply.
     # Keep the native installer in their shared service so both paths use it.
     updater = root / "packages/cli/src/services/updater.ts"
