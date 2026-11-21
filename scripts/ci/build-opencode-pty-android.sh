@@ -11,6 +11,7 @@ if [[ $# -ne 2 ]]; then
 fi
 SRC_ROOT="$(realpath "$1")"
 OUT="$2"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 TARGET_ARCH="${TARGET_ARCH:-aarch64}"
 ANDROID_API="${ANDROID_API:-28}"
 NDK="${NDK:-}"
@@ -68,6 +69,29 @@ elif text.count('"aarch64-linux-android"') == 1 and text.count('"x86_64-linux-an
     pass
 else:
     raise SystemExit("opencode-pty: upstream build.rs target map changed; refusing an unreviewed patch")
+PY
+
+python3 - "$REPO_ROOT/tools/supply-chain-lock.json" "$SRC_ROOT/packages/process-daemon/Cargo.toml" "$SRC_ROOT/packages/process-daemon/ghostty-revision" "$target" "$(zig version)" <<'PY'
+import json, re, sys
+lock_path, manifest_path, ghostty_path, target, zig_version = sys.argv[1:]
+lock = json.load(open(lock_path, encoding="utf-8"))
+pin = lock.get("process_daemon")
+if not isinstance(pin, dict):
+    raise SystemExit("opencode-pty: process_daemon is missing from supply-chain-lock.json")
+manifest = open(manifest_path, encoding="utf-8").read()
+name = re.search(r'^name\s*=\s*"([^"]+)"', manifest, re.M)
+version = re.search(r'^version\s*=\s*"([^"]+)"', manifest, re.M)
+if not name or name.group(1) != pin.get("package"):
+    raise SystemExit("opencode-pty: official Cargo package name differs from the supply-chain lock")
+if not version or version.group(1) != pin.get("version"):
+    raise SystemExit("opencode-pty: official daemon version differs from the supply-chain lock")
+ghostty = open(ghostty_path, encoding="utf-8").read().strip()
+if ghostty != pin.get("ghostty_commit"):
+    raise SystemExit(f"opencode-pty: Ghostty revision {ghostty} differs from locked {pin.get('ghostty_commit')}")
+if target not in pin.get("android_targets", []):
+    raise SystemExit(f"opencode-pty: Android target {target} is not allowlisted in the supply-chain lock")
+if zig_version != pin.get("zig_version"):
+    raise SystemExit(f"opencode-pty: Zig {zig_version} differs from locked {pin.get('zig_version')}")
 PY
 
 toolchain="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/bin"
