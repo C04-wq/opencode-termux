@@ -137,7 +137,6 @@ export "$linker_var=$linker"
 export CC="$linker"
 export CXX="$toolchain/${linker_prefix}${ANDROID_API}-clang++"
 export AR="$toolchain/llvm-ar"
-export CARGO_BUILD_TARGET="$target"
 export ANDROID_NDK_HOME="$NDK"
 export ANDROID_NDK_ROOT="$NDK"
 
@@ -148,7 +147,7 @@ manifest="$SRC_ROOT/packages/process-daemon/Cargo.toml"
   # Run the upstream daemon's complete native test suite once on the Linux CI
   # host (the x86_64 build job); both Android targets still compile test harnesses.
   if [[ "${RUN_UPSTREAM_NATIVE_TESTS:-1}" == "1" ]]; then
-    cargo test --locked --manifest-path "$manifest"
+    env -u CC -u CXX -u AR -u CARGO_BUILD_TARGET -u CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER -u CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER -u CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS -u CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS cargo test --locked --manifest-path "$manifest"
   fi
   cargo build --locked --release --target "$target" --manifest-path "$manifest"
   cargo test --locked --no-run --target "$target" --manifest-path "$manifest"
