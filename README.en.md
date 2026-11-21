@@ -68,7 +68,7 @@ The runtime is a JavaScript bundle executed by Termux Bun, with OpenTUI, the `bu
 | --- | --- |
 | Device | Android 9 (API 28) or newer running Termux |
 | Architecture | ARM64 / aarch64 and x86_64 |
-| Runtime dependencies | Termux packages bun, ripgrep and libc++ (installed if missing); Bun's version is checked against the release pin |
+| Runtime dependencies | Termux packages bun, ripgrep and libc++ (installed if missing); Bun must keep the pinned major/minor series and meet or exceed the pinned patch version |
 | Installer tools | Bash, Git, curl, tar, sed and sha256sum |
 | Termux support files | CA certificate bundle and resolver configuration |
 | Network | Internet access for installation, pinned release downloads, update checks and AI providers |
