@@ -113,7 +113,7 @@ jobs:
 
           candidate = {
               "schema_version": 1,
-              "status": "automated_candidate_requires_review",
+              "status": "candidate_only_not_approved_for_release",
               "source_repository": "anomalyco/opencode",
               "upstream_tag": tag,
               "locked_version": current,
@@ -129,7 +129,7 @@ jobs:
                   "Review upstream source and dependency changes against the inherited Android toolchain pins.",
                   "Confirm ARM64 and x86_64 CI builds, archive validation, and smoke tests pass.",
                   "Run Termux device smoke tests on supported architectures before approval.",
-                  "Do not publish or update release-checksums.json until this candidate is approved and merged."
+                  "Do not modify release-checksums.json or publish from this candidate artifact."
               ]
           }
           pathlib.Path("candidate/upstream-update-candidate.json").write_text(
