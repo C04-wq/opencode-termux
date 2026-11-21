@@ -101,7 +101,7 @@ rustup target list --installed | grep -qx "$target" || rustup target add "$targe
 printf -v linker_var 'CARGO_TARGET_%s_LINKER' "$cargo_env"
 printf -v rustflags_var 'CARGO_TARGET_%s_RUSTFLAGS' "$cargo_env"
 export "$linker_var=$linker"
-export "$rustflags_var=-C link-arg=-Wl,-z,max-page-size=16384"
+export "$rustflags_var=-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
 export CC="$linker"
 export CXX="$cxx"
 export AR="$toolchain/llvm-ar"
