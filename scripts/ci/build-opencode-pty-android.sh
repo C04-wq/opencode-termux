@@ -44,9 +44,39 @@ case "$TARGET_ARCH" in
     ;;
 esac
 
-for tool in cargo rustup zig readelf python3 realpath stat; do
+for tool in cargo rustup readelf python3 realpath stat curl sha256sum tar; do
   command -v "$tool" >/dev/null 2>&1 || { echo "opencode-pty: missing build tool $tool" >&2; exit 1; }
 done
+
+# Ghostty has its own Zig requirement, independent of OpenTUI's Zig version.
+# Install the exact hash-locked compiler in an isolated directory and use it
+# only while Cargo runs the process-daemon build script.
+mapfile -t zig_pin < <(python3 - "$REPO_ROOT/tools/supply-chain-lock.json" <<'PY'
+import json, sys
+pin = json.load(open(sys.argv[1], encoding="utf-8"))["process_daemon"]
+print(pin["zig_version"])
+print(pin["zig_x86_64_linux_sha256"])
+PY
+)
+test "${#zig_pin[@]}" -eq 2
+ZIG_VERSION="${zig_pin[0]}"
+ZIG_SHA256="${zig_pin[1]}"
+ZIG_ROOT="$REPO_ROOT/work/zig-process-daemon-$ZIG_VERSION"
+if [[ ! -x "$ZIG_ROOT/zig" ]]; then
+  mkdir -p "$REPO_ROOT/work"
+  archive="$REPO_ROOT/work/zig-process-daemon-$ZIG_VERSION.tar.xz"
+  curl --fail --location --retry 3 --retry-all-errors \
+    "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz" -o "$archive"
+  echo "$ZIG_SHA256  $archive" | sha256sum -c -
+  temp="$REPO_ROOT/work/zig-process-daemon-extract"
+  rm -rf "$temp"
+  mkdir -p "$temp"
+  tar -xJf "$archive" -C "$temp"
+  mv "$temp/zig-x86_64-linux-$ZIG_VERSION" "$ZIG_ROOT"
+  rmdir "$temp"
+fi
+export PATH="$ZIG_ROOT:$PATH"
+test "$(zig version)" = "$ZIG_VERSION"
 
 # Upstream build.rs supports Linux GNU/musl and Apple/Windows targets, but
 # omits Android triples. Extend only its target translation; the Ghostty
