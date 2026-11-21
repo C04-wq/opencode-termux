@@ -52,6 +52,8 @@ const validator = fs.readFileSync("scripts/validate-runtime-archive.sh", "utf8")
 for (const token of ["bin/opencode", "lib/opencode/index.js", "librust_pty_arm64.so", "watcher.node", "no-same-owner", "no-same-permissions"]) {
   assert.ok(validator.includes(token), "archive validator missing " + token);
 }
+const smoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
+assert.ok(smoke.includes('"${OPENCODE_PTY_BIN:-}"') && smoke.includes('"$ROOT/lib/opencode/opencode-pty"'), "archive smoke test must verify the launcher selects the official PTY daemon");
 const uninstall = fs.readFileSync("uninstall.sh", "utf8");
 assert.ok(uninstall.includes('rm -rf "$RUNTIME"'), "uninstaller must remove the complete native bundle");
 assert.ok(installer.includes('"$PREFIX/bin/opencode2"') && installer.includes('"opencode", "opencode2"'), "installer must detect only owned legacy opencode2 commands");
