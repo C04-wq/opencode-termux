@@ -38,6 +38,6 @@ grep -Fq 'URIs: https://packages.termux.dev/apt/termux-main' "$PREFIX/etc/apt/so
 grep -Fq '# legacy Main repository comment must remain untouched' "$PREFIX/etc/apt/sources.list"
 [[ -f "$PREFIX/etc/apt/sources.list.opencode-termux.bak" ]]
 [[ -f "$PREFIX/etc/apt/sources.list.d/main.sources.opencode-termux.bak" ]]
-! grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\\.net([/:[:space:]]|$)' "$PREFIX/etc/apt/sources.list" "$PREFIX/etc/apt/sources.list.d/main.sources"
+! grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net([/:[:space:]]|$)' "$PREFIX/etc/apt/sources.list" "$PREFIX/etc/apt/sources.list.d/main.sources"
 
 echo "PASS: legacy sources.list and modern deb822 main.sources are migrated and backed up."
