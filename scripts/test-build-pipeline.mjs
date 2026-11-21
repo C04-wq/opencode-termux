@@ -64,6 +64,7 @@ assert.ok(fffPatch.includes('choices=("aarch64", "x86_64")'), "FFF patch must su
 assert.ok(fffPatch.includes('"x86_64": ("x64", "x64")') && fffPatch.includes('package_name = f"@ff-labs/fff-bin-android-{package_arch}"'), "FFF x86_64 package must be selected");
 const daemonBuild = fs.readFileSync("scripts/ci/build-opencode-pty-android.sh", "utf8");
 assert.ok(daemonBuild.includes("grep -Eq 'Class:[[:space:]]+ELF64'"), "daemon ELF64 validation must tolerate readelf field padding");
+assert.ok(daemonBuild.includes("-u ANDROID_NDK_HOME") && daemonBuild.includes("-u CMAKE_TOOLCHAIN_FILE"), "native daemon tests must not inherit Android cross-compilation environment variables");
 for (const token of [
   "packages/process-daemon/Cargo.toml",
   "packages/process-daemon/Cargo.lock",
@@ -159,6 +160,8 @@ assert.ok(!tlsShim.includes("int pthread_tryjoin_np("), "unsafe pthread_tryjoin_
 
 const workflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
 assert.ok(workflow.includes("group: validate-native-${{ github.event.pull_request.number || github.ref }}"), "validation runs for the same PR must share one concurrency group");
+assert.equal(JSON.parse(fs.readFileSync("release-checksums.json", "utf8")).bunVersion, lock.opencode[version].bun_version, "current release metadata must pin the matching Bun runtime");
+assert.ok(workflow.includes('"bunVersion": bun_version'), "new releases must publish their exact Bun runtime requirement");
 assert.ok(workflow.includes("cancel-in-progress: true"), "new PR validation must cancel superseded runs");
 assert.ok(workflow.includes("build-x86_64-native:"), "CI must build the complete x86_64 runtime independently");
 assert.ok(workflow.includes("libnode-dev"), "CI must install Node-API headers for the x86_64 Parcel watcher build");
