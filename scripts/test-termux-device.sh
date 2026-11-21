@@ -28,7 +28,7 @@ case "$DEVICE_ARCH" in
     exit 1
     ;;
 esac
-for cmd in bun rg tar sha256sum; do
+for cmd in bun rg tar sha256sum timeout; do
   command -v "$cmd" >/dev/null 2>&1 || {
     echo "Missing dependency: $cmd. Install it with: pkg install bun ripgrep libc++" >&2
     exit 1
