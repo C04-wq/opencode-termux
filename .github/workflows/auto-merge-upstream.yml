@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$CANDIDATE_BRANCH" --state open --json number,isDraft,baseRefName,headRefOid,url --jq '.[0] // empty')"
+          pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$CANDIDATE_BRANCH" --state open --json number,isDraft,baseRefName,headRefOid,author,url --jq '.[0] // empty')"
           if [[ -z "$pr" ]]; then
             echo "No open candidate PR exists for $CANDIDATE_BRANCH; nothing to merge."
             echo "merge=false" >> "$GITHUB_OUTPUT"
@@ -46,7 +46,9 @@ jobs:
           draft="$(jq -r '.isDraft' <<<"$pr")"
           base="$(jq -r '.baseRefName' <<<"$pr")"
           head="$(jq -r '.headRefOid' <<<"$pr")"
-          if [[ "$draft" != "true" || "$base" != "main" || "$head" != "$VALIDATED_SHA" ]]; then
+          author="$(jq -r '.author.login' <<<"$pr")"
+          files="$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json files --jq '.files | map(.path) | join(",")')"
+          if [[ "$draft" != "true" || "$base" != "main" || "$head" != "$VALIDATED_SHA" || "$author" != "github-actions[bot]" || "$files" != "tools/supply-chain-lock.json" ]]; then
             echo "Candidate PR does not match the successful validation run; refusing to merge." >&2
             echo "PR=$number draft=$draft base=$base head=$head validated=$VALIDATED_SHA" >&2
             exit 1
