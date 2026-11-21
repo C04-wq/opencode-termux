@@ -13,16 +13,13 @@ const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(installer.includes('x86_64) TARGET_ARCH="x86_64"; HASH_FIELD="archiveSha256X86_64"'), "installer must select the x86_64 release checksum");
 assert.ok(installer.includes('aarch64) TARGET_ARCH="aarch64"; HASH_FIELD="archiveSha256"'), "installer must preserve the ARM64 release checksum");
 assert.ok(installer.includes('unsupported architecture'), "unsupported architectures must be rejected before package installation");
-assert.ok(installer.includes('aarch64) UPDATE_HASH_FIELD="archiveSha256"'), "automatic updater must read the ARM64 checksum");
-assert.ok(installer.includes('x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64"'), "automatic updater must read the x86_64 checksum");
-assert.ok(installer.includes("'$UPDATE_HASH_FIELD'"), "automatic updater must select its checksum field dynamically");
 assert.ok(installer.includes("install_termux_packages()") && installer.includes("termux-change-repo"), "package mirror 404s must include recovery instructions");
 assert.ok(!installer.includes("run_quiet pkg install"), "package installation must use the mirror-aware helper");
 for (const token of [
   "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
   "opencode-$VERSION-android-$TARGET_ARCH-bundle.tar.gz", "$RELEASE_TAG", "archiveSha256X86_64", "TARGET_ARCH=\"$TARGET_ARCH\"",
   "validate-runtime-archive.sh", "@TERMUX_PREFIX@/lib/opencode",
-  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "INSTALLED_ARCHIVE_SHA256", "LATEST_ARCHIVE_SHA256", ".opencode-termux-archive-sha256", "OPENCODE_TERMUX_AUTOUPDATE", "AUTO_UPDATE_SKIP", "21600", "UPDATE_AVAILABLE", "Verified OpenCode update", "auto-update.log", 'INTERNAL_UPDATER="$RUNTIME/update-runtime.sh"', 'mv "$STAGE/update-runtime.sh" "$INTERNAL_UPDATER"'
+  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", ".opencode-termux-archive-sha256"
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
 const newline = String.fromCharCode(10);
@@ -35,6 +32,17 @@ const launcherBodyEnd = installer.indexOf(launcherEnd, launcherBodyStart);
 assert.notEqual(launcherBodyEnd, -1, "installer launcher heredoc is not terminated");
 const launcherSyntax = spawnSync("bash", ["-n"], { input: installer.slice(launcherBodyStart, launcherBodyEnd), encoding: "utf8" });
 assert.equal(launcherSyntax.status, 0, "generated OpenCode launcher has invalid Bash syntax: " + launcherSyntax.stderr);
+const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
+for (const token of [
+  "https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json",
+  "https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh",
+  "nativeTermux || detected === \\"apt\\"",
+  "OPENCODE_TERMUX_EXPECTED_VERSION",
+  "const termuxLatest = Effect.tryPromise",
+]) assert.ok(sourcePatch.includes(token), "official OpenCode updater must use the verified Termux repository: " + token);
+for (const token of ["OPENCODE_DISABLE_AUTOUPDATE", "OPENCODE_TERMUX_AUTOUPDATE", "AUTO_UPDATE_SKIP", "update-runtime.sh", "21600", "Verified OpenCode update"]) {
+  assert.ok(!installer.includes(token), "launcher/installer must not implement a second update system: " + token);
+}
 const validator = fs.readFileSync("scripts/validate-runtime-archive.sh", "utf8");
 for (const token of ["bin/opencode", "lib/opencode/index.js", "librust_pty_arm64.so", "watcher.node", "no-same-owner", "no-same-permissions"]) {
   assert.ok(validator.includes(token), "archive validator missing " + token);
