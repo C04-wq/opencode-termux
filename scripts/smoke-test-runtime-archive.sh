@@ -36,12 +36,21 @@ mv "$STAGED/bin/opencode" "$ROOT/bin/opencode"
 mv "$STAGED/lib/opencode" "$ROOT/lib/opencode"
 chmod 755 "$ROOT/bin/opencode"
 sh -n "$ROOT/bin/opencode"
-for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
+for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node "$ROOT"/lib/opencode/opencode-pty; do
   [[ -f "$native" ]] || continue
   header="$(readelf -h "$native")"
   grep -q 'Class:.*ELF64' <<<"$header"
   grep -q 'Type:.*DYN' <<<"$header"
   grep -Eq "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$header"
+  alignments="$(readelf -lW "$native" | awk '$1 == "LOAD" { print $NF }')"
+  [[ -n "$alignments" ]] || { echo "no PT_LOAD segments found in $native" >&2; exit 1; }
+  while IFS= read -r alignment; do
+    alignment="${alignment#0x}"
+    if (( 16#$alignment < 16384 )); then
+      echo "Android 16 KB page alignment missing in $native (PT_LOAD alignment 0x$alignment)" >&2
+      exit 1
+    fi
+  done <<<"$alignments"
   if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
