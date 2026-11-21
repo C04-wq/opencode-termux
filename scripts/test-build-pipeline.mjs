@@ -60,7 +60,7 @@ for (const token of [
 ]) assert.ok(fffBuild.includes(token), "official FFF Android build missing " + token);
 const fffPatch = fs.readFileSync("tools/patch-fff-android.py", "utf8");
 assert.ok(fffPatch.includes('choices=("aarch64", "x86_64")'), "FFF patch must support both Android architectures");
-assert.ok(fffPatch.includes("@ff-labs/fff-bin-android-x64"), "FFF x86_64 package must be selected");
+assert.ok(fffPatch.includes('"x86_64": ("x64", "x64")') && fffPatch.includes('package_name = f"@ff-labs/fff-bin-android-{package_arch}"'), "FFF x86_64 package must be selected");
 const daemonBuild = fs.readFileSync("scripts/ci/build-opencode-pty-android.sh", "utf8");
 for (const token of [
   "packages/process-daemon/Cargo.toml",
