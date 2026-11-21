@@ -158,7 +158,7 @@ Keep the managed checkout in place: the update command uses it to retrieve repos
 
 ## 🔄 Updates
 
-There are three related update and recovery paths.
+There are four related update and recovery paths.
 
 ### 1. Automatic update check at launch
 
