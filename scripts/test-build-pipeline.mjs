@@ -150,7 +150,7 @@ assert.ok(validationWorkflow.includes("Build full x86_64 OpenCode runtime bundle
 assert.ok(validationWorkflow.includes("build-native:"), "candidate validation must build the complete ARM64 runtime");
 assert.ok(validationWorkflow.includes("Build and verify Android ARM64 runtime"), "ARM64 candidate build must remain an independent CI gate");
 assert.ok(validationWorkflow.includes("Package and smoke-test x86_64 candidate"), "x86_64 candidate archive must be validated and smoke-tested");
-assert.ok(validationWorkflow.includes("Package and smoke-test ARM64 candidate"), "ARM64 candidate archive must be validated and smoke-tested");
+assert.ok(validationWorkflow.includes("Package and verify the Termux runtime archive"), "ARM64 candidate archive must be validated and smoke-tested");
 assert.ok(watcher.includes('cron: "17 */6 * * *"'), "official upstream release detection must run every six hours");
 assert.ok(!watcher.includes("contents/package.json"), "upstream version discovery must not rely on the dev branch manifest");
 
