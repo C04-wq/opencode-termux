@@ -147,102 +147,27 @@ The default managed layout is:
 | Installed bundle SHA-256 | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Checkout path marker | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
 
-In Termux, `$PREFIX` normally resolves to `/data/data/com.termux/files/usr`. The installer sets executable permissions on all three installed commands and checks that they are executable before reporting success.
+In Termux, `$PREFIX` normally resolves to `/data/data/com.termux/files/usr`. The only public command installed is `opencode`.
 
 Keep the managed checkout in place: the update command uses it to retrieve repository changes and rerun the installer.
 
 ## 🔄 Updates
 
-There are four related update and recovery paths.
-
-### 1. Automatic update check at launch
-
-Before starting a normal OpenCode session, the launcher runs the managed updater at most once every six hours. The updater fast-forwards the managed Git checkout and reruns the installer, which verifies release checksums and uses the installer's transactional replacement and recovery path.
-
-- It is skipped for `opencode --version`, `opencode --help`, `opencode update` and `opencode upgrade`.
-- Disable it with `OPENCODE_TERMUX_AUTOUPDATE=0`.
-- Results are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`.
-- If networking or updating fails, the launcher continues with the installed version.
-
-### 2. Update the project and runtime manually
-
-To retrieve the latest project code and reinstall the verified runtime, run:
+OpenCode keeps its official CLI commands. To update manually, use the built-in command:
 
 ```bash
+opencode update
 ```
 
-This command uses a fast-forward-only Git pull (`git pull --ff-only`) in the managed checkout and then executes its `install.sh`. It updates the manager, launcher, updater and runtime according to the checked-out repository and its release metadata.
+In OpenCode, `update` is an alias for `upgrade`. In this Termux adaptation, both use the patched built-in updater to query verified releases from this repository. It checks the version, architecture and SHA-256 before running the installer. It never falls back to an upstream release when a verified package is unavailable.
 
-The updater sets the checkout's local Git `core.filemode=false` setting. This avoids treating permission-bit-only differences as source changes on Termux while still allowing Git to detect content modifications.
+The launcher also checks for a newer release automatically, at most once every six hours. The internal helper is stored inside the runtime and does not install additional commands in `$PREFIX/bin`. Disable the automatic check with `OPENCODE_TERMUX_AUTOUPDATE=0`. Logs are written to `$PREFIX/var/log/opencode-termux/auto-update.log`.
 
-If local edits or untracked files prevent a fast-forward update, the operation stops rather than overwriting those files. Inspect the checkout before retrying:
-
-```bash
-git -C "$PREFIX/opt/opencode-termux" status --short
-```
-
-Commit, stash or otherwise resolve your local changes before updating.
-
-### 3. Re-run the installer to repair the installation
-
-You can also rerun the one-line installer:
+To repair or reinstall the runtime, rerun the installer:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh | bash
 ```
-
-It detects the managed checkout and uses the installation procedure again. This is useful for repairing missing launchers or executable permissions as well as installing the version pinned by the checkout's release metadata.
-
-> **Important:** `OPENCODE_DISABLE_AUTOUPDATE=1` disables upstream automatic checks at startup; it does not remove manual updates. The built-in `opencode update` command (an alias for `opencode upgrade`) and the TUI update action are patched to query only this repository's `release-checksums.json`. They validate the source, version, runtime identifier and architecture-specific checksum, then run the Termux installer pinned to the version just checked. If no verified ARM64 or x86_64 package exists, the update is refused; it never falls back to an official upstream release.
-
-
-The installer provides a separate `opencode-termux` command. It manages this Termux package; it is not the OpenCode application itself.
-
-Show the help:
-
-```bash
-opencode-termux
-# or
-```
-
-### Commands
-
-| Command | Option form | Description |
-| --- | --- | --- |
-| `install` | `--install` | Install or repair the managed runtime using the existing checkout. |
-| `update` | `--update` | Fast-forward the checkout and reinstall the verified runtime. |
-| `uninstall` | `--uninstall` | Run the project's confirmation-based uninstaller. |
-| `status` | `--status` | Show whether the runtime is installed and print its key paths. |
-| `doctor` | `--doctor` | Check the architecture, dependencies, runtime files, launchers, permissions, certificates, resolver and runtime startup. |
-| `help` | `--help`, `-h` | Show command help. |
-
-Examples:
-
-```bash
-```
-
-### Diagnostics with `doctor`
-
-Run:
-
-```bash
-```
-
-The diagnostic checks:
-
-- The device architecture is `aarch64` or `x86_64`.
-- Required commands (`git`, `curl`, `tar`, `sha256sum`, `bun` and `rg`) are available.
-- The Termux libc++ shared library is installed.
-- The native launcher, JavaScript entry point, PTY library and watcher module exist.
-- The native launcher has executable permissions.
-- The installed version marker exists and has a valid version format.
-- The OpenCode launcher is recognizable as the project-managed launcher.
-- The internal updater exists and is recognizable.
-- The Termux CA bundle and resolver configuration are present.
-- The installed OpenCode executable starts and reports the version recorded in its marker.
-
-It prints individual `OK` / `FAIL` results and returns a non-zero exit status if a check fails. It is a local installation diagnostic; it does not validate API keys, provider accounts, internet access to every AI service or the health of upstream OpenCode.
-
 ## 🧩 Technical overview
 
 ### Runtime architecture
