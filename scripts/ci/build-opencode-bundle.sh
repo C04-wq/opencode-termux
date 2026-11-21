@@ -225,6 +225,13 @@ pty="$work/librust_pty_$TARGET_ARCH.so"
 TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
   bash "$ROOT/scripts/ci/build-rust-pty-android.sh" "$pty"
 
+# Build the official OpenCode persistent PTY daemon (not bun-pty's shared
+# library). The daemon is embedded by the upstream CLI bundler as a verified
+# file asset and extracted by core's persistent-pty runtime on first use.
+pty_daemon="$work/opencode-pty"
+TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
+  bash "$ROOT/scripts/ci/build-opencode-pty-android.sh" "$src" "$pty_daemon"
+
 if [ "$TARGET_ARCH" = aarch64 ]; then
   watcher="$(find "$src/node_modules/.bun" -path '*@parcel+watcher-android-arm64@*/node_modules/@parcel/watcher-android-arm64/watcher.node')"
   test "$(printf '%s\n' "$watcher" | wc -l)" -eq 1 && [ -f "$watcher" ] || {
@@ -254,6 +261,8 @@ cd "$src/packages/cli"
 OPENCODE_CHANNEL=latest OPENCODE_VERSION="$OPENCODE_VERSION" \
 OPENCODE_TARGET=linux-$OPENCODE_ARCH-android \
 OPENCODE_INSTALL_DIR="$install_dir" \
+OPENCODE_PTY_BIN="$pty_daemon" \
+OPENCODE_PTY_ALLOW_CROSS=1 \
   "$host_bun" run script/build.ts --skip-install
 cd "$ROOT"
 
