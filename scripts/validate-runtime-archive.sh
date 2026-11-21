@@ -66,7 +66,7 @@ printf '%s\n' "$VERBOSE" | awk '
   }
 ' || exit 1
 
-for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node lib/opencode/opencode-pty lib/opencode/opencode-pty.required; do
+for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node; do
   printf '%s\n' "$LISTING" | grep -Fxq "$required" || {
     echo "Error: required runtime entry is missing: $required" >&2
     exit 1
@@ -90,7 +90,7 @@ if ! tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE" -C "$DESTINATION"
   exit 1
 fi
 
-for path in bin/opencode lib/opencode/index.js "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node lib/opencode/opencode-pty lib/opencode/opencode-pty.required; do
+for path in bin/opencode lib/opencode/index.js "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node; do
   if [[ ! -f "$DESTINATION/$path" || -L "$DESTINATION/$path" || ! -s "$DESTINATION/$path" ]]; then
     rm -rf "$DESTINATION"
     echo "Error: required runtime file is missing or invalid: $path" >&2
@@ -108,10 +108,14 @@ if [[ ! -x "$DESTINATION/bin/opencode" ]]; then
   exit 1
 fi
 
-if [[ ! -x "$DESTINATION/lib/opencode/opencode-pty" ]]; then
-  rm -rf "$DESTINATION"
-  echo "Error: official opencode-pty daemon is not executable." >&2
-  exit 1
+daemon="$DESTINATION/lib/opencode/opencode-pty"
+daemon_marker="$DESTINATION/lib/opencode/opencode-pty.required"
+if [[ -e "$daemon" || -e "$daemon_marker" ]]; then
+  if [[ ! -f "$daemon" || -L "$daemon" || ! -x "$daemon" || ! -f "$daemon_marker" || -L "$daemon_marker" || ! -s "$daemon_marker" ]]; then
+    rm -rf "$DESTINATION"
+    echo "Error: official opencode-pty daemon and requirement marker must be packaged together and executable." >&2
+    exit 1
+  fi
 fi
 
 echo "Native Android $TARGET_ARCH bundle structure verified."
