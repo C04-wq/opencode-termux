@@ -31,7 +31,6 @@ case "$TARGET_ARCH" in
     EXPECTED_TUI_MACHINE="ARM aarch64"
     TUI_ARTIFACT="$ROOT/artifacts/transplant/opentui-bionic/libopentui.so"
     TUI_SLOT="core-linux-arm64-musl"
-    FFF_ANDROID=1
     ;;
   x86_64)
     OPENCODE_ARCH="x64"
