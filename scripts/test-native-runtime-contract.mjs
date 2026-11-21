@@ -61,5 +61,6 @@ assert.ok(installer.includes('"$PREFIX/bin/opencode2"') && installer.includes('"
 assert.ok(installer.includes('bash "$STAGE/opencode-launcher" --version') && installer.includes('bash "$LAUNCHER" --version'), "installer must preflight and finally test the actual outer launcher before and after migration");
 assert.ok(installer.includes('SSL_CERT_FILE="${SSL_CERT_FILE:-$PREFIX/etc/tls/cert.pem}"'), "outer launcher must derive its CA path from the active Termux PREFIX");
 assert.ok(uninstall.includes('LEGACY_LAUNCHER2="$PREFIX/bin/opencode2"'), "uninstaller must remove only project-owned legacy opencode2 launchers");
+assert.ok(uninstall.includes('LEGACY_MANAGER="$PREFIX/bin/opencode-termux"') && uninstall.includes('LEGACY_UPDATE="$PREFIX/bin/opencode-termux-update"'), "manual uninstaller must clean recognizable legacy manager commands");
 assert.ok(installer.includes('THIRD_PARTY_NOTICES.md'), "installer must install third-party license notices");
 console.log("Native runtime metadata, installer, validator and uninstall contracts passed.");
