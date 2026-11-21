@@ -125,7 +125,7 @@ manifest="$SRC_ROOT/packages/process-daemon/Cargo.toml"
 built="$SRC_ROOT/packages/process-daemon/target/$target/release/opencode-pty"
 [[ -s "$built" ]] || { echo "opencode-pty: Cargo did not produce $built" >&2; exit 1; }
 header="$(readelf -h "$built")"
-grep -Fq "Class: ELF64" <<<"$header" || { echo "opencode-pty: daemon is not a 64-bit ELF" >&2; exit 1; }
+grep -Eq 'Class:[[:space:]]+ELF64' <<<"$header" || { echo "opencode-pty: daemon is not a 64-bit ELF" >&2; exit 1; }
 grep -q "Type:.*DYN" <<<"$header" || { echo "opencode-pty: daemon is not a position-independent executable" >&2; exit 1; }
 grep -Fq "$expected_machine" <<<"$header" || { echo "opencode-pty: wrong ELF architecture for $TARGET_ARCH" >&2; exit 1; }
 alignments="$(readelf -lW "$built" | awk '$1 == "LOAD" { print $NF }')"
