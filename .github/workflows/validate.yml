@@ -106,6 +106,7 @@ jobs:
           set -euo pipefail
           export OPENCODE_TEST_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).version')"
           export OPENCODE_TEST_RELEASE_TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).releaseTag')"
+          export OPENCODE_TEST_BUN_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).bunVersion')"
           export OPENCODE_TEST_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).archiveSha256')"
           export OPENCODE_TEST_REMOTE_SHA256="$OPENCODE_TEST_SHA256"
           mkdir -p "$PREFIX/etc/tls" "$PREFIX/etc" "$RUNNER_TEMP/termux-stubs"
@@ -138,7 +139,9 @@ jobs:
           mkdir -p "$PREFIX/bin" "$PREFIX/lib"
           cat > "$PREFIX/bin/bun" <<'BUN'
           #!/usr/bin/env bash
-          if [[ "${*: -1}" == "--version" ]]; then
+          if [[ "$#" -eq 1 && "$1" == "--version" ]]; then
+            echo "$OPENCODE_TEST_BUN_VERSION"
+          elif [[ "${*: -1}" == "--version" ]]; then
             echo "opencode v$OPENCODE_TEST_VERSION"
           fi
           BUN
