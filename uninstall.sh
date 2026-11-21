@@ -25,13 +25,15 @@ echo "This removes only the OpenCode Termux runtime and launcher."
 echo "Settings, sessions, and provider credentials will be preserved."
 read -r -p "Continue? [y/N] " answer
 [[ "$answer" == [yY] || "$answer" == [yY][eE][sS] ]] || { echo "Cancelled."; exit 0; }
-rm -rf "$RUNTIME"
-rm -f "$LAUNCHER"
 LEGACY_LAUNCHER2="$PREFIX/bin/opencode2"
+REMOVE_LEGACY_LAUNCHER2=0
 if [[ -f "$LEGACY_LAUNCHER2" ]] && grep -Fq '/lib/opencode-termux' "$LEGACY_LAUNCHER2"; then
-  rm -f "$LEGACY_LAUNCHER2"
+  REMOVE_LEGACY_LAUNCHER2=1
 elif [[ -L "$LEGACY_LAUNCHER2" ]]; then
   LEGACY_TARGET="$(readlink -f "$LEGACY_LAUNCHER2" 2>/dev/null || true)"
-  case "$LEGACY_TARGET" in "$RUNTIME"/*) rm -f "$LEGACY_LAUNCHER2" ;; esac
+  case "$LEGACY_TARGET" in "$RUNTIME"/*) REMOVE_LEGACY_LAUNCHER2=1 ;; esac
 fi
+rm -rf "$RUNTIME"
+rm -f "$LAUNCHER"
+[[ "$REMOVE_LEGACY_LAUNCHER2" == 1 ]] && rm -f "$LEGACY_LAUNCHER2"
 echo "Runtime and launchers removed. User data was left untouched."
