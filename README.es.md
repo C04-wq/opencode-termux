@@ -42,7 +42,7 @@ OpenCode es un agente de programación con IA de código abierto que funciona en
 El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, acompañado de OpenTUI, la biblioteca compartida `bun-pty`, el daemon oficial `opencode-pty` compilado desde `packages/process-daemon` y el módulo de vigilancia de archivos. Ya no ejecuta el binario ELF Linux/musl original y no requiere PRoot, una máquina virtual Linux, Node.js ni npm en el dispositivo.
 
 > [!IMPORTANT]
-> Esta es una adaptación comunitaria no oficial para Termux. OpenCode es desarrollado por anomalyco/opencode. Este repositorio mantiene el instalador de Termux, la integración, el gestor de actualizaciones y las validaciones.
+> Esta es una adaptación comunitaria no oficial para Termux. OpenCode es desarrollado por anomalyco/opencode. Este repositorio mantiene el instalador de Termux, la integración, el actualizador integrado y las validaciones.
 
 ### Características principales
 
@@ -50,8 +50,8 @@ El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, 
 - Bundle JavaScript basado en Bun con OpenTUI, `bun-pty`, el daemon oficial `opencode-pty` y vigilancia de archivos, todos adaptados a Android/Bionic.
 - Release fijada mediante SHA-256 y validada antes de extraerla.
 - Instalación automática de bun, ripgrep y libc++ si faltan.
-- Actualización automática al iniciar una sesión normal, como máximo cada seis horas y con verificación del runtime y SHA-256.
-- CLI opencode-termux y sustitución transaccional del runtime con reversión en caso de error.
+- Actualizador integrado de OpenCode habilitado y conectado a las releases verificadas de este repositorio.
+- Comandos CLI oficiales de OpenCode, sin comandos de gestión adicionales.
 
 ## 📸 Capturas de pantalla
 
@@ -126,8 +126,8 @@ El instalador es deliberadamente conservador: no elimina un comando o paquete so
 
 Puede reemplazar instalaciones reconocidas cuando puede establecer su propiedad:
 
-- El paquete global npm heredado `opencode-termux` solo se elimina si sus metadatos son válidos y el enlace simbólico `opencode` existente apunta dentro de ese paquete.
-- Se reconoce una lista limitada de propietarios de paquetes Termux/dpkg mediante sus metadatos: `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` y `opencode1-wrapper`.
+- El paquete global npm heredado `opencode` solo se elimina si sus metadatos son válidos y el enlace simbólico `opencode` existente apunta dentro de ese paquete.
+- Se reconoce una lista limitada de propietarios de paquetes Termux/dpkg mediante sus metadatos: `opencode`, `opencode1`, `opencode`, `opencode-wrapper` y `opencode1-wrapper`.
 - Un lanzador anterior gestionado por este proyecto (`opencode`) se sustituye después de reconocer su contenido.
 
 Si un comando existente es desconocido, se copió manualmente o no puede atribuirse con seguridad a una de esas instalaciones, el instalador se detiene y no lo modifica. Identifica y elimina esa instalación manualmente solo después de confirmar su origen. No realiza una limpieza indiscriminada de todos los archivos con nombres parecidos (por ejemplo, binarios arbitrarios `opencode2`), paquetes npm ajenos ni directorios no relacionados.
@@ -147,7 +147,7 @@ El instalador tampoco elimina la configuración, las sesiones, los proyectos ni 
 
 En Termux, `$PREFIX` normalmente corresponde a `/data/data/com.termux/files/usr`. El único comando público instalado es `opencode`.
 
-Conserva la copia gestionada del repositorio: el comando de actualización la utiliza para obtener cambios y volver a ejecutar el instalador.
+El actualizador integrado utiliza el instalador y los paquetes publicados por este repositorio.
 
 ## 🔄 Actualizaciones
 
@@ -194,7 +194,7 @@ El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador B
 
 El lanzador compara la versión de OpenCode, el identificador de generación del runtime y el SHA-256 del bundle instalado. Así detecta tanto la migración desde musl como una reconstrucción del bundle que conserve la misma versión y generación.
 
-La comprobación automática y su helper permanecen dentro del runtime; no se instalan comandos adicionales.
+Solo se instalan los comandos oficiales de OpenCode.
 
 ## 🔐 Seguridad e integridad
 
@@ -238,7 +238,7 @@ El instalador establece el modo `755` en el lanzador OpenCode después de coloca
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/install.sh"
-ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/lib/opencode-termux/update-runtime.sh"
+ls -l "$PREFIX/bin/opencode"
 ```
 
 ### Arquitectura no compatible
@@ -299,7 +299,6 @@ Después de confirmar, elimina únicamente:
 
 - `$PREFIX/lib/opencode-termux`: entorno gestionado y marcadores.
 - `$PREFIX/bin/opencode`: lanzador de este proyecto.
-- `$PREFIX/lib/opencode-termux/update-runtime.sh`: actualizador interno.
 
 Verifica el marcador del entorno y la identidad de los lanzadores antes de borrar archivos. Si no puede establecer la propiedad, se detiene y deja la instalación intacta.
 
