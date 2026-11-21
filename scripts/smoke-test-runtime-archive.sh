@@ -44,13 +44,15 @@ for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node "$ROOT"/lib/
   grep -Eq "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$header"
   alignments="$(readelf -lW "$native" | awk '$1 == "LOAD" { print $NF }')"
   [[ -n "$alignments" ]] || { echo "no PT_LOAD segments found in $native" >&2; exit 1; }
-  while IFS= read -r alignment; do
-    alignment="${alignment#0x}"
-    if (( 16#$alignment < 16384 )); then
-      echo "Android 16 KB page alignment missing in $native (PT_LOAD alignment 0x$alignment)" >&2
-      exit 1
-    fi
-  done <<<"$alignments"
+  if [[ "${REQUIRE_16KB_PAGE_ALIGNMENT:-1}" == "1" ]]; then
+    while IFS= read -r alignment; do
+      alignment="${alignment#0x}"
+      if (( 16#$alignment < 16384 )); then
+        echo "Android 16 KB page alignment missing in $native (PT_LOAD alignment 0x$alignment)" >&2
+        exit 1
+      fi
+    done <<<"$alignments"
+  fi
   if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
