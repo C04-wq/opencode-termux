@@ -138,6 +138,7 @@ assert.ok(sourcePatch.includes('OPENCODE_TERMUX_EXPECTED_VERSION="$1" OPENCODE_T
 assert.ok(sourcePatch.includes('return `${version}-termux.${revision}'), "native updater must compare Termux package revisions, not only OpenCode versions");
 assert.ok(sourcePatch.includes("current: () => Effect.gen(function* ()") && sourcePatch.includes("updater.current()") && sourcePatch.includes("return yield* Ref.get(installedVersion)"), "the CLI upgrade command must compare the repository package revision with the installed revision");
 assert.ok(sourcePatch.indexOf('if (nativeTermux) return "curl"') < sourcePatch.indexOf("const prefix = process.env.PREFIX"), "Termux must be routed to the repository updater before APT package detection");
+assert.ok(sourcePatch.includes('if (method === "apt" && !nativeTermux)'), "an explicit --method apt must not bypass the Termux repository updater");
 assert.ok(sourcePatch.includes(".opencode-termux-release-tag"), "native updater must read the installed package revision marker");
 assert.ok(sourcePatch.includes("const termuxRoot =") && sourcePatch.includes(".opencode-termux-version"), "built-in uninstall must remove the complete managed Termux runtime, not only the launcher");
 assert.ok(sourcePatch.includes("actualVersion !== version"), "native and APT update paths must verify the installed version");
