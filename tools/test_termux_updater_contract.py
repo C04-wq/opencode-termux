@@ -2,14 +2,29 @@
 """Regression tests for routing OpenCode's built-in updater to verified Termux releases."""
 
 from pathlib import Path
+import json
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 PATCH = (ROOT / "tools/patch-opencode-source.py").read_text(encoding="utf-8")
 INSTALL = (ROOT / "install.sh").read_text(encoding="utf-8")
+WORKFLOW = (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8")
+METADATA = json.loads((ROOT / "release-checksums.json").read_text(encoding="utf-8"))
 
 
 class TermuxUpdaterContract(unittest.TestCase):
+    def test_release_metadata_is_complete_for_both_architectures(self):
+        version = METADATA["version"]
+        self.assertEqual(METADATA["sourceRepo"], "C04-wq/opencode-termux")
+        self.assertEqual(METADATA["sourceTag"], f"v{version}")
+        self.assertEqual(METADATA["archiveName"], f"opencode-{version}-android-aarch64-bundle.tar.gz")
+        self.assertEqual(METADATA["archiveNameX86_64"], f"opencode-{version}-android-x86_64-bundle.tar.gz")
+        self.assertRegex(METADATA["archiveSha256"], r"^[a-f0-9]{64}$")
+        self.assertRegex(METADATA["archiveSha256X86_64"], r"^[a-f0-9]{64}$")
+        self.assertIn('"archiveName": path.rsplit("/", 1)[-1]', WORKFLOW)
+        self.assertIn('"archiveNameX86_64": path.rsplit("/", 1)[-1]', WORKFLOW)
+
     def test_internal_updater_reads_our_release_metadata_on_termux(self):
         self.assertIn('https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json', PATCH)
         self.assertIn('nativeTermux', PATCH)
