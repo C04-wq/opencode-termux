@@ -311,7 +311,7 @@ The project manager, updater, interactive update prompt and uninstaller remain s
 - Runtime and launcher activation is transactional, with rollback if the final version check fails.
 - The uninstaller verifies project ownership before removing managed files.
 
-Trust boundary: source revisions and build tools are pinned and every artifact is verified, but SHA-256 is not an independent signature and does not replace auditing the code and build chain. Some Android compatibility scripts are derived from MIT-licensed work in Spectra010s/opencode-termux and are maintained and run by our own workflows; attribution and license notices are in THIRD_PARTY_NOTICES.md.
+Trust boundary: source revisions and build tools are pinned and every artifact is verified, but SHA-256 is not an independent signature and does not replace auditing the code and build chain. Third-party-derived compatibility components and their required license notices are documented in THIRD_PARTY_NOTICES.md.
 
 ## 🤖 Release automation and CI
 
