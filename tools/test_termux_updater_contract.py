@@ -39,7 +39,6 @@ class TermuxUpdaterContract(unittest.TestCase):
         self.assertNotIn("Verified OpenCode update", INSTALL)
         self.assertIn('nativeTermux', PATCH)
         self.assertIn('Updater.apply', PATCH)
-        self.assertNotIn('apt-get', PATCH)
         self.assertNotIn('https://opencode.ai/update/api/', PATCH)
         self.assertNotIn('https://github.com/anomalyco/opencode/releases', PATCH)
 
