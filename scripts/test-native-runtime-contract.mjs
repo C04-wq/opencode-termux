@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 const meta = JSON.parse(fs.readFileSync("release-checksums.json", "utf8"));
 assert.match(meta.version, /^[0-9]+\.[0-9]+\.[0-9]+$/);
-assert.ok(["Spectra010s/opencode-termux", "C04-wq/opencode-termux"].includes(meta.sourceRepo));
+assert.equal(meta.sourceRepo, "C04-wq/opencode-termux", "runtime releases must originate from this repository");
 assert.equal(meta.sourceTag, "v" + meta.version);
 assert.match(meta.releaseTag, new RegExp("^v" + meta.version.replaceAll(".", "\\.") + "(-[1-9][0-9]*)?$"));
 assert.equal(meta.runtimeId, "android-bionic-bun-v1");
@@ -19,7 +19,7 @@ assert.ok(installer.includes("'$UPDATE_HASH_FIELD'"), "update prompt must select
 assert.ok(installer.includes("install_termux_packages()") && installer.includes("termux-change-repo"), "package mirror 404s must include recovery instructions");
 assert.ok(!installer.includes("run_quiet pkg install"), "package installation must use the mirror-aware helper");
 for (const token of [
-  "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "Spectra010s/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
+  "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
   "opencode-$VERSION-android-$TARGET_ARCH-bundle.tar.gz", "$RELEASE_TAG", "archiveSha256X86_64", "TARGET_ARCH=\"$TARGET_ARCH\"",
   "validate-runtime-archive.sh", "@TERMUX_PREFIX@/lib/opencode",
   "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "DEFERRED_RUNTIME_ID", "INSTALLED_ARCHIVE_SHA256", "LATEST_ARCHIVE_SHA256", "DEFERRED_ARCHIVE_SHA256", ".opencode-termux-archive-sha256", ".opencode-termux-deferred-archive-sha256", "A new Termux runtime is available", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
