@@ -231,6 +231,8 @@ assert.ok(candidateWorkflow.includes("contents: write") && candidateWorkflow.inc
 assert.ok(candidateWorkflow.includes('lock["current"] = version'), "upstream candidate must advance the source lock for CI validation");
 assert.ok(candidateWorkflow.includes('entry["source_sha256"] = digest'), "upstream candidate must pin the exact source archive digest");
 assert.ok(candidateWorkflow.includes('gh pr create') && candidateWorkflow.includes("--draft"), "upstream automation must open a draft review PR");
+assert.ok(candidateWorkflow.includes("must inspect the diff") && candidateWorkflow.includes("merge it manually"), "candidate PRs must require maintainer review and manual merge");
+assert.ok(!candidateWorkflow.includes("gh pr ready") && !candidateWorkflow.includes("gh pr merge") && !candidateWorkflow.includes('git push origin "$RELEASE_TAG"'), "candidate preparation must not auto-merge or create release tags");
 assert.ok(candidateWorkflow.includes('gh workflow run validate.yml') && candidateWorkflow.includes('--ref "$BRANCH"'), "GITHUB_TOKEN-created candidate PRs must explicitly dispatch validation against their branch");
 assert.ok(candidateWorkflow.includes("dispatching validation again"), "failed draft candidates must be revalidated automatically");
 assert.ok(candidateWorkflow.includes('candidate_only_not_approved_for_release'), "automated upstream candidates must remain explicitly unapproved for release");
