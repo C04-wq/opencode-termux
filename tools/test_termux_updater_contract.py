@@ -13,6 +13,8 @@ class TermuxUpdaterContract(unittest.TestCase):
     def test_internal_updater_reads_our_release_metadata_on_termux(self):
         self.assertIn('https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json', PATCH)
         self.assertIn('nativeTermux', PATCH)
+        self.assertIn('data.archiveName === expectedArchive', PATCH)
+        self.assertIn('data.archiveNameX86_64 === expectedArchive', PATCH)
         self.assertIn('const nativeTermux = launcher === termuxPath || executable === termuxBinary', PATCH)
         self.assertLess(PATCH.index('if (nativeTermux) return "curl"'), PATCH.index('if (prefix && executable === path.join(prefix, "bin", "opencode"))'))
         self.assertIn('if (method === "apt" && !nativeTermux)', PATCH)
