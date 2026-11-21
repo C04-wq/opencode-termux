@@ -242,7 +242,12 @@ SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".
 SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 RELEASE_TAG="$(sed -n 's/.*"releaseTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+BUN_VERSION_PIN="$(sed -n 's/.*"bunVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
+if [[ -n "$BUN_VERSION_PIN" && ! "$BUN_VERSION_PIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: invalid Bun runtime version in release metadata." >&2
+  exit 1
+fi
 if [[ ! "$HASH" =~ ^[a-f0-9]{64}$ ]]; then
   if [[ "$TARGET_ARCH" == "x86_64" ]]; then
     echo "Error: no verified x86_64 runtime is published for OpenCode $VERSION yet. Automated x86_64 build and release validation must complete before installation." >&2
@@ -284,6 +289,14 @@ fi
 for cmd in git curl tar sha256sum sed find grep awk bun rg; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "Missing required command: $cmd" >&2; exit 1; }
 done
+if [[ -n "$BUN_VERSION_PIN" ]]; then
+  INSTALLED_BUN_VERSION="$( "$PREFIX/bin/bun" --version 2>/dev/null || true )"
+  if [[ "$INSTALLED_BUN_VERSION" != "$BUN_VERSION_PIN" ]]; then
+    echo "Error: this runtime requires Termux Bun $BUN_VERSION_PIN, but $PREFIX/bin/bun reports ${INSTALLED_BUN_VERSION:-unavailable}." >&2
+    echo "Update Termux packages with pkg update and pkg upgrade, then rerun the installer." >&2
+    exit 1
+  fi
+fi
 [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "Termux libc++ shared library is missing." >&2; exit 1; }
 [[ -f "$CERT" ]] || install_termux_packages ca-certificates
 [[ -f "$RESOLVER" ]] || install_termux_packages resolv-conf
