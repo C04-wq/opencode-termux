@@ -112,9 +112,9 @@ printf '%s\n' "$OPENCODE_ROOT" > "$BUN_TEST_LOG.root"
 printf '%s\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
 printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
 if [[ ${OPENCODE_DISABLE_AUTOUPDATE+x} ]]; then
-  printf '%s\\n' set > "$BUN_TEST_LOG.autoupdate"
+  printf '%s\n' set > "$BUN_TEST_LOG.autoupdate"
 else
-  printf '%s\\n' unset > "$BUN_TEST_LOG.autoupdate"
+  printf '%s\n' unset > "$BUN_TEST_LOG.autoupdate"
 fi
 printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
 if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
