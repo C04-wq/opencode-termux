@@ -7,5 +7,6 @@
   "runtimeId": "android-bionic-bun-v1",
   "archiveSha256X86_64": "e1db80a45468572b394f9da8019a924f1218431bca516152d395997e83895456",
   "archiveNameX86_64": "opencode-2.3.2-android-x86_64-bundle.tar.gz",
-  "bunVersion": "1.4.4"
+  "bunVersion": "1.4.4",
+  "archiveName": "opencode-2.3.2-android-aarch64-bundle.tar.gz"
 }
