@@ -88,10 +88,11 @@ jobs:
           SOURCE_SHA256="$(sha256sum "$ARCHIVE" | cut -d ' ' -f1)"
           [[ "$SOURCE_SHA256" =~ ^[a-f0-9]{64}$ ]]
 
-          mkdir -p candidate
-          python3 - "$PACKAGE_JSON" "$VERSION" "$UPSTREAM_SHA" "$UPSTREAM_TAG" "$CURRENT" "$SOURCE_SHA256" tools/supply-chain-lock.json <<'PY'
+          mkdir -p candidate/upstream-source
+          tar -xzf "$ARCHIVE" --strip-components=1 -C candidate/upstream-source
+          python3 - "$PACKAGE_JSON" "$VERSION" "$UPSTREAM_SHA" "$UPSTREAM_TAG" "$CURRENT" "$SOURCE_SHA256" tools/supply-chain-lock.json candidate/upstream-source <<'PY'
           import json, pathlib, re, sys
-          package_raw, version, commit, tag, current, digest, lock_path = sys.argv[1:]
+          package_raw, version, commit, tag, current, digest, lock_path, source_root = sys.argv[1:]
           package = json.loads(package_raw)
           lock_file = pathlib.Path(lock_path)
           lock = json.loads(lock_file.read_text(encoding="utf-8"))
@@ -109,6 +110,24 @@ jobs:
           lock["opencode"][version] = entry
           lock["current"] = version
           lock["package_revision"] = 1
+
+          daemon_manifest = pathlib.Path(source_root, "packages/process-daemon/Cargo.toml").read_text(encoding="utf-8")
+          daemon_name = re.search(r'^name\\s*=\\s*"([^"]+)"', daemon_manifest, re.M)
+          daemon_version = re.search(r'^version\\s*=\\s*"([^"]+)"', daemon_manifest, re.M)
+          ghostty_commit = pathlib.Path(source_root, "packages/process-daemon/ghostty-revision").read_text(encoding="utf-8").strip()
+          if not daemon_name or daemon_name.group(1) != "opencode-pty" or not daemon_version:
+              raise SystemExit("Official process-daemon Cargo manifest is missing or changed.")
+          if not re.fullmatch(r"[0-9a-f]{40}", ghostty_commit):
+              raise SystemExit("Official process-daemon Ghostty revision is not a full commit SHA.")
+          daemon_pin = dict(lock.get("process_daemon", {}))
+          daemon_pin.update({
+              "package": "opencode-pty",
+              "version": daemon_version.group(1),
+              "source": "anomalyco/opencode/packages/process-daemon",
+              "ghostty_commit": ghostty_commit,
+              "android_targets": ["aarch64-linux-android", "x86_64-linux-android"],
+          })
+          lock["process_daemon"] = daemon_pin
           lock_file.write_text(json.dumps(lock, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
           candidate = {
@@ -125,6 +144,7 @@ jobs:
               "package_dependencies": package.get("dependencies", {}),
               "package_dev_dependencies": package.get("devDependencies", {}),
               "inherited_android_toolchain": entry,
+              "process_daemon": daemon_pin,
               "required_review": [
                   "Review upstream source and dependency changes against the inherited Android toolchain pins.",
                   "Confirm ARM64 and x86_64 CI builds, archive validation, and smoke tests pass.",
@@ -145,7 +165,8 @@ jobs:
               "## What this PR does\n"
               "- Adds the exact upstream commit and source archive digest to the supply-chain lock.\n"
               "- Advances the candidate lock version so ARM64/x86_64 pull-request CI builds the new source.\n"
-              "- Reuses the last known Android toolchain pins only as a starting candidate.\n\n"
+              "- Reuses the last known Android toolchain pins only as a starting candidate.\n"
+              f"- Updates the official `opencode-pty` crate pin to {daemon_version.group(1)} and Ghostty commit `{ghostty_commit}`.\n\n"
               "## Required review before merge\n"
               "- Review upstream changes and verify Bun, OpenTUI, bun-pty, Zig, and NDK compatibility.\n"
               "- Require all repository CI checks to pass for both supported architectures.\n"
