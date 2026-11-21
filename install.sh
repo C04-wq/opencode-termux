@@ -38,25 +38,55 @@ run_quiet() {
   fi
 }
 
-# Give actionable guidance when the selected Termux mirror lacks this device's
-# package index (a common 404 on community mirrors for x86_64).
+# Install Termux dependencies. If a package is missing from stale local
+# indexes, refresh the repository metadata once and retry before failing.
+APT_INDEX_REFRESHED=0
 install_termux_packages() {
-  local log status
+  local log status update_log
   log="$(mktemp)"
   if pkg install -y "$@" >"$log" 2>&1; then
     rm -f "$log"
-  else
-    status=$?
-    cat "$log" >&2
-    if grep -Eiq '404 Not Found|binary-(aarch64|x86_64)/Packages' "$log"; then
-      echo "The selected Termux mirror does not provide the $DEVICE_ARCH package index." >&2
-      echo "Run: termux-change-repo" >&2
-      echo "Select Main repository and choose the official packages.termux.dev mirror (or packages-cf.termux.dev)." >&2
-      echo "Then run: pkg update" >&2
-    fi
-    rm -f "$log"
-    return "$status"
+    return 0
   fi
+
+  status=$?
+  if [[ "$APT_INDEX_REFRESHED" == 0 ]] &&
+     grep -Eiq 'Unable to locate package|has no installation candidate|Package .* is not available' "$log"; then
+    rm -f "$log"
+    APT_INDEX_REFRESHED=1
+    echo "A required Termux package was not found in the local package index; refreshing repositories..."
+    update_log="$(mktemp)"
+    if ! pkg update -y >"$update_log" 2>&1; then
+      status=$?
+      cat "$update_log" >&2
+      rm -f "$update_log"
+      echo "Error: could not refresh Termux package indexes." >&2
+      echo "Check your connection and repository selection with: termux-change-repo" >&2
+      return "$status"
+    fi
+    cat "$update_log"
+    rm -f "$update_log"
+
+    log="$(mktemp)"
+    if pkg install -y "$@" >"$log" 2>&1; then
+      rm -f "$log"
+      return 0
+    fi
+    status=$?
+  fi
+
+  cat "$log" >&2
+  if grep -Eiq '404 Not Found|binary-(aarch64|x86_64)/Packages' "$log"; then
+    echo "The selected Termux mirror does not provide the $DEVICE_ARCH package index." >&2
+    echo "Run: termux-change-repo" >&2
+    echo "Select Main repository and choose the official packages.termux.dev mirror (or packages-cf.termux.dev)." >&2
+    echo "Then run: pkg update" >&2
+  elif grep -Eiq 'Unable to locate package|has no installation candidate|Package .* is not available' "$log"; then
+    echo "Error: required Termux package(s) are still unavailable after refreshing package indexes: $*" >&2
+    echo "Use the official Main repository and update Termux with: pkg upgrade" >&2
+  fi
+  rm -f "$log"
+  return "$status"
 }
 
 # Support a normal checkout and: curl -fsSL .../install.sh | bash
