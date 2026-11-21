@@ -40,7 +40,6 @@ case "$TARGET_ARCH" in
     EXPECTED_TUI_MACHINE="x86-64"
     TUI_ARTIFACT="$ROOT/artifacts/transplant/opentui-bionic-x86_64/libopentui.so"
     TUI_SLOT="core-linux-x64-musl"
-    FFF_ANDROID=1
     ;;
   *)
     echo "unsupported TARGET_ARCH '$TARGET_ARCH' (supported: aarch64, x86_64)" >&2
