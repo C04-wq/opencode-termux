@@ -2,11 +2,13 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 const meta = JSON.parse(fs.readFileSync("release-checksums.json", "utf8"));
+const lock = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
 assert.match(meta.version, /^[0-9]+\.[0-9]+\.[0-9]+$/);
 assert.equal(meta.sourceRepo, "C04-wq/opencode-termux", "runtime releases must originate from this repository");
 assert.equal(meta.sourceTag, "v" + meta.version);
 assert.match(meta.releaseTag, new RegExp("^v" + meta.version.replaceAll(".", "\\.") + "(-[1-9][0-9]*)?$"));
 assert.equal(meta.runtimeId, "android-bionic-bun-v1");
+assert.equal(meta.bunVersion, lock.opencode[meta.version].bun_version, "release metadata must pin the Bun runtime used to build the bundle");
 assert.match(meta.archiveSha256, /^[a-f0-9]{64}$/);
 if (meta.archiveSha256X86_64 !== undefined) assert.match(meta.archiveSha256X86_64, /^[a-f0-9]{64}$/);
 const installer = fs.readFileSync("install.sh", "utf8");
@@ -22,6 +24,7 @@ for (const token of [
   "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", ".opencode-termux-archive-sha256", ".opencode-termux-release-tag"
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
+assert.ok(installer.includes('"$PREFIX/bin/bun" --version') && installer.includes("BUN_VERSION_PIN"), "installer must reject an incompatible Termux Bun runtime before installing the bundle");
 const newline = String.fromCharCode(10);
 const launcherStart = 'cat > "$STAGE/opencode-launcher" <<';
 const launcherOffset = installer.indexOf(launcherStart);
