@@ -41,7 +41,7 @@ OpenCode est un agent de programmation open source fonctionnant dans le terminal
 Le runtime est fourni sous forme de bundle JavaScript lancé par le Bun de Termux, avec OpenTUI, la bibliothèque partagée `bun-pty`, le daemon officiel `opencode-pty` compilé depuis `packages/process-daemon` et le module de surveillance des fichiers. Il n’exécute plus le binaire ELF Linux/musl d’origine et ne nécessite ni PRoot, ni machine virtuelle Linux, ni Node.js, ni npm sur l’appareil.
 
 > [!IMPORTANT]
-> Il s’agit d’une adaptation communautaire non officielle pour Termux. OpenCode est développé par anomalyco/opencode. Ce dépôt maintient l’installateur Termux, l’intégration, le gestionnaire de mises à jour et les validations.
+> Il s’agit d’une adaptation communautaire non officielle pour Termux. OpenCode est développé par anomalyco/opencode. Ce dépôt maintient l’installateur Termux, l’intégration, le mécanisme de mise à jour et les validations.
 
 ### Fonctionnalités principales
 
@@ -127,7 +127,7 @@ Il peut remplacer les installations reconnues lorsque leur propriété peut êtr
 
 - L’ancien paquet npm global `opencode-termux` n’est supprimé que si ses métadonnées sont valides et si le lien symbolique `opencode` existant pointe à l’intérieur de ce paquet.
 - Une liste restreinte de propriétaires de paquets Termux/dpkg est reconnue à partir des métadonnées de propriété : `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` et `opencode1-wrapper`.
-- Un ancien lanceur géré par ce projet (`opencode`, `internal update helper` ou `opencode-termux`) est remplacé après reconnaissance de son contenu.
+- Un ancien lanceur géré par ce projet (`opencode`) est remplacé après reconnaissance de son contenu.
 
 Si une commande existante est inconnue, copiée manuellement ou ne peut pas être attribuée en toute sécurité à l’une de ces installations, l’installateur s’arrête et n’y touche pas. Identifiez et supprimez cette installation vous-même uniquement après en avoir confirmé l’origine. Il n’effectue pas de nettoyage global de tous les fichiers portant un nom similaire (par exemple, des binaires `opencode2` arbitraires), des paquets npm sans rapport ou des répertoires étrangers au projet.
 
@@ -193,7 +193,7 @@ Le bundle comprend un lanceur shell, les modules JavaScript, le moteur de rendu 
 
 Le lanceur compare la version d’OpenCode, l’identifiant de génération du runtime et le SHA-256 du bundle installé. Cela détecte la migration musl vers Bionic ainsi qu’une reconstruction du bundle conservant la même version et la même génération.
 
-Le gestionnaire, le programme de mise à jour, le automatic launch-time update check et le désinstallateur restent distincts du bundle runtime.
+La vérification automatique et son helper restent internes au runtime ; aucune commande supplémentaire n’est installée.
 
 ## 🔐 Sécurité et intégrité
 
@@ -283,12 +283,7 @@ Le lanceur ne tente pas de mise à jour dans les cas suivants :
 - Moins de six heures se sont écoulées depuis la vérification précédente.
 - Le programme de mise à jour géré est indisponible ou les métadonnées de release ne peuvent pas être récupérées.
 
-En cas d’échec réseau ou d’installation, OpenCode continue avec le runtime installé. Les détails sont consignés dans `$PREFIX/var/log/opencode-termux/auto-update.log`. Pour récupérer manuellement les changements du gestionnaire ou de l’installateur, exécutez :
-
-```bash
-```
-
-## 🗑️ Désinstallation
+En cas d’échec réseau ou d’installation, OpenCode continue avec le runtime installé. Les détails sont consignés dans `$PREFIX/var/log/opencode-termux/auto-update.log`. ## 🗑️ Désinstallation
 
 Pour supprimer l’installation Termux gérée :
 
