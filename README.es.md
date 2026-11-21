@@ -308,7 +308,7 @@ El gestor, el actualizador, el menú interactivo y el desinstalador siguen separ
 - La activación del runtime y de los lanzadores es transaccional; se intenta restaurar la instalación anterior si falla la comprobación final.
 - El desinstalador verifica la propiedad de los archivos antes de eliminarlos.
 
-Límite de confianza: las fuentes y herramientas se fijan en el lockfile y cada artefacto se verifica, pero SHA-256 no es una firma independiente ni sustituye la auditoría del código y de la cadena de compilación. Parte de las adaptaciones Android procede de scripts MIT de Spectra010s/opencode-termux, mantenidos y ejecutados por nuestros propios workflows; la atribución y las licencias están en THIRD_PARTY_NOTICES.md.
+Límite de confianza: las fuentes y herramientas se fijan en el lockfile y cada artefacto se verifica, pero SHA-256 no es una firma independiente ni sustituye la auditoría del código y de la cadena de compilación. Los componentes de compatibilidad derivados de terceros y sus avisos de licencia obligatorios están documentados en THIRD_PARTY_NOTICES.md.
 
 ## 🤖 Automatización de releases y CI
 
