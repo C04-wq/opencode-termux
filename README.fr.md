@@ -161,6 +161,7 @@ Il existe trois mécanismes liés de mise à jour et de récupération.
 Avant de démarrer une session OpenCode normale, le lanceur exécute le programme de mise à jour géré au maximum une fois toutes les six heures. Celui-ci effectue une avance rapide du dépôt Git géré, puis relance l’installateur, qui vérifie les sommes de contrôle de la release et utilise le remplacement transactionnel avec récupération.
 
 - Cette vérification est ignorée pour `opencode --version`, `opencode --help`, `opencode update` et `opencode upgrade`.
+- Les installations existantes doivent exécuter une fois `opencode-termux update` pour installer ce lanceur ; les vérifications seront ensuite automatiques.
 - Désactivez-la avec `OPENCODE_TERMUX_AUTOUPDATE=0`.
 - Les résultats sont consignés dans `$PREFIX/var/log/opencode-termux/auto-update.log`.
 - En cas d’échec réseau ou de mise à jour, le lanceur continue avec la version installée.
