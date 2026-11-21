@@ -13,6 +13,7 @@ class TermuxUpdaterContract(unittest.TestCase):
     def test_internal_updater_reads_our_release_metadata_on_termux(self):
         self.assertIn('https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json', PATCH)
         self.assertIn('nativeTermux', PATCH)
+        self.assertLess(PATCH.index('if (nativeTermux) return "curl"'), PATCH.index('const prefix = process.env.PREFIX'))
         self.assertIn('data.sourceRepo !== "C04-wq/opencode-termux"', PATCH)
         self.assertIn('data.runtimeId !== "android-bionic-bun-v1"', PATCH)
         self.assertIn('data.archiveSha256X86_64', PATCH)
