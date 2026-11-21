@@ -51,6 +51,7 @@ jobs:
           bash opencode-termux help >/dev/null
           shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux packing/launcher/opencode scripts/*.sh
           bash scripts/test-launcher-template.sh
+          for path in install.sh uninstall.sh manager.sh opencode-termux packing/launcher/opencode; do test -x "$path" || { echo "Expected executable source entrypoint: $path" >&2; exit 1; }; done
       - name: Validate native runtime contract
         run: |
           set -euo pipefail
