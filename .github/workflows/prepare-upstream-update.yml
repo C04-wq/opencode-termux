@@ -112,8 +112,8 @@ jobs:
           lock["package_revision"] = 1
 
           daemon_manifest = pathlib.Path(source_root, "packages/process-daemon/Cargo.toml").read_text(encoding="utf-8")
-          daemon_name = re.search(r'^name\\s*=\\s*"([^"]+)"', daemon_manifest, re.M)
-          daemon_version = re.search(r'^version\\s*=\\s*"([^"]+)"', daemon_manifest, re.M)
+          daemon_name = re.search(r'^name\s*=\s*"([^"]+)"', daemon_manifest, re.M)
+          daemon_version = re.search(r'^version\s*=\s*"([^"]+)"', daemon_manifest, re.M)
           ghostty_commit = pathlib.Path(source_root, "packages/process-daemon/ghostty-revision").read_text(encoding="utf-8").strip()
           if not daemon_name or daemon_name.group(1) != "opencode-pty" or not daemon_version:
               raise SystemExit("Official process-daemon Cargo manifest is missing or changed.")
