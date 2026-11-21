@@ -390,13 +390,15 @@ fi
 
 LEGACY_NPM_OWNS_COMMAND=0
 if [[ -n "$NPM_GLOBAL_ROOT" && -f "$NPM_OPENCODE_PACKAGE/package.json" ]] &&
-  node -e 'const p=require(process.argv[1]); process.exit(p.name === "opencode-termux" && (typeof p.bin === "string" || (p.bin && Object.prototype.hasOwnProperty.call(p.bin, "opencode"))) ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
-  if [[ -L "$LAUNCHER" ]]; then
-    LAUNCHER_TARGET="$(readlink -f "$LAUNCHER" 2>/dev/null || true)"
-    case "$LAUNCHER_TARGET" in
-      "$NPM_OPENCODE_PACKAGE"/*) LEGACY_NPM_OWNS_COMMAND=1 ;;
-    esac
-  fi
+  node -e 'const p=require(process.argv[1]); const bins=typeof p.bin === "string" ? {} : (p.bin || {}); process.exit(p.name === "opencode-termux" && ["opencode", "opencode2"].some(k => Object.prototype.hasOwnProperty.call(bins, k)) ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
+  for LEGACY_COMMAND in "$LAUNCHER" "$PREFIX/bin/opencode2"; do
+    if [[ -L "$LEGACY_COMMAND" ]]; then
+      LAUNCHER_TARGET="$(readlink -f "$LEGACY_COMMAND" 2>/dev/null || true)"
+      case "$LAUNCHER_TARGET" in
+        "$NPM_OPENCODE_PACKAGE"/*) LEGACY_NPM_OWNS_COMMAND=1; break ;;
+      esac
+    fi
+  done
 fi
 
 if [[ "$LEGACY_NPM_OWNS_COMMAND" == 1 ]]; then
@@ -406,15 +408,28 @@ fi
 
 # Termux packages are identified through dpkg ownership, not by filename.
 # Remove only known OpenCode package names; leave unknown package owners alone.
-if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]] && command -v dpkg-query >/dev/null 2>&1; then
+if command -v dpkg-query >/dev/null 2>&1; then
   source "$REPO_DIR/scripts/package-owner.sh"
-  PACKAGE_OWNER="$(get_dpkg_package_owner "$LAUNCHER")"
-  case "$PACKAGE_OWNER" in
-    opencode|opencode1|opencode-termux|opencode-wrapper|opencode1-wrapper)
-      echo "Found Termux package installation ($PACKAGE_OWNER); replacing it..."
-      run_quiet pkg uninstall -y "$PACKAGE_OWNER"
-      ;;
-  esac
+  for LEGACY_COMMAND in "$LAUNCHER" "$PREFIX/bin/opencode2"; do
+    [[ -e "$LEGACY_COMMAND" || -L "$LEGACY_COMMAND" ]] || continue
+    PACKAGE_OWNER="$(get_dpkg_package_owner "$LEGACY_COMMAND")"
+    case "$PACKAGE_OWNER" in
+      opencode|opencode1|opencode-termux|opencode-wrapper|opencode1-wrapper)
+        echo "Found Termux package installation ($PACKAGE_OWNER); replacing it..."
+        run_quiet pkg uninstall -y "$PACKAGE_OWNER"
+        break
+        ;;
+    esac
+  done
+fi
+
+# Remove only a recognizable legacy opencode2 launcher from this project.
+LEGACY_LAUNCHER2="$PREFIX/bin/opencode2"
+if [[ -f "$LEGACY_LAUNCHER2" ]] && grep -Fq '/lib/opencode-termux' "$LEGACY_LAUNCHER2"; then
+  rm -f "$LEGACY_LAUNCHER2"
+elif [[ -L "$LEGACY_LAUNCHER2" ]]; then
+  LEGACY_TARGET="$(readlink -f "$LEGACY_LAUNCHER2" 2>/dev/null || true)"
+  case "$LEGACY_TARGET" in "$RUNTIME"/*) rm -f "$LEGACY_LAUNCHER2" ;; esac
 fi
 
 # An existing launcher is replaceable only when it is a previous launcher
