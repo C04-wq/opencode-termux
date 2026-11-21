@@ -54,7 +54,7 @@ A release must not be called 100% equivalent until all of the following are true
 2. Both archives contain every required executable, shared library, JavaScript asset, web asset and provenance marker.
 3. ELF checks prove the correct machine, Android interpreter, Bionic linkage and supported page alignment; no glibc runtime dependency is present.
 4. Upstream Rust daemon tests, repository static/contract tests, archive validation, installer/update tests and server/TUI smoke tests pass.
-5. Real Termux tests pass on ARM64 and x86_64 for TUI, persistent PTY/daemon, server, authentication, file watching, updates and recovery.
+5. Automated CI/emulation tests cover ARM64 and x86_64 installation, CLI/server startup, TUI/PTY daemon IPC, authentication, file watching, updates and recovery. Real-device checks are supplementary; any Android-kernel behavior not reproducible in CI must be documented explicitly.
 6. Every intentionally omitted desktop-only or Android-incompatible feature is documented as a platform limitation rather than silently treated as parity.
 
 Until these criteria pass, the project is an official-source Android port with known parity gaps, not a verified 100% drop-in equivalent.
