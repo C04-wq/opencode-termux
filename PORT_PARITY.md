@@ -14,7 +14,7 @@ This document separates source inclusion from runtime verification. A feature be
 | Bun PTY native library (`librust_pty_*.so`) | Built | Built | This is a shared library, not the process daemon |
 | Official persistent process daemon (`opencode-pty`) | New cross-build path | New cross-build path | Being added from upstream `packages/process-daemon`; must pass CI and real-device IPC tests before release |
 | Ghostty terminal VT engine used by the daemon | Statically linked from the pinned upstream Ghostty revision | Statically linked from the pinned upstream Ghostty revision | Android target requires the NDK and a supported Zig toolchain |
-| File watching (`@parcel/watcher`) | Android module | Android source build | Build checks exist; real file-change behavior still needs device coverage |
+| File watching (`@parcel/watcher`) | Source-built | Source-built | Rebuilt from the exact upstream package source for both Android targets; real file-change behavior still needs device coverage |
 | FFF search/index backend | Source-build path added | Source-build path added | Rebuilt from the exact FFF Rust source version pinned by official OpenCode; CI must still validate Android compilation and 16 KB ELF alignment |
 | Scalar/Swagger API reference UI | Stubbed | Stubbed | API server remains; embedded API-reference UI assets are currently omitted |
 | Shell integration, SQLite storage/migrations, providers, authentication, MCP, LSP and plugins | Upstream JS source bundled | Upstream JS source bundled | Broad feature regression coverage on Android is still required |
