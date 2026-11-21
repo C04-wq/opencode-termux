@@ -36,7 +36,7 @@ jobs:
       - name: Validate shell scripts and regression tests
         run: |
           set -euo pipefail
-          bash -n install.sh uninstall.sh manager.sh opencode-termux
+          bash -n install.sh uninstall.sh
           sh -n packing/launcher/opencode
           bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/ci/build-opencode-pty-android.sh scripts/ci/build-fff-android.sh scripts/ci/build-parcel-watcher-android.sh scripts/test-termux-device.sh
           bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
@@ -45,13 +45,9 @@ jobs:
           bash scripts/test-termux-repository-migration.sh
           bash scripts/test-runtime-archive.sh
           bash scripts/test-rust-pty-build.sh
-          bash manager.sh help >/dev/null
-          bash manager.sh version | grep -Fq 'opencode-termux manager'
-          bash manager.sh status | grep -Fq 'Status: not installed'
-          bash opencode-termux help >/dev/null
-          shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux packing/launcher/opencode scripts/*.sh
+          shellcheck -S error install.sh uninstall.sh packing/launcher/opencode scripts/*.sh
           bash scripts/test-launcher-template.sh
-          for path in install.sh uninstall.sh manager.sh opencode-termux packing/launcher/opencode; do test -x "$path" || { echo "Expected executable source entrypoint: $path" >&2; exit 1; }; done
+          for path in install.sh uninstall.sh packing/launcher/opencode; do test -x "$path" || { echo "Expected executable source entrypoint: $path" >&2; exit 1; }; done
       - name: Validate native runtime contract
         run: |
           set -euo pipefail
@@ -156,19 +152,18 @@ jobs:
           export PATH="$RUNNER_TEMP/termux-stubs:$PREFIX/bin:$PATH"
           bash install.sh
           test -x "$PREFIX/bin/opencode"
-          test -x "$PREFIX/bin/opencode-termux"
-          test -x "$PREFIX/bin/opencode-termux-update"
+          test ! -e "$PREFIX/bin/opencode-termux"
+          test ! -e "$PREFIX/lib/opencode-termux/update-runtime.sh"
+          test -x "$PREFIX/lib/opencode-termux/update-runtime.sh"
           test -s "$PREFIX/lib/opencode-termux/lib/opencode/index.js"
           test -f "$PREFIX/lib/opencode-termux/lib/opencode/bunfig.toml"
           test -s "$PREFIX/lib/opencode-termux/THIRD_PARTY_NOTICES.md"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256")" = "$OPENCODE_TEST_SHA256"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
-          test -x "$PREFIX/bin/opencode-termux"
-          bash "$PREFIX/bin/opencode-termux" doctor
           # Replace the updater with a deterministic stub so this test never
           # mutates the workflow checkout or needs a live GitHub release.
-          cat > "$PREFIX/bin/opencode-termux-update" <<'UPDATER_TEST'
+          cat > "$PREFIX/lib/opencode-termux/update-runtime.sh" <<'UPDATER_TEST'
           #!/usr/bin/env bash
           set -euo pipefail
           RUNTIME="$PREFIX/lib/opencode-termux"
@@ -177,7 +172,7 @@ jobs:
           printf '%s\n' "${OPENCODE_TEST_REMOTE_SHA256:-$OPENCODE_TEST_SHA256}" > "$RUNTIME/.opencode-termux-archive-sha256"
           printf '%s\n' "$OPENCODE_TEST_REMOTE_VERSION" >> "$PREFIX/auto-update-calls"
           UPDATER_TEST
-          chmod 755 "$PREFIX/bin/opencode-termux-update"
+          chmod 755 "$PREFIX/lib/opencode-termux/update-runtime.sh"
 
           # Same-version runtime migration (legacy musl -> Bionic) is an update.
           printf 'legacy-musl\n' > "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
@@ -219,18 +214,18 @@ jobs:
           test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 3
 
           # A failed update is logged and the installed runtime still starts.
-          cat > "$PREFIX/bin/opencode-termux-update" <<'UPDATER_FAIL'
+          cat > "$PREFIX/lib/opencode-termux/update-runtime.sh" <<'UPDATER_FAIL'
           #!/usr/bin/env bash
           echo "simulated update failure" >&2
           exit 42
           UPDATER_FAIL
-          chmod 755 "$PREFIX/bin/opencode-termux-update"
+          chmod 755 "$PREFIX/lib/opencode-termux/update-runtime.sh"
           rm -rf "$PREFIX/var/cache/opencode-termux"
           OPENCODE_TEST_REMOTE_VERSION=2.3.4 OPENCODE_TEST_VERSION=2.3.3 \
             bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/failed-auto-update.txt" 2>&1
           grep -Fq 'Automatic update failed (exit 42)' "$RUNNER_TEMP/failed-auto-update.txt"
           grep -Fq 'simulated update failure' "$PREFIX/var/log/opencode-termux/auto-update.log"
-          echo "PASS: installer, manager doctor, automatic version/runtime/hash updates, opt-out and failure fallback."
+          echo "PASS: installer, automatic version/runtime/hash updates, opt-out and failure fallback."
 
   build-x86_64-native:
     name: Build and verify Android x86_64 runtime
