@@ -250,7 +250,8 @@ def main() -> None:
         '      }))\n'
         '      return\n'
         '    }\n'
-        '    const packageName =\n',
+                '    if (method === "apt") return yield* Effect.fail(new Error("APT updates are not supported for this installation"))\\n'
+'    const packageName =\n',
     )
     replace_once(
         updater,
@@ -304,6 +305,15 @@ def main() -> None:
     )
     replace_once(upgrade_handler, '      if (version === OPENCODE_VERSION) {\n', '      if (version === current) {\n')
     replace_once(upgrade_handler, '      log.info(`From ${OPENCODE_VERSION} → ${version}`)\n', '      log.info(`From ${current} → ${version}`)\n')
+
+    # Keep upstream command fixtures compatible with the extended updater interface.
+    upgrade_fixture = root / "packages/cli/test/fixture/upgrade.ts"
+    replace_once(
+        upgrade_fixture,
+        '      apply: () => Effect.die("Manual upgrades must not apply TUI updates"),\\n',
+        '      apply: () => Effect.die("Manual upgrades must not apply TUI updates"),\\n'
+        '      current: () => Effect.succeed("0.0.0-test"),\\n',
+    )
 
     uninstall = root / "packages/cli/src/commands/handlers/uninstall.ts"
     text = uninstall.read_text(encoding="utf-8")
