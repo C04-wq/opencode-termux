@@ -37,6 +37,11 @@ assert.ok(build.includes("build-parcel-watcher-android.sh"), "x86_64 bundle must
 assert.ok(build.includes("fff: disabled for x86_64"), "x86_64 must fall back from unavailable Android FFF to ripgrep");
 assert.ok(build.includes('install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"'), "the official daemon must be packaged in the runtime archive");
 assert.ok(build.includes('opencode-pty.required'), "new archives must mark the daemon as required");
+const supplyChain = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
+assert.equal(supplyChain.process_daemon.package, "opencode-pty");
+assert.equal(supplyChain.process_daemon.version, "0.6.0");
+assert.match(supplyChain.process_daemon.ghostty_commit, /^[a-f0-9]{40}$/);
+assert.deepEqual(supplyChain.process_daemon.android_targets, ["aarch64-linux-android", "x86_64-linux-android"]);
 const daemonBuild = fs.readFileSync("scripts/ci/build-opencode-pty-android.sh", "utf8");
 for (const token of [
   "packages/process-daemon/Cargo.toml",
