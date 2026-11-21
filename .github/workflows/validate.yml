@@ -368,7 +368,8 @@ jobs:
               "sourceRepo": "C04-wq/opencode-termux",
               "sourceTag": "v" + version,
               "releaseTag": release_tag,
-              "archiveSha256": digest,
+              "archiveSha256X86_64": digest,
+              "archiveNameX86_64": path.rsplit("/", 1)[-1],
               "runtimeId": "android-bionic-bun-v1"
           }, indent=2))
           PY
@@ -611,8 +612,7 @@ jobs:
               "sourceTag": "v" + version,
               "releaseTag": release_tag,
               "archiveSha256": digest,
-              "archiveSha256X86_64": digest,
-              "archiveNameX86_64": path.rsplit("/", 1)[-1],
+              "archiveName": path.rsplit("/", 1)[-1],
               "runtimeId": "android-bionic-bun-v1"
           }, indent=2))
           PY
