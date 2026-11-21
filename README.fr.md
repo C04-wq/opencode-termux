@@ -1,6 +1,5 @@
 <!--
   Gardez ce document synchronisé avec README.md, README.es.md, README.en.md,
-  install.sh, manager.sh, uninstall.sh, scripts/, release-checksums.json et .github/workflows/.
 -->
 
 <p align="center">
@@ -29,7 +28,6 @@
   <a href="#-prérequis">Prérequis</a> ·
   <a href="#-installation">Installation</a> ·
   <a href="#-mises-à-jour">Mises à jour</a> ·
-  <a href="#-cli-de-gestion">CLI de gestion</a> ·
   <a href="#-présentation-technique">Présentation technique</a> ·
   <a href="#-dépannage">Dépannage</a>
 </p>
@@ -129,7 +127,7 @@ Il peut remplacer les installations reconnues lorsque leur propriété peut êtr
 
 - L’ancien paquet npm global `opencode-termux` n’est supprimé que si ses métadonnées sont valides et si le lien symbolique `opencode` existant pointe à l’intérieur de ce paquet.
 - Une liste restreinte de propriétaires de paquets Termux/dpkg est reconnue à partir des métadonnées de propriété : `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` et `opencode1-wrapper`.
-- Un ancien lanceur géré par ce projet (`opencode`, `opencode-termux-update` ou `opencode-termux`) est remplacé après reconnaissance de son contenu.
+- Un ancien lanceur géré par ce projet (`opencode`, `internal update helper` ou `opencode-termux`) est remplacé après reconnaissance de son contenu.
 
 Si une commande existante est inconnue, copiée manuellement ou ne peut pas être attribuée en toute sécurité à l’une de ces installations, l’installateur s’arrête et n’y touche pas. Identifiez et supprimez cette installation vous-même uniquement après en avoir confirmé l’origine. Il n’effectue pas de nettoyage global de tous les fichiers portant un nom similaire (par exemple, des binaires `opencode2` arbitraires), des paquets npm sans rapport ou des répertoires étrangers au projet.
 
@@ -142,8 +140,6 @@ L’installateur ne supprime pas non plus les paramètres, sessions, projets ou 
 | Copie du dépôt | `$PREFIX/opt/opencode-termux` |
 | Environnement OpenCode et bibliothèques | `$PREFIX/lib/opencode-termux/` |
 | Commande OpenCode | `$PREFIX/bin/opencode` |
-| CLI de gestion | `$PREFIX/bin/opencode-termux` |
-| Programme de mise à jour interne | `$PREFIX/bin/opencode-termux-update` |
 | Marqueur de version installée | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
 | SHA-256 du bundle installé | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Marqueur du chemin du dépôt | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
@@ -161,7 +157,6 @@ Il existe quatre mécanismes liés de mise à jour et de récupération.
 Avant de démarrer une session OpenCode normale, le lanceur exécute le programme de mise à jour géré au maximum une fois toutes les six heures. Celui-ci effectue une avance rapide du dépôt Git géré, puis relance l’installateur, qui vérifie les sommes de contrôle de la release et utilise le remplacement transactionnel avec récupération.
 
 - Cette vérification est ignorée pour `opencode --version`, `opencode --help`, `opencode update` et `opencode upgrade`.
-- Les installations existantes doivent exécuter une fois `opencode-termux update` pour installer ce lanceur ; les vérifications seront ensuite automatiques.
 - Désactivez-la avec `OPENCODE_TERMUX_AUTOUPDATE=0`.
 - Les résultats sont consignés dans `$PREFIX/var/log/opencode-termux/auto-update.log`.
 - En cas d’échec réseau ou de mise à jour, le lanceur continue avec la version installée.
@@ -171,7 +166,6 @@ Avant de démarrer une session OpenCode normale, le lanceur exécute le programm
 Pour récupérer le code le plus récent du projet et réinstaller l’environnement vérifié :
 
 ```bash
-opencode-termux update
 ```
 
 Cette commande effectue une mise à jour Git en fast-forward uniquement (`git pull --ff-only`) dans la copie gérée, puis exécute son `install.sh`. Elle met à jour le gestionnaire, le lanceur, le programme de mise à jour et l’environnement selon le dépôt récupéré et ses métadonnées de release.
@@ -197,63 +191,6 @@ curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install
 Il détecte la copie gérée et relance la procédure d’installation. Cette méthode permet de réparer des lanceurs manquants ou leurs permissions d’exécution, ainsi que d’installer la version indiquée par les métadonnées de release de la copie locale.
 
 > **Important :** `OPENCODE_DISABLE_AUTOUPDATE=1` désactive les vérifications automatiques upstream au démarrage, mais ne supprime pas les mises à jour manuelles. La commande intégrée `opencode update` (alias de `opencode upgrade`) et l’action de mise à jour de la TUI sont adaptées pour consulter uniquement le fichier `release-checksums.json` de ce dépôt. Elles vérifient la source, la version, l’identifiant du runtime et le checksum propre à l’architecture, puis lancent l’installateur Termux en verrouillant la version vérifiée. Si aucun paquet ARM64 ou x86_64 vérifié n’existe, la mise à jour est refusée sans basculer vers une release officielle upstream.
-
-## 🧰 CLI de gestion
-
-L’installateur fournit une commande distincte, `opencode-termux`. Elle gère ce paquet Termux ; ce n’est pas l’application OpenCode elle-même.
-
-Afficher l’aide :
-
-```bash
-opencode-termux
-# ou
-opencode-termux --help
-```
-
-### Commandes
-
-| Commande | Forme avec option | Description |
-| --- | --- | --- |
-| `install` | `--install` | Installe ou répare l’environnement géré à partir de la copie existante. |
-| `update` | `--update` | Met à jour la copie en fast-forward et réinstalle l’environnement vérifié. |
-| `uninstall` | `--uninstall` | Lance le désinstallateur du projet, qui demande confirmation. |
-| `version` | `--version`, `-V` | Affiche la version du gestionnaire et celle d’OpenCode installé, le cas échéant. |
-| `status` | `--status` | Indique si l’environnement est installé et affiche ses principaux chemins. |
-| `doctor` | `--doctor` | Vérifie l’architecture, les dépendances, les fichiers, les lanceurs, les permissions, les certificats, le DNS et le démarrage. |
-| `help` | `--help`, `-h` | Affiche l’aide. |
-
-Exemples :
-
-```bash
-opencode-termux status
-opencode-termux version
-opencode-termux doctor
-opencode-termux update
-```
-
-### Diagnostic avec `doctor`
-
-Exécutez :
-
-```bash
-opencode-termux doctor
-```
-
-Le diagnostic vérifie :
-
-- Que l’architecture de l’appareil est `aarch64` ou `x86_64`.
-- Que les commandes requises (`git`, `curl`, `tar`, `sha256sum`, `bun` et `rg`) sont disponibles.
-- Que la bibliothèque partagée libc++ de Termux est installée.
-- Que le lanceur natif, le point d’entrée JavaScript, la bibliothèque `bun-pty`, l’exécutable daemon officiel `opencode-pty` et le module watcher existent.
-- Que le lanceur natif possède les permissions d’exécution.
-- Que le marqueur de version existe et respecte un format valide.
-- Que le lanceur OpenCode est bien celui géré par le projet.
-- Que la commande de gestion existe, est exécutable et contient le marqueur de propriété du projet.
-- Que le programme de mise à jour interne existe et est identifiable.
-- Que le bundle CA et la configuration du résolveur Termux sont présents.
-- Que l’exécutable OpenCode démarre et indique la version enregistrée dans son marqueur.
-
-Les résultats individuels sont affichés sous forme `OK` / `FAIL`. Le code de sortie est non nul si un contrôle échoue. Il s’agit d’un diagnostic local de l’installation : il ne vérifie pas les clés API, les comptes fournisseurs, l’accès à tous les services d’IA ni l’état du projet OpenCode en amont.
 
 ## 🧩 Présentation technique
 
@@ -323,30 +260,13 @@ opencode --version
 
 Vous pouvez également relancer l’installateur curl en une ligne ; il détectera et réutilisera la copie gérée.
 
-### `opencode-termux: command not found`
-
-La CLI de gestion est installée dans `$PREFIX/bin/opencode-termux`. Vérifiez son existence et la présence du répertoire `bin` de Termux dans votre `PATH` :
-
-```bash
-printf '%s\n' "$PATH"
-ls -l "$PREFIX/bin/opencode-termux"
-```
-
-Relancez ensuite l’installateur pour restaurer le gestionnaire et ses permissions :
-
-```bash
-bash "$PREFIX/opt/opencode-termux/install.sh"
-hash -r
-opencode-termux --help
-```
-
 ### `permission denied`
 
-L’installateur applique le mode `755` au lanceur OpenCode, au gestionnaire et au programme de mise à jour après leur installation dans leurs chemins définitifs. Relancez l’installateur :
+L’installateur applique le mode `755` au lanceur OpenCode après son installation. Relancez l’installateur :
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/install.sh"
-ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/bin/opencode-termux-update"
+ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/lib/opencode-termux/update-runtime.sh"
 ```
 
 ### Architecture non prise en charge
@@ -380,7 +300,6 @@ Le programme de mise à jour utilise volontairement `git pull --ff-only`. Inspec
 git -C "$PREFIX/opt/opencode-termux" status --short
 ```
 
-Validez, mettez de côté ou résolvez les modifications locales avant de réessayer `opencode-termux update`. Le programme de mise à jour ne force pas de réinitialisation du dépôt.
 
 ### Quand les mises à jour automatiques sont ignorées
 
@@ -394,7 +313,6 @@ Le lanceur ne tente pas de mise à jour dans les cas suivants :
 En cas d’échec réseau ou d’installation, OpenCode continue avec le runtime installé. Les détails sont consignés dans `$PREFIX/var/log/opencode-termux/auto-update.log`. Pour récupérer manuellement les changements du gestionnaire ou de l’installateur, exécutez :
 
 ```bash
-opencode-termux update
 ```
 
 ## 🗑️ Désinstallation
@@ -402,7 +320,6 @@ opencode-termux update
 Pour supprimer l’installation Termux gérée :
 
 ```bash
-opencode-termux uninstall
 ```
 
 Le désinstallateur demande confirmation. Vous pouvez également le lancer directement depuis la copie du dépôt :
@@ -415,8 +332,7 @@ Après confirmation, il supprime uniquement :
 
 - `$PREFIX/lib/opencode-termux` — l’environnement géré et ses marqueurs.
 - `$PREFIX/bin/opencode` — le lanceur de ce projet.
-- `$PREFIX/bin/opencode-termux-update` — le programme de mise à jour interne.
-- `$PREFIX/bin/opencode-termux` — la CLI de gestion.
+- `$PREFIX/lib/opencode-termux/update-runtime.sh` — le programme de mise à jour interne.
 
 Il vérifie le marqueur runtime et l’identité des lanceurs avant toute suppression. Si la propriété ne peut pas être établie, il s’arrête et laisse l’installation intacte.
 
@@ -439,7 +355,6 @@ Depuis une copie du dépôt, exécutez les contrôles pertinents :
 
 ```bash
 # Syntaxe shell
-bash -n install.sh uninstall.sh manager.sh opencode-termux
 bash -n scripts/validate-runtime-archive.sh scripts/smoke-test-runtime-archive.sh
 
 # Syntaxe et tests JavaScript
@@ -451,14 +366,12 @@ bash scripts/test-package-owner.sh
 bash scripts/test-runtime-archive.sh
 
 # Analyse statique (nécessite ShellCheck)
-shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux scripts/*.sh
 ```
 
 Le workflow GitHub Actions télécharge également le bundle Android épinglé, vérifie son condensat, inspecte les modules ELF et teste le contrat du lanceur.
 
 ### Directives de contribution
 
-- Gardez le point d’entrée du gestionnaire (`opencode-termux`) synchronisé avec `manager.sh`.
 - Gardez la structure de l’archive release et les métadonnées de checksum cohérentes avec l’installateur et le validateur.
 - N’introduisez pas de téléchargements non vérifiés et ne contournez pas les contrôles de checksum upstream ou du projet.
 - Préservez le chemin du résolveur Termux, la configuration de l’interpréteur ELF et le comportement d’exécution directe requis par le serveur en arrière-plan d’OpenCode.
