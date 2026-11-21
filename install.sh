@@ -146,7 +146,7 @@ RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
 if [[ ! "$HASH" =~ ^[a-f0-9]{64}$ ]]; then
   if [[ "$TARGET_ARCH" == "x86_64" ]]; then
-    echo "Error: no verified x86_64 runtime is published for OpenCode $VERSION yet. The x86_64 build must pass physical Termux validation before release." >&2
+    echo "Error: no verified x86_64 runtime is published for OpenCode $VERSION yet. Automated x86_64 build and release validation must complete before installation." >&2
   else
     echo "Error: invalid or missing ARM64 archive checksum in release metadata." >&2
   fi
