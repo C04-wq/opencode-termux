@@ -111,6 +111,17 @@ def main() -> None:
     updater = root / "packages/cli/src/services/updater.ts"
     replace_once(
         updater,
+        '  readonly latest: (method?: Method) => Effect.Effect<string, Error>\n',
+        '  readonly latest: (method?: Method) => Effect.Effect<string, Error>\n'
+        '  readonly current: () => Effect.Effect<string>\n',
+    )
+    replace_once(
+        updater,
+        '  return Service.of({ run, check, apply, method, managed, latest, upgrade, removal })\n',
+        '  return Service.of({ run, check, apply, method, managed, latest, current: () => Ref.get(installedVersion), upgrade, removal })\n',
+    )
+    replace_once(
+        updater,
         'export const methods = ["curl", "npm", "pnpm", "bun", "yarn", "vp", "brew", "winget"] as const\n',
         'export const methods = ["curl", "npm", "pnpm", "bun", "yarn", "vp", "brew", "winget", "apt"] as const\n',
     )
@@ -283,6 +294,17 @@ def main() -> None:
         "    .realPath(launcher ?? process.execPath)\n"
         "    .pipe(Effect.orElseSucceed(() => launcher ?? process.execPath))\n",
     )
+
+    upgrade_handler = root / "packages/cli/src/commands/handlers/upgrade.ts"
+    replace_once(upgrade_handler, 'import { OPENCODE_VERSION } from "../../version"\n', "")
+    replace_once(
+        upgrade_handler,
+        '      const version = target.trim().replace(/^v/, "")\n',
+        '      const version = target.trim().replace(/^v/, "")\n'
+        '      const current = yield* updater.current()\n',
+    )
+    replace_once(upgrade_handler, '      if (version === OPENCODE_VERSION) {\n', '      if (version === current) {\n')
+    replace_once(upgrade_handler, '      log.info(`From ${OPENCODE_VERSION} → ${version}`)\n', '      log.info(`From ${current} → ${version}`)\n')
 
     uninstall = root / "packages/cli/src/commands/handlers/uninstall.ts"
     text = uninstall.read_text(encoding="utf-8")
