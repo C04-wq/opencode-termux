@@ -78,7 +78,7 @@ def main() -> None:
     # Termux reports process.platform "android" for a bionic userspace that has
     # inotify, but upstream only names linux here, so recursive watch silently
     # loses its backend. The @parcel/watcher binary itself is a normal bionic
-    # arm64 module and is selected by OPENCODE_PARCEL_WATCHER_PATH, so only the
+    # ARM64/x86_64 modules are selected by OPENCODE_PARCEL_WATCHER_PATH, so only the
     # backend name needs to cover android.
     watcher = root / "packages/core/src/filesystem/watcher.ts"
     replace_once(
