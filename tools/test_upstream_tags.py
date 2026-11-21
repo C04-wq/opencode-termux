@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression tests for official OpenCode 2.x tag selection."""
+"""Regression tests for stable OpenCode tag selection across major versions."""
 import json
 import unittest
 
@@ -11,16 +11,25 @@ def ref(tag: str, sha: str, kind: str = "commit") -> dict:
 
 
 class UpstreamTagsTest(unittest.TestCase):
-    def test_selects_highest_numeric_stable_v2_tag(self) -> None:
+    def test_selects_highest_numeric_stable_tag_across_major_versions(self) -> None:
+        refs = [
+            ref("v2.99.99", "a" * 40),
+            ref("v3.0.0", "b" * 40),
+            ref("v3.0.0-rc.1", "c" * 40),
+            ref("v1.99.0", "d" * 40),
+            ref("v3.1.0", "e" * 40, "tag"),
+            ref("v2.100.0", "invalid"),
+        ]
+        self.assertEqual(resolve(json.dumps(refs)), ("v3.0.0", "3.0.0", "b" * 40))
+
+    def test_compares_minor_and_patch_numerically(self) -> None:
         refs = [
             ref("v2.9.99", "a" * 40),
             ref("v2.10.0", "b" * 40),
-            ref("v2.10.0-rc.1", "c" * 40),
-            ref("v1.99.0", "d" * 40),
-            ref("v2.11.0", "e" * 40, "tag"),
-            ref("v2.8.0", "invalid"),
+            ref("v2.10.1", "c" * 40),
+            ref("v2.10.1-beta.1", "d" * 40),
         ]
-        self.assertEqual(resolve(json.dumps(refs)), ("v2.10.0", "2.10.0", "b" * 40))
+        self.assertEqual(resolve(json.dumps(refs)), ("v2.10.1", "2.10.1", "c" * 40))
 
     def test_rejects_empty_or_unusable_tag_lists(self) -> None:
         with self.assertRaisesRegex(ValueError, "No stable official"):

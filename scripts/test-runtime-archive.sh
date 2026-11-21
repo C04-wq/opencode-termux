@@ -19,6 +19,9 @@ make_fixture() {
   printf 'native\n' > "$dir/lib/opencode/libopentui.so"
   printf 'native\n' > "$dir/lib/opencode/$pty"
   printf 'native\n' > "$dir/lib/opencode/watcher.node"
+  printf '#!/bin/sh\necho "opencode-pty 0.6.0 (protocol 9)"\n' > "$dir/lib/opencode/opencode-pty"
+  chmod 0755 "$dir/lib/opencode/opencode-pty"
+  printf 'fixture-upstream-commit\n' > "$dir/lib/opencode/opencode-pty.required"
 }
 expect_rejected() {
   local archive="$1" name="$2" target_arch="${3:-aarch64}" dest="$TMP/out-$2"

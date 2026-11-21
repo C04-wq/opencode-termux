@@ -65,6 +65,16 @@ case "${1:---help}" in
       [[ -s "$RUNTIME/lib/opencode/$PTY_LIBRARY" ]] || { echo "FAIL: runtime PTY library missing: $PTY_LIBRARY"; failed=1; }
     fi
     [[ -x "$RUNTIME/bin/opencode" ]] || { echo "FAIL: native runtime launcher is not executable"; failed=1; }
+    if [[ -f "$RUNTIME/lib/opencode/opencode-pty.required" ]]; then
+      if [[ -x "$RUNTIME/lib/opencode/opencode-pty" ]]; then
+        DAEMON_VERSION_OUTPUT="$("$RUNTIME/lib/opencode/opencode-pty" --version 2>&1)" || { echo "FAIL: official PTY daemon cannot start: $DAEMON_VERSION_OUTPUT"; failed=1; }
+        if [[ "$DAEMON_VERSION_OUTPUT" == opencode-pty\ * ]]; then echo "OK: official PTY daemon starts ($DAEMON_VERSION_OUTPUT)"; else echo "FAIL: unexpected PTY daemon version output: $DAEMON_VERSION_OUTPUT"; failed=1; fi
+      else
+        echo "FAIL: required official opencode-pty daemon is missing or not executable"; failed=1
+      fi
+    else
+      echo "WARN: legacy runtime predates the official opencode-pty daemon"
+    fi
     [[ -f "$RUNTIME/lib/opencode/bunfig.toml" && ! -L "$RUNTIME/lib/opencode/bunfig.toml" ]] || { echo "FAIL: Bun configuration file missing"; failed=1; }
     if [[ -s "$RUNTIME/.opencode-termux-version" ]]; then
       EXPECTED_VERSION="$(cat "$RUNTIME/.opencode-termux-version")"

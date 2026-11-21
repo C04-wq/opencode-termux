@@ -35,7 +35,7 @@ jobs:
           CURRENT="$(python3 tools/ocver.py current)"
           TAGS_JSON="$(curl --fail --location --silent --show-error \
             --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
-            "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v2.")"
+            "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v")"
           read -r UPSTREAM_TAG TAG_VERSION UPSTREAM_SHA < <(printf '%s' "$TAGS_JSON" | python3 tools/upstream_tags.py)
           [[ "$UPSTREAM_TAG" == "v$TAG_VERSION" && "$UPSTREAM_SHA" =~ ^[a-f0-9]{40}$ ]]
 
@@ -88,10 +88,22 @@ jobs:
           SOURCE_SHA256="$(sha256sum "$ARCHIVE" | cut -d ' ' -f1)"
           [[ "$SOURCE_SHA256" =~ ^[a-f0-9]{64}$ ]]
 
-          mkdir -p candidate
-          python3 - "$PACKAGE_JSON" "$VERSION" "$UPSTREAM_SHA" "$UPSTREAM_TAG" "$CURRENT" "$SOURCE_SHA256" tools/supply-chain-lock.json <<'PY'
+          mkdir -p candidate/upstream-source
+          tar -xzf "$ARCHIVE" --strip-components=1 -C candidate/upstream-source
+          FFF_VERSION="$(python3 - candidate/upstream-source/bun.lock <<'PY'
+          import json, sys
+          lock = json.load(open(sys.argv[1], encoding="utf-8"))
+          print(lock["workspaces"]["packages/core"]["dependencies"]["@ff-labs/fff-bun"])
+          PY
+          )"
+          FFF_COMMIT="$(git ls-remote https://github.com/dmtrKovalenko/fff.git "refs/tags/v$FFF_VERSION^{}" | awk 'NR == 1 { print $1 }')"
+          if [[ -z "$FFF_COMMIT" ]]; then
+            FFF_COMMIT="$(git ls-remote https://github.com/dmtrKovalenko/fff.git "refs/tags/v$FFF_VERSION" | awk 'NR == 1 { print $1 }')"
+          fi
+          [[ "$FFF_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "Could not resolve official FFF source tag v$FFF_VERSION" >&2; exit 1; }
+          python3 - "$PACKAGE_JSON" "$VERSION" "$UPSTREAM_SHA" "$UPSTREAM_TAG" "$CURRENT" "$SOURCE_SHA256" tools/supply-chain-lock.json candidate/upstream-source "$FFF_VERSION" "$FFF_COMMIT" <<'PY'
           import json, pathlib, re, sys
-          package_raw, version, commit, tag, current, digest, lock_path = sys.argv[1:]
+          package_raw, version, commit, tag, current, digest, lock_path, source_root, fff_version, fff_commit = sys.argv[1:]
           package = json.loads(package_raw)
           lock_file = pathlib.Path(lock_path)
           lock = json.loads(lock_file.read_text(encoding="utf-8"))
@@ -109,6 +121,41 @@ jobs:
           lock["opencode"][version] = entry
           lock["current"] = version
           lock["package_revision"] = 1
+
+          daemon_manifest = pathlib.Path(source_root, "packages/process-daemon/Cargo.toml").read_text(encoding="utf-8")
+          daemon_name = re.search(r'^name\s*=\s*"([^"]+)"', daemon_manifest, re.M)
+          daemon_version = re.search(r'^version\s*=\s*"([^"]+)"', daemon_manifest, re.M)
+          ghostty_commit = pathlib.Path(source_root, "packages/process-daemon/ghostty-revision").read_text(encoding="utf-8").strip()
+          if not daemon_name or daemon_name.group(1) != "opencode-pty" or not daemon_version:
+              raise SystemExit("Official process-daemon Cargo manifest is missing or changed.")
+          if not re.fullmatch(r"[0-9a-f]{40}", ghostty_commit):
+              raise SystemExit("Official process-daemon Ghostty revision is not a full commit SHA.")
+          daemon_pin = dict(lock.get("process_daemon", {}))
+          daemon_pin.update({
+              "package": "opencode-pty",
+              "version": daemon_version.group(1),
+              "source": "anomalyco/opencode/packages/process-daemon",
+              "ghostty_commit": ghostty_commit,
+              "android_targets": ["aarch64-linux-android", "x86_64-linux-android"],
+          })
+          lock["process_daemon"] = daemon_pin
+
+          upstream_bun_lock = json.load(open(pathlib.Path(source_root, "bun.lock"), encoding="utf-8"))
+          upstream_fff_version = upstream_bun_lock["workspaces"]["packages/core"]["dependencies"]["@ff-labs/fff-bun"]
+          if upstream_fff_version != fff_version or not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", fff_version):
+              raise SystemExit("Official OpenCode bun.lock FFF dependency differs from its resolved source tag.")
+          if not re.fullmatch(r"[0-9a-f]{40}", fff_commit):
+              raise SystemExit("Official FFF source tag did not resolve to a full commit SHA.")
+          fff_pin = dict(lock.get("fff", {}))
+          fff_pin.update({
+              "package": "@ff-labs/fff-bun",
+              "version": fff_version,
+              "source": "dmtrKovalenko/fff",
+              "commit": fff_commit,
+              "crate": "fff-c",
+              "android_targets": ["aarch64-linux-android", "x86_64-linux-android"],
+          })
+          lock["fff"] = fff_pin
           lock_file.write_text(json.dumps(lock, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
           candidate = {
@@ -125,11 +172,13 @@ jobs:
               "package_dependencies": package.get("dependencies", {}),
               "package_dev_dependencies": package.get("devDependencies", {}),
               "inherited_android_toolchain": entry,
+              "process_daemon": daemon_pin,
+              "fff": fff_pin,
               "required_review": [
-                  "Review upstream source and dependency changes against the inherited Android toolchain pins.",
-                  "Confirm ARM64 and x86_64 CI builds, archive validation, and smoke tests pass.",
+                  "Require exact upstream source and native dependency pins to pass static and supply-chain checks.",
+                  "Require ARM64 and x86_64 CI builds, daemon/FFF/watcher compilation, archive validation and smoke tests to pass.",
                   "No physical Termux device testing is required; automated ARM64 and x86_64 CI validation is the acceptance gate.",
-                  "Do not modify release-checksums.json or publish from this candidate artifact."
+                  "Only the tag-triggered release workflow may publish immutable archives and update release-checksums.json."
               ]
           }
           pathlib.Path("candidate/upstream-update-candidate.json").write_text(
@@ -145,12 +194,14 @@ jobs:
               "## What this PR does\n"
               "- Adds the exact upstream commit and source archive digest to the supply-chain lock.\n"
               "- Advances the candidate lock version so ARM64/x86_64 pull-request CI builds the new source.\n"
-              "- Reuses the last known Android toolchain pins only as a starting candidate.\n\n"
-              "## Required review before merge\n"
-              "- Review upstream changes and verify Bun, OpenTUI, bun-pty, Zig, and NDK compatibility.\n"
-              "- Require all repository CI checks to pass for both supported architectures.\n"
-              "- Require automated ARM64 and x86_64 builds, archive validation, installer tests, and runtime smoke tests to pass; no physical device testing is required.\n"
-              "- Do not create a release or modify installer metadata from this candidate until approval.\n",
+              "- Reuses the last known Android toolchain pins only as a starting candidate.\n"
+              f"- Updates the official `opencode-pty` crate pin to {daemon_version.group(1)} and Ghostty commit `{ghostty_commit}`.\n"
+              f"- Updates FFF to the exact `@ff-labs/fff-bun` version {fff_version} and source commit `{fff_commit}`; Android libraries are rebuilt from source.\n\n"
+              "## Automated merge and release gate\n"
+              "- This PR remains a draft until the dedicated validation workflow succeeds for this exact commit.\n"
+              "- If all ARM64 and x86_64 checks pass, automation marks the PR ready, merges it, creates the version tag, and lets the tag workflow publish verified release archives.\n"
+              "- If any check fails, the PR remains a draft and the six-hour watcher retries validation.\n"
+              "- Only the tag-triggered release workflow updates release-checksums.json after both architecture archives pass validation.\n",
               encoding="utf-8"
           )
           PY
@@ -173,9 +224,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length')"
-          if [[ "$EXISTING" != "0" ]]; then
-            echo "An open candidate PR already exists for OpenCode $VERSION; leaving it unchanged."
+          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --state open --json number,headRefName --jq '[.[] | select(.headRefName | startswith("automation/upstream-opencode-"))][0] // empty')"
+          if [[ -n "$EXISTING" ]]; then
+            EXISTING_BRANCH="$(jq -r '.headRefName' <<<"$EXISTING")"
+            EXISTING_NUMBER="$(jq -r '.number' <<<"$EXISTING")"
+            echo "Candidate PR #$EXISTING_NUMBER is already open on $EXISTING_BRANCH; dispatching validation again before preparing another candidate."
+            gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$EXISTING_BRANCH"
             exit 0
           fi
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then

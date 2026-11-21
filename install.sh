@@ -233,6 +233,10 @@ CERT="$PREFIX/etc/tls/cert.pem"
 RESOLVER="$PREFIX/etc/resolv.conf"
 [[ -f "$META" ]] || { echo "Error: release-checksums.json missing." >&2; exit 1; }
 VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+if [[ -n "${OPENCODE_TERMUX_EXPECTED_VERSION:-}" && "$VERSION" != "$OPENCODE_TERMUX_EXPECTED_VERSION" ]]; then
+  echo "Error: requested Termux runtime $OPENCODE_TERMUX_EXPECTED_VERSION, but repository metadata currently selects $VERSION. Refusing to install a different release." >&2
+  exit 1
+fi
 HASH="$(sed -n "s/.*\"$HASH_FIELD\"[[:space:]]*:[[:space:]]*\"\\([a-f0-9]*\\)\".*/\\1/p" "$META" | head -n1)"
 SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
@@ -258,7 +262,7 @@ if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
     exit 1
   }
 fi
-[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
+[[ "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
   echo "Error: native runtime source is not an approved release." >&2
   exit 1
 }
@@ -392,114 +396,81 @@ RUNTIME="$PREFIX/lib/opencode-termux"
 REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
 UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
-# Check GitHub quietly. A network/API failure must never prevent OpenCode from starting.
-if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
-  INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
-  INSTALLED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)"
-  INSTALLED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-archive-sha256" 2>/dev/null || true)"
-  REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
-  LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-  LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-  case "$(uname -m)" in
-    aarch64) UPDATE_HASH_FIELD="archiveSha256" ;;
-    x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64" ;;
-    *) UPDATE_HASH_FIELD="unsupported" ;;
-  esac
-  LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"'$UPDATE_HASH_FIELD'"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
-  DEFERRED_VERSION="$(cat "$RUNTIME/.opencode-termux-deferred-version" 2>/dev/null || true)"
-  DEFERRED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-deferred-runtime-id" 2>/dev/null || true)"
-  DEFERRED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-deferred-archive-sha256" 2>/dev/null || true)"
-  if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-    NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
-    UPDATE_AVAILABLE=0
-    if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
-      UPDATE_AVAILABLE=1
-    elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && -n "$LATEST_RUNTIME_ID" && "$LATEST_RUNTIME_ID" != "$INSTALLED_RUNTIME_ID" ]]; then
-      UPDATE_AVAILABLE=1
-    elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && "$LATEST_RUNTIME_ID" == "$INSTALLED_RUNTIME_ID" && "$LATEST_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ && "$LATEST_ARCHIVE_SHA256" != "$INSTALLED_ARCHIVE_SHA256" ]]; then
-      # A rebuilt package can keep the same OpenCode version and runtime ABI.
-      # The archive digest identifies the exact installed bundle in that case.
-      UPDATE_AVAILABLE=1
-    fi
-    # Deferral applies only to the exact version, runtime generation and archive.
-    if [[ "$LATEST_VERSION" == "$DEFERRED_VERSION" && "$LATEST_RUNTIME_ID" == "$DEFERRED_RUNTIME_ID" && "$LATEST_ARCHIVE_SHA256" == "$DEFERRED_ARCHIVE_SHA256" ]]; then
-      UPDATE_AVAILABLE=0
-    fi
-    if [[ "$UPDATE_AVAILABLE" == 1 ]]; then
-      if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" ]]; then
-        printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
+# Automatically install verified updates at most once every six hours.
+# A network/API failure must never prevent the currently installed OpenCode
+# runtime from starting. Set OPENCODE_TERMUX_AUTOUPDATE=0 to opt out.
+case "${1:-}" in
+  --version|-v|--help|-h|update|upgrade) AUTO_UPDATE_SKIP=1 ;;
+  *) AUTO_UPDATE_SKIP=0 ;;
+esac
+if [[ -n "$REPO_DIR" && "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" && "$AUTO_UPDATE_SKIP" == 0 ]] &&
+  command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
+  CACHE_DIR="$PREFIX/var/cache/opencode-termux"
+  LOG_DIR="$PREFIX/var/log/opencode-termux"
+  STATE="$CACHE_DIR/last-auto-update-check"
+  LOCK="$CACHE_DIR/auto-update.lock"
+  if mkdir -p "$CACHE_DIR" "$LOG_DIR" 2>/dev/null; then
+    NOW="$(date +%s 2>/dev/null || echo 0)"
+    LAST="$(cat "$STATE" 2>/dev/null || echo 0)"
+    case "$NOW:$LAST" in
+      *[!0-9:]*|:*) NOW=0; LAST=0 ;;
+    esac
+    if [[ "$NOW" -gt 0 && ( "$LAST" -eq 0 || "$NOW" -lt "$LAST" || "$((NOW - LAST))" -ge 21600 ) ]]; then
+      if mkdir "$LOCK" 2>/dev/null; then
+        trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT HUP INT TERM
+        printf '%s\n' "$NOW" > "$STATE.tmp"
+        mv "$STATE.tmp" "$STATE"
+        INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
+        INSTALLED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)"
+        INSTALLED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-archive-sha256" 2>/dev/null || true)"
+        REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
+        LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+        LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+        case "$(uname -m)" in
+          aarch64) UPDATE_HASH_FIELD="archiveSha256" ;;
+          x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64" ;;
+          *) UPDATE_HASH_FIELD="unsupported" ;;
+        esac
+        LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"'$UPDATE_HASH_FIELD'"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
+        UPDATE_AVAILABLE=0
+        if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+          NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
+          if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
+            UPDATE_AVAILABLE=1
+          elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && -n "$LATEST_RUNTIME_ID" && "$LATEST_RUNTIME_ID" != "$INSTALLED_RUNTIME_ID" ]]; then
+            UPDATE_AVAILABLE=1
+          elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && "$LATEST_RUNTIME_ID" == "$INSTALLED_RUNTIME_ID" && "$LATEST_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ && "$LATEST_ARCHIVE_SHA256" != "$INSTALLED_ARCHIVE_SHA256" ]]; then
+            UPDATE_AVAILABLE=1
+          fi
+        fi
+        if [[ "$UPDATE_AVAILABLE" == 1 ]]; then
+          printf 'Verified OpenCode update %s is available; installing automatically.\n' "$LATEST_VERSION" >&2
+          UPDATE_STATUS=0
+          if command -v timeout >/dev/null 2>&1; then
+            timeout 300 "$PREFIX/bin/opencode-termux-update" >> "$LOG_DIR/auto-update.log" 2>&1 || UPDATE_STATUS=$?
+          else
+            "$PREFIX/bin/opencode-termux-update" >> "$LOG_DIR/auto-update.log" 2>&1 || UPDATE_STATUS=$?
+          fi
+          if [[ "$UPDATE_STATUS" == 0 ]]; then
+            rmdir "$LOCK" 2>/dev/null || true
+            trap - EXIT HUP INT TERM
+            exec "$BASH" "$0" "$@"
+          fi
+          printf 'Automatic update failed (exit %s); starting the installed version. See %s/auto-update.log.\n' "$UPDATE_STATUS" "$LOG_DIR" >&2
+        fi
+        rmdir "$LOCK" 2>/dev/null || true
+        trap - EXIT HUP INT TERM
       else
-        printf '\nA new Termux runtime is available for OpenCode %s.\n\n' "$LATEST_VERSION"
+        # Another process owns the update lock; it will finish atomically.
+        :
       fi
-      CURSOR_HIDDEN=0
-      restore_cursor() {
-        if [[ "$CURSOR_HIDDEN" == 1 ]]; then
-          printf '\033[?25h'
-          CURSOR_HIDDEN=0
-        fi
-      }
-      trap 'restore_cursor' EXIT
-      trap 'restore_cursor; exit 130' INT
-      trap 'restore_cursor; exit 143' TERM
-      trap 'restore_cursor; exit 129' HUP
-      printf '\033[?25l'
-      CURSOR_HIDDEN=1
-      SELECTED=1
-      printf 'Use ↑/↓ to choose and Enter to confirm.\n'
-      printf '\n'
-      draw_update_menu() {
-        printf '\033[2A'
-        if [[ "$SELECTED" == 1 ]]; then
-          printf '\033[2K\033[32m●\033[0m Install update now\n'
-          printf '\033[2K  Wait for the next version\n'
-        else
-          printf '\033[2K  Install update now\n'
-          printf '\033[2K\033[32m●\033[0m Wait for the next version\n'
-        fi
-      }
-      printf '  Install update now\n'
-      printf '  Wait for the next version\n'
-      draw_update_menu
-      while true; do
-        KEY=""
-        if ! read -rsn1 KEY </dev/tty; then
-          SELECTED=2
-          break
-        fi
-        if [[ "$KEY" == $'\x04' ]]; then
-          SELECTED=2
-          break
-        elif [[ "$KEY" == $'\x1b' ]]; then
-          SEQUENCE=""
-          read -rsn2 -t 0.1 SEQUENCE </dev/tty || true
-          case "$SEQUENCE" in
-            '[A') SELECTED=1 ;;
-            '[B') SELECTED=2 ;;
-          esac
-          draw_update_menu
-        elif [[ -z "$KEY" ]]; then
-          break
-        fi
+    fi
+    if [[ -d "$LOCK" ]]; then
+      WAIT_SECONDS=0
+      while [[ -d "$LOCK" && "$WAIT_SECONDS" -lt 300 ]]; do
+        sleep 1
+        WAIT_SECONDS=$((WAIT_SECONDS + 1))
       done
-      restore_cursor
-      trap - EXIT INT TERM HUP
-      printf '\n'
-      if [[ "$SELECTED" == 1 ]]; then
-        if "$PREFIX/bin/opencode-termux-update"; then
-          exec "$0" "$@"
-        else
-          printf 'Update failed. Starting the currently installed version.\n' >&2
-        fi
-      else
-        if ! {
-          printf '%s\n' "$LATEST_VERSION" > "$RUNTIME/.opencode-termux-deferred-version" &&
-          printf '%s\n' "$LATEST_RUNTIME_ID" > "$RUNTIME/.opencode-termux-deferred-runtime-id" &&
-          printf '%s\n' "$LATEST_ARCHIVE_SHA256" > "$RUNTIME/.opencode-termux-deferred-archive-sha256" &&
-          chmod 600 "$RUNTIME/.opencode-termux-deferred-version" "$RUNTIME/.opencode-termux-deferred-runtime-id" "$RUNTIME/.opencode-termux-deferred-archive-sha256"
-        }; then
-          printf 'Could not save the update deferral; this prompt may appear again.\n' >&2
-        fi
-      fi
     fi
   fi
 fi

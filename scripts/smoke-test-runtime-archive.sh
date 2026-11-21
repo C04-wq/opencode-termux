@@ -7,10 +7,12 @@ TARGET_ARCH="${TARGET_ARCH:-aarch64}"
 case "$TARGET_ARCH" in
   aarch64)
     EXPECTED_ELF_MACHINE="AArch64"
+    EXPECTED_ANDROID_LINKER="/system/bin/linker64"
     PTY_LIBRARY="librust_pty_arm64.so"
     ;;
   x86_64)
     EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"
+    EXPECTED_ANDROID_LINKER="/system/bin/linker64"
     PTY_LIBRARY="librust_pty_x86_64.so"
     ;;
   *)
@@ -34,12 +36,23 @@ mv "$STAGED/bin/opencode" "$ROOT/bin/opencode"
 mv "$STAGED/lib/opencode" "$ROOT/lib/opencode"
 chmod 755 "$ROOT/bin/opencode"
 sh -n "$ROOT/bin/opencode"
-for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
+for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node "$ROOT"/lib/opencode/opencode-pty; do
   [[ -f "$native" ]] || continue
   header="$(readelf -h "$native")"
   grep -q 'Class:.*ELF64' <<<"$header"
   grep -q 'Type:.*DYN' <<<"$header"
   grep -Eq "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$header"
+  alignments="$(readelf -lW "$native" | awk '$1 == "LOAD" { print $NF }')"
+  [[ -n "$alignments" ]] || { echo "no PT_LOAD segments found in $native" >&2; exit 1; }
+  if [[ "${REQUIRE_16KB_PAGE_ALIGNMENT:-1}" == "1" ]]; then
+    while IFS= read -r alignment; do
+      alignment="${alignment#0x}"
+      if (( 16#$alignment < 16384 )); then
+        echo "Android 16 KB page alignment missing in $native (PT_LOAD alignment 0x$alignment)" >&2
+        exit 1
+      fi
+    done <<<"$alignments"
+  fi
   if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
@@ -69,6 +82,25 @@ case "$TARGET_ARCH" in
     done
     ;;
 esac
+
+# The official opencode-pty daemon is an executable (not bun-pty's .so).
+# New source-built candidates must contain it; published legacy archives can
+# be smoke-tested with REQUIRE_OFFICIAL_PTY_DAEMON=0 during migration.
+daemon="$ROOT/lib/opencode/opencode-pty"
+if [[ -f "$daemon" ]]; then
+  [[ -s "$daemon" && -x "$daemon" && -s "$ROOT/lib/opencode/opencode-pty.required" ]] || { echo "official opencode-pty daemon or marker missing" >&2; exit 1; }
+  daemon_header="$(readelf -h "$daemon")"
+  grep -q "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$daemon_header"
+  daemon_interpreter="$(readelf -l "$daemon" | sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p')"
+  [[ "$daemon_interpreter" == "$EXPECTED_ANDROID_LINKER" ]] || { echo "wrong opencode-pty Android interpreter: $daemon_interpreter" >&2; exit 1; }
+  daemon_needed="$(readelf -d "$daemon" | awk '/NEEDED/{print $NF}')"
+  if grep -Eq 'libc\.so\.6|ld-linux|libgcc_s\.so' <<<"$daemon_needed"; then echo "glibc dependency found in opencode-pty: $daemon_needed" >&2; exit 1; fi
+elif [[ "${REQUIRE_OFFICIAL_PTY_DAEMON:-1}" == "1" ]]; then
+  echo "official opencode-pty daemon missing from source-built candidate" >&2
+  exit 1
+else
+  echo "WARN: testing a legacy archive predating the official opencode-pty daemon"
+fi
 
 # Exercise the shipped shell launcher without loading Android/Bionic modules
 # on the Linux CI host. The stub verifies the module path and argument contract.

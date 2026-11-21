@@ -78,7 +78,7 @@ def main() -> None:
     # Termux reports process.platform "android" for a bionic userspace that has
     # inotify, but upstream only names linux here, so recursive watch silently
     # loses its backend. The @parcel/watcher binary itself is a normal bionic
-    # arm64 module and is selected by OPENCODE_PARCEL_WATCHER_PATH, so only the
+    # ARM64/x86_64 modules are selected by OPENCODE_PARCEL_WATCHER_PATH, so only the
     # backend name needs to cover android.
     watcher = root / "packages/core/src/filesystem/watcher.ts"
     replace_once(
@@ -86,6 +86,25 @@ def main() -> None:
         '  if (process.platform === "linux") return "inotify"\n',
         '  if (process.platform === "linux" || process.platform === "android") return "inotify"\n',
     )
+
+    # Android exposes the same per-process /proc metadata used by the
+    # official Linux foreground-process detector. Keep that upstream behavior
+    # on Termux instead of silently disabling terminal process titles.
+    daemon_service = root / "packages/process-daemon/src/service.rs"
+    service_text = daemon_service.read_text(encoding="utf-8")
+    linux_gate = '#[cfg(target_os = "linux")]'
+    android_gate = '#[cfg(any(target_os = "linux", target_os = "android"))]'
+    if linux_gate in service_text:
+        service_text = service_text.replace(linux_gate, android_gate)
+    elif android_gate not in service_text:
+        raise SystemExit("patch-opencode-source: process-daemon Linux cfg anchors changed")
+    fallback_gate = '#[cfg(not(any(windows, target_os = "linux")))]'
+    android_fallback = '#[cfg(not(any(windows, target_os = "linux", target_os = "android")))]'
+    if fallback_gate in service_text:
+        service_text = service_text.replace(fallback_gate, android_fallback)
+    elif android_fallback not in service_text:
+        raise SystemExit("patch-opencode-source: process-daemon foreground fallback cfg changed")
+    daemon_service.write_text(service_text, encoding="utf-8")
 
     # The CLI aliases `update` to `upgrade`; the TUI's /update calls Updater.apply.
     # Keep the native installer in their shared service so both paths use it.
@@ -132,9 +151,14 @@ def main() -> None:
         '        headers: { Accept: "application/json", "Cache-Control": "no-cache" },\n'
         '      })\n'
         '      if (!response.ok) throw new Error(`Runtime metadata returned HTTP ${response.status}`)\n'
-        '      const data: { version?: string; sourceRepo?: string; sourceTag?: string; runtimeId?: string } = await response.json()\n'
+        '      const data: { version?: string; sourceRepo?: string; sourceTag?: string; releaseTag?: string; runtimeId?: string; archiveSha256?: string; archiveSha256X86_64?: string; archiveNameX86_64?: string } = await response.json()\n'
         '      const version = data.version\n'
-        '      if (!version || !/^\\d+\\.\\d+\\.\\d+$/.test(version) || data.sourceRepo !== "C04-wq/opencode-termux" || data.sourceTag !== `v${version}` || data.runtimeId !== "android-bionic-bun-v1") throw new Error("Runtime metadata does not identify a verified native Termux release")\n'
+        '      const checksum = process.arch === "arm64" ? data.archiveSha256 : process.arch === "x64" ? data.archiveSha256X86_64 : undefined\n'
+        '      const expectedArchive = "opencode-" + version + (process.arch === "arm64" ? "-android-aarch64-bundle.tar.gz" : "-android-x86_64-bundle.tar.gz")\n'
+        '      const releaseTag = data.releaseTag ?? ""\n'
+        '      const releaseTagOK = /^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[1-9][0-9]*)?$/.test(releaseTag) && (releaseTag === "v" + version || releaseTag.startsWith("v" + version + "-"))\n'
+        '      const archiveNameOK = process.arch === "arm64" || data.archiveNameX86_64 === expectedArchive\n'
+        '      if (!version || !/^\\d+\\.\\d+\\.\\d+$/.test(version) || data.sourceRepo !== "C04-wq/opencode-termux" || data.sourceTag !== "v" + version || !releaseTagOK || data.runtimeId !== "android-bionic-bun-v1" || !checksum || !/^[a-f0-9]{64}$/.test(checksum) || !archiveNameOK) throw new Error("Runtime metadata does not identify a complete, verified Termux release for this architecture")\n'
         '      return version\n'
         '    },\n'
         '    catch: (cause) => new Error(`Could not check native Termux releases: ${errorDetail(cause)}`),\n'
@@ -194,7 +218,7 @@ def main() -> None:
         '          command: ["curl", "-fsSL", "--retry", "3", "-o", installer, `https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh`],\n'
         '          title: "Could not download the native Termux installer",\n'
         '        })\n'
-        '        const result = yield* exec(["bash", installer], "4 hours")\n'
+        '        const result = yield* exec(["bash", "-c", \'OPENCODE_TERMUX_EXPECTED_VERSION="$1" exec bash "$2"\', "opencode-termux-update", version, installer], "4 hours")\n'
         '        if (result.code !== 0) return yield* Effect.fail(new Error(resultDetail(result)))\n'
         '        const actual = yield* exec([executable, "--version"])\n'
         '        const actualVersion = actual.stdout.trim().match(/(?:^|\\s)v?(\\d+\\.\\d+\\.\\d+)$/)?.[1]\n'
