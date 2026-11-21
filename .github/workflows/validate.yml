@@ -186,7 +186,7 @@ jobs:
           echo "PASS: installer, dependency bootstrap, manager doctor, migration/defer prompts and same-version archive rebuild detection."
 
   build-x86_64-native:
-    name: Build and verify Android x86_64 OpenTUI
+    name: Build and verify Android x86_64 runtime
     needs: [static-checks]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -380,7 +380,7 @@ jobs:
           (cd dist && sha256sum -c SHA256SUMS)
           cat dist/release-checksums.json
 
-      - name: Upload x86_64 candidate for physical Termux validation
+      - name: Upload x86_64 automated CI candidate
         if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
@@ -617,7 +617,7 @@ jobs:
           cat dist/release-checksums.json
           (cd dist && sha256sum -c SHA256SUMS)
 
-      - name: Upload candidate for physical Termux validation
+      - name: Upload ARM64 automated CI candidate
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
