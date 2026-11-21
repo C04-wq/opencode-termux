@@ -124,7 +124,10 @@ def pin(path: Path, name: str) -> str:
     return match.group(1)
 
 
-bun_lock = json.loads((root / "bun.lock").read_text(encoding="utf-8"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+from bun_lock import load_bun_lock
+
+bun_lock = load_bun_lock(root / "bun.lock")
 found = {
     "opentui": pin(root / "package.json", "@opentui/core"),
     "bun-pty": pin(root / "packages/core/package.json", "bun-pty"),
