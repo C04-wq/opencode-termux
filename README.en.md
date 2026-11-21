@@ -40,7 +40,7 @@
 
 OpenCode is an open-source AI coding agent for the terminal. This repository packages it for Android Termux using Termux's native Bionic environment and Bun.
 
-The runtime is a JavaScript bundle executed by Termux Bun, with Android-native libraries for the terminal UI, PTY and file watching. It does not execute the upstream Linux/musl ELF binary and does not require PRoot, a Linux VM, Node.js or npm on the device.
+The runtime is a JavaScript bundle executed by Termux Bun, with OpenTUI, the `bun-pty` shared library, the official `opencode-pty` daemon built from `packages/process-daemon`, and the file-watcher module. It does not execute the upstream Linux/musl ELF binary and does not require PRoot, a Linux VM, Node.js or npm on the device.
 
 > [!IMPORTANT]
 > This is an unofficial, community-maintained Termux adaptation. OpenCode itself is developed by anomalyco/opencode. This repository maintains the Termux installer, integration, update manager and validation.
@@ -48,7 +48,7 @@ The runtime is a JavaScript bundle executed by Termux Bun, with Android-native l
 ### Highlights
 
 - Native Android/Bionic runtimes for ARM64/aarch64 and x86_64 Termux (Android 9 / API 28 or newer).
-- Bun-based JavaScript bundle with Bionic OpenTUI, PTY and file-watcher modules.
+- Bun-based JavaScript bundle with Android/Bionic OpenTUI, `bun-pty`, the official Rust `opencode-pty` daemon and file watching.
 - SHA-256-pinned release asset, validated before extraction.
 - Automatic installation of missing Termux dependencies: bun, ripgrep and libc++.
 - Interactive update prompt with Install update now and Wait for the next version.
@@ -281,9 +281,9 @@ This replaces the former Linux/musl approach: the installer no longer patches or
 
 ### Pinned runtime source
 
-The `check-upstream.yml` and `prepare-upstream-update.yml` workflows check official stable `vX.Y.Z` tags from anomalyco/opencode every six hours and compare semantic versions across all major releases. When a newer release appears, they prepare a draft PR with the exact source commit and SHA-256 digest. The validation workflow builds independent ARM64 and x86_64 runtimes, inspects their ELF libraries, validates both archives and runs smoke tests. Installer metadata is not changed and no release is published automatically; the candidate must be reviewed and approved before publication. This repository's pipeline builds OpenCode from a pinned commit of the official source (anomalyco/opencode). GitHub Actions compiles the Bionic OpenTUI and PTY libraries, prepares the JavaScript bundle, inspects the ELF modules, and verifies the archive and its SHA-256 digest. tools/supply-chain-lock.json records source and tool revisions. The installer downloads the release selected by release-checksums.json; that metadata will remain pinned to the previously verified runtime until the new build passes the automated ARM64 and x86_64 builds, ELF checks, archive validation and runtime smoke tests in CI.
+The `check-upstream.yml` and `prepare-upstream-update.yml` workflows check official stable `vX.Y.Z` tags from anomalyco/opencode every six hours and compare semantic versions across all major releases. When a newer release appears, they prepare a draft PR with the exact source commit and SHA-256 digest. The validation workflow builds independent ARM64 and x86_64 runtimes, inspects their ELF libraries, validates both archives and runs smoke tests. Installer metadata is not changed and no release is published automatically; the candidate must be reviewed and approved before publication. This repository's pipeline builds OpenCode from a pinned commit of the official source (anomalyco/opencode). GitHub Actions builds OpenTUI, `bun-pty`, the official Rust daemon `opencode-pty` from `packages/process-daemon`, and the Android/Bionic watcher before preparing the JavaScript bundle, inspects the ELF modules, and verifies the archive and its SHA-256 digest. tools/supply-chain-lock.json records source and tool revisions. The installer downloads the release selected by release-checksums.json; that metadata will remain pinned to the previously verified runtime until the new build passes the automated ARM64 and x86_64 builds, ELF checks, archive validation and runtime smoke tests in CI.
 
-The bundle contains a shell launcher, the JavaScript module graph, a Bionic OpenTUI renderer, an Android PTY library and an Android file-watcher module.
+The bundle contains a shell launcher, the JavaScript module graph, a Bionic OpenTUI renderer, the `bun-pty` shared library, the official `opencode-pty` daemon executable and an Android file-watcher module.
 
 ### Installation and rollback
 
