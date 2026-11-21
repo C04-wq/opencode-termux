@@ -282,7 +282,7 @@ for cmd in git curl tar sha256sum sed find grep awk; do
   fi
 done
 # The native bundle runs on Termux Bun and loads Bionic modules at runtime.
-if ! command -v bun >/dev/null 2>&1 || ! command -v rg >/dev/null 2>&1 || [[ ! -s "$PREFIX/lib/libc++_shared.so" ]]; then
+if [[ ! -x "$PREFIX/bin/bun" ]] || ! command -v rg >/dev/null 2>&1 || [[ ! -s "$PREFIX/lib/libc++_shared.so" ]]; then
   echo "Preparing native runtime dependencies..."
   install_termux_packages bun ripgrep libc++
 fi
