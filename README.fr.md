@@ -144,54 +144,27 @@ L’installateur ne supprime pas non plus les paramètres, sessions, projets ou 
 | SHA-256 du bundle installé | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Marqueur du chemin du dépôt | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
 
-Dans Termux, `$PREFIX` correspond généralement à `/data/data/com.termux/files/usr`. L’installateur définit les permissions d’exécution sur les trois commandes installées et vérifie qu’elles sont exécutables avant d’annoncer le succès.
+Dans Termux, `$PREFIX` correspond généralement à `/data/data/com.termux/files/usr`. La seule commande publique installée est `opencode`.
 
 Conservez la copie gérée du dépôt : la commande de mise à jour l’utilise pour récupérer les modifications et relancer l’installateur.
 
 ## 🔄 Mises à jour
 
-Il existe quatre mécanismes liés de mise à jour et de récupération.
-
-### 1. Vérification automatique des mises à jour au lancement
-
-Avant de démarrer une session OpenCode normale, le lanceur exécute le programme de mise à jour géré au maximum une fois toutes les six heures. Celui-ci effectue une avance rapide du dépôt Git géré, puis relance l’installateur, qui vérifie les sommes de contrôle de la release et utilise le remplacement transactionnel avec récupération.
-
-- Cette vérification est ignorée pour `opencode --version`, `opencode --help`, `opencode update` et `opencode upgrade`.
-- Désactivez-la avec `OPENCODE_TERMUX_AUTOUPDATE=0`.
-- Les résultats sont consignés dans `$PREFIX/var/log/opencode-termux/auto-update.log`.
-- En cas d’échec réseau ou de mise à jour, le lanceur continue avec la version installée.
-
-### 2. Mettre à jour manuellement le projet et l’environnement
-
-Pour récupérer le code le plus récent du projet et réinstaller l’environnement vérifié :
+OpenCode conserve ses commandes CLI officielles. Pour effectuer une mise à jour manuelle, utilisez la commande intégrée :
 
 ```bash
+opencode update
 ```
 
-Cette commande effectue une mise à jour Git en fast-forward uniquement (`git pull --ff-only`) dans la copie gérée, puis exécute son `install.sh`. Elle met à jour le gestionnaire, le lanceur, le programme de mise à jour et l’environnement selon le dépôt récupéré et ses métadonnées de release.
+Dans OpenCode, `update` est un alias de `upgrade`. Dans cette adaptation Termux, les deux utilisent le programme de mise à jour intégré et modifié pour consulter les releases vérifiées de ce dépôt. Il vérifie la version, l’architecture et le SHA-256 avant de lancer l’installateur. Il ne bascule jamais vers une release upstream si aucun paquet vérifié n’est disponible.
 
-Le programme de mise à jour définit le paramètre Git local `core.filemode=false`. Cela évite de considérer les différences de permissions seules comme des modifications de code sous Termux, tout en continuant à détecter les changements de contenu.
+Le lanceur vérifie également automatiquement les nouvelles releases, au maximum toutes les six heures. Le helper reste dans le runtime et n’installe aucune commande supplémentaire dans `$PREFIX/bin`. Désactivez cette vérification avec `OPENCODE_TERMUX_AUTOUPDATE=0`. Les journaux sont enregistrés dans `$PREFIX/var/log/opencode-termux/auto-update.log`.
 
-Si des modifications locales ou des fichiers non suivis empêchent l’avance rapide, l’opération s’arrête au lieu d’écraser ces fichiers. Inspectez la copie :
-
-```bash
-git -C "$PREFIX/opt/opencode-termux" status --short
-```
-
-Validez, mettez de côté ou résolvez vos modifications locales avant de réessayer.
-
-### 3. Relancer l’installateur pour réparer l’installation
-
-Vous pouvez également relancer l’installateur :
+Pour réparer ou réinstaller le runtime, relancez l’installateur :
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh | bash
 ```
-
-Il détecte la copie gérée et relance la procédure d’installation. Cette méthode permet de réparer des lanceurs manquants ou leurs permissions d’exécution, ainsi que d’installer la version indiquée par les métadonnées de release de la copie locale.
-
-> **Important :** `OPENCODE_DISABLE_AUTOUPDATE=1` désactive les vérifications automatiques upstream au démarrage, mais ne supprime pas les mises à jour manuelles. La commande intégrée `opencode update` (alias de `opencode upgrade`) et l’action de mise à jour de la TUI sont adaptées pour consulter uniquement le fichier `release-checksums.json` de ce dépôt. Elles vérifient la source, la version, l’identifiant du runtime et le checksum propre à l’architecture, puis lancent l’installateur Termux en verrouillant la version vérifiée. Si aucun paquet ARM64 ou x86_64 vérifié n’existe, la mise à jour est refusée sans basculer vers une release officielle upstream.
-
 ## 🧩 Présentation technique
 
 ### Architecture du runtime
