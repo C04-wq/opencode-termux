@@ -154,9 +154,18 @@ Conservez la copie gérée du dépôt : la commande de mise à jour l’utilise 
 
 ## 🔄 Mises à jour
 
-Il existe deux mécanismes de mise à jour liés, mais distincts.
+Il existe quatre mécanismes liés de mise à jour et de récupération.
 
-### 1. Invite interactive de mise à jour d’OpenCode
+### 1. Vérification automatique des mises à jour au lancement
+
+Avant de démarrer une session OpenCode normale, le lanceur exécute le programme de mise à jour géré au maximum une fois toutes les six heures. Celui-ci effectue une avance rapide du dépôt Git géré, puis relance l’installateur, qui vérifie les sommes de contrôle de la release et utilise le remplacement transactionnel avec récupération.
+
+- Cette vérification est ignorée pour `opencode --version`, `opencode --help`, `opencode update` et `opencode upgrade`.
+- Désactivez-la avec `OPENCODE_TERMUX_AUTOUPDATE=0`.
+- Les résultats sont consignés dans `$PREFIX/var/log/opencode-termux/auto-update.log`.
+- En cas d’échec réseau ou de mise à jour, le lanceur continue avec la version installée.
+
+### 2. Invite interactive de mise à jour d’OpenCode
 
 Lorsque vous lancez `opencode` dans un terminal interactif, le lanceur consulte les métadonnées de release de la branche `main` pour rechercher une version plus récente de l’environnement OpenCode.
 
@@ -178,7 +187,7 @@ Use ↑/↓ to choose and Enter to confirm.
 
 L’invite compare la version OpenCode installée à celle indiquée dans `release-checksums.json`. Il s’agit d’une invite concernant la **version de l’environnement d’exécution**, et non d’une notification générale de chaque modification des fichiers du dépôt. Une modification limitée au gestionnaire ou à l’installateur peut donc nécessiter une mise à jour manuelle du projet même si OpenCode n’a pas publié de nouvelle version.
 
-### 2. Mettre à jour manuellement le projet et l’environnement
+### 3. Mettre à jour manuellement le projet et l’environnement
 
 Pour récupérer le code le plus récent du projet et réinstaller l’environnement vérifié :
 
@@ -198,7 +207,7 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 Validez, mettez de côté ou résolvez vos modifications locales avant de réessayer.
 
-### 3. Relancer l’installateur pour réparer l’installation
+### 4. Relancer l’installateur pour réparer l’installation
 
 Vous pouvez également relancer l’installateur :
 
