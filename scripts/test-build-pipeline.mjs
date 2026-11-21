@@ -253,15 +253,16 @@ assert.ok(installer.includes('HASH_FIELD="archiveSha256X86_64"'), "x86_64 instal
 assert.ok(!installer.includes("physical Termux validation"), "installer must not require physical-device validation for x86_64");
 assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
+const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(launcher.includes('OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"'), "launcher must preserve the managed public path or fall back to itself");
 assert.ok(!launcher.includes('if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/opencode" ]; then'), "candidate bundles must not hijack an existing production launcher");
 assert.ok(launcher.includes('aarch64) BUN_PTY_LIB="$root/librust_pty_arm64.so"'), "ARM64 launcher must preserve the shipped PTY library name");
 assert.ok(launcher.includes('x86_64) BUN_PTY_LIB="$root/librust_pty_x86_64.so"'), "x86_64 launcher must select its matching PTY library");
 assert.ok(launcher.includes('OPENCODE_PTY_BIN=$root/opencode-pty'), "launcher must point OpenCode at the official daemon");
-assert.ok(launcher.includes("OPENCODE_TERMUX_AUTOUPDATE"), "launcher must support unattended device-side updates");
-assert.ok(launcher.includes("21600"), "device auto-update checks must be throttled to six hours");
-assert.ok(launcher.includes('"$PREFIX/bin/opencode-termux-update"'), "launcher must use the verified project updater");
-assert.ok(launcher.includes("--version|-v|--help|-h|update|upgrade"), "help/version/update commands must not trigger a surprise update");
+assert.ok(installer.includes("OPENCODE_TERMUX_AUTOUPDATE"), "installed wrapper must support unattended device-side updates");
+assert.ok(installer.includes("21600"), "device auto-update checks must be throttled to six hours");
+assert.ok(installer.includes('"$PREFIX/bin/opencode-termux-update"'), "installed wrapper must use the verified project updater");
+assert.ok(installer.includes("--version|-v|--help|-h|update|upgrade"), "help/version/update commands must not trigger a surprise update");
 for (const token of ["OPENCODE_ROOT", "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
   assert.ok(launcher.includes(token), "Termux Bun launcher missing " + token);
 }
