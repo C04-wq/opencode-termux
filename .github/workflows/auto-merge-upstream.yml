@@ -132,7 +132,7 @@ jobs:
           metadata = json.load(open(sys.argv[1], encoding="utf-8"))
           if metadata.get("version") != sys.argv[2] or metadata.get("releaseTag") != sys.argv[3]:
               raise SystemExit("Published release metadata does not match the validated upstream version/tag.")
-          for key in ("archiveSha256Arm64", "archiveSha256X86_64"):
+          for key in ("archiveSha256", "archiveSha256X86_64"):
               if not metadata.get(key):
                   raise SystemExit(f"Published release metadata is missing {key}.")
           PY
