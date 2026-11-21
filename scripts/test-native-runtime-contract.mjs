@@ -13,9 +13,9 @@ const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(installer.includes('x86_64) TARGET_ARCH="x86_64"; HASH_FIELD="archiveSha256X86_64"'), "installer must select the x86_64 release checksum");
 assert.ok(installer.includes('aarch64) TARGET_ARCH="aarch64"; HASH_FIELD="archiveSha256"'), "installer must preserve the ARM64 release checksum");
 assert.ok(installer.includes('unsupported architecture'), "unsupported architectures must be rejected before package installation");
-assert.ok(installer.includes('aarch64) UPDATE_HASH_FIELD="archiveSha256"'), "update prompt must read the ARM64 checksum");
-assert.ok(installer.includes('x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64"'), "update prompt must read the x86_64 checksum");
-assert.ok(installer.includes("'$UPDATE_HASH_FIELD'"), "update prompt must select its checksum field dynamically");
+assert.ok(installer.includes('aarch64) UPDATE_HASH_FIELD="archiveSha256"'), "automatic updater must read the ARM64 checksum");
+assert.ok(installer.includes('x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64"'), "automatic updater must read the x86_64 checksum");
+assert.ok(installer.includes("'$UPDATE_HASH_FIELD'"), "automatic updater must select its checksum field dynamically");
 assert.ok(installer.includes("install_termux_packages()") && installer.includes("termux-change-repo"), "package mirror 404s must include recovery instructions");
 assert.ok(!installer.includes("run_quiet pkg install"), "package installation must use the mirror-aware helper");
 for (const token of [
