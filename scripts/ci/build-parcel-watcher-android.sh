@@ -110,13 +110,22 @@ mkdir -p "$(dirname "$OUT")"
 # explicit for the standalone NDK build so NODE_API_MODULE's registration
 # entry point is exported from the shared object.
 "$cxx" --sysroot="$sysroot" -shared -pthread -Wl,--export-dynamic "${objects[@]}" \
-  -Wl,-soname,watcher.node -Wl,-z,relro -Wl,-z,now -o "$tmp/watcher.node"
+  -Wl,-soname,watcher.node -Wl,-z,relro -Wl,-z,now -Wl,-z,max-page-size=16384 -o "$tmp/watcher.node"
 
 machine="$(readelf -h "$tmp/watcher.node" | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p')"
 [[ "$machine" == "$expected_machine" ]] || {
   echo "watcher: expected ELF machine '$expected_machine', got '${machine:-unknown}'" >&2
   exit 1
 }
+alignments="$(readelf -lW "$tmp/watcher.node" | awk '$1 == "LOAD" { print $NF }')"
+[[ -n "$alignments" ]] || { echo "watcher: no PT_LOAD segments found" >&2; exit 1; }
+while IFS= read -r alignment; do
+  alignment="${alignment#0x}"
+  if (( 16#$alignment < 16384 )); then
+    echo "watcher: Android 16 KB page alignment missing (PT_LOAD alignment 0x$alignment)" >&2
+    exit 1
+  fi
+done <<<"$alignments"
 needed="$(readelf -d "$tmp/watcher.node" | awk '/NEEDED/{print $NF}')"
 if printf '%s\n' "$needed" | grep -Eq 'lib(c|m|dl|pthread|rt)\.so\.[0-9]'; then
   echo "watcher: glibc-linked dependency found: $needed" >&2
