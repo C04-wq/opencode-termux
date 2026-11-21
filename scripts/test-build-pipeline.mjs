@@ -199,8 +199,9 @@ for (const token of [
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
 
 const watcher = fs.readFileSync(".github/workflows/check-upstream.yml", "utf8");
-assert.ok(watcher.includes("anomalyco/opencode/git/matching-refs/tags/v"));
+assert.ok(watcher.includes("git ls-remote --tags https://github.com/anomalyco/opencode.git"));
 assert.ok(watcher.includes("python3 tools/upstream_tags.py"));
+assert.ok(!watcher.includes("matching-refs"), "upstream discovery must not depend on a paginated REST response");
 assert.ok(watcher.includes("refs/tags/v"));
 assert.ok(watcher.includes("tools/ocver.py current"));
 assert.ok(watcher.includes("gh issue create"));
@@ -219,8 +220,9 @@ assert.ok(!watcher.includes("contents/package.json"), "upstream version discover
 
 assert.ok(!fs.existsSync(".github/workflows/auto-merge-upstream.yml"), "upstream candidates must never be auto-merged or auto-published after CI");
 const candidateWorkflow = fs.readFileSync(".github/workflows/prepare-upstream-update.yml", "utf8");
-assert.ok(candidateWorkflow.includes("anomalyco/opencode/git/matching-refs/tags/v"));
+assert.ok(candidateWorkflow.includes("git ls-remote --tags https://github.com/anomalyco/opencode.git"));
 assert.ok(candidateWorkflow.includes("python3 tools/upstream_tags.py"));
+assert.ok(!candidateWorkflow.includes("matching-refs"), "candidate preparation must enumerate all tags without REST pagination");
 assert.ok(candidateWorkflow.includes("source_sha256"));
 assert.ok(candidateWorkflow.includes("candidate_only_not_approved_for_release"));
 assert.ok(candidateWorkflow.includes('update_available=false'), "an already-current upstream tag must be a successful no-op");
