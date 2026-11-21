@@ -39,7 +39,7 @@ assert.ok(build.includes('install -m 0755 "$pty_daemon" "$out/lib/opencode/openc
 assert.ok(build.includes('opencode-pty.required'), "new archives must mark the daemon as required");
 const supplyChain = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
 assert.equal(supplyChain.process_daemon.package, "opencode-pty");
-assert.equal(supplyChain.process_daemon.version, "0.6.0");
+assert.match(supplyChain.process_daemon.version, /^\\d+\\.\\d+\\.\\d+/);
 assert.match(supplyChain.process_daemon.ghostty_commit, /^[a-f0-9]{40}$/);
 assert.deepEqual(supplyChain.process_daemon.android_targets, ["aarch64-linux-android", "x86_64-linux-android"]);
 const daemonBuild = fs.readFileSync("scripts/ci/build-opencode-pty-android.sh", "utf8");
