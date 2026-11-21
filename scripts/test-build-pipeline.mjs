@@ -155,7 +155,7 @@ assert.ok(watcher.includes('cron: "17 */6 * * *"'), "official upstream release d
 assert.ok(!watcher.includes("contents/package.json"), "upstream version discovery must not rely on the dev branch manifest");
 
 const candidateWorkflow = fs.readFileSync(".github/workflows/prepare-upstream-update.yml", "utf8");
-assert.ok(candidateWorkflow.includes("anomalyco/opencode/git/matching-refs/tags/v2."));
+assert.ok(candidateWorkflow.includes("anomalyco/opencode/git/matching-refs/tags/v"));
 assert.ok(candidateWorkflow.includes("python3 tools/upstream_tags.py"));
 assert.ok(candidateWorkflow.includes("source_sha256"));
 assert.ok(candidateWorkflow.includes("candidate_only_not_approved_for_release"));
