@@ -216,7 +216,7 @@ def main() -> None:
         updater,
         '    const version = input.trim().replace(/^v/, "")\n    const packageName =\n',
         '    const version = input.trim().replace(/^v/, "")\n'
-        '    if (method === "apt") {\n'
+        '    if (method === "apt" && !nativeTermux) {\n'
         '      const prefix = process.env.PREFIX\n'
         '      if (!prefix || executable !== path.join(prefix, "bin", "opencode"))\n'
         '        return yield* Effect.fail(new Error("This binary is not installed by APT"))\n'
