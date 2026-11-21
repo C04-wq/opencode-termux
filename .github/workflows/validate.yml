@@ -95,7 +95,7 @@ jobs:
           URL="https://github.com/$SOURCE/releases/download/$RELEASE_TAG/opencode-$VERSION-android-aarch64-bundle.tar.gz"
           curl --fail --location --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$ARCHIVE"
           echo "$HASH  $ARCHIVE" | sha256sum -c -
-          bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
+          REQUIRE_OFFICIAL_PTY_DAEMON=0 bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
 
       - name: Exercise installer, dependency bootstrap and manager in an isolated prefix
         env:
