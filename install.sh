@@ -370,14 +370,27 @@ cat > "$STAGE/opencode-launcher" <<'LAUNCHER'
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 unset LD_PRELOAD
-export SSL_CERT_FILE="/data/data/com.termux/files/usr/etc/tls/cert.pem"
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-$PREFIX/etc/tls/cert.pem}"
 export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"
 RUNTIME="$PREFIX/lib/opencode-termux"
 
 exec "$RUNTIME/bin/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
+
+# Prove the complete new launcher/runtime pair works before removing any
+# legacy package-owned command. This keeps a failed candidate from replacing
+# a working npm or Termux package installation.
+echo "Checking staged launcher..."
+STAGED_VERSION="$( unset LD_PRELOAD; bash "$STAGE/opencode-launcher" --version )" || {
+  echo "Error: staged OpenCode launcher failed its executable test." >&2
+  exit 1
+}
+[[ "$STAGED_VERSION" == "opencode v$VERSION" ]] || {
+  echo "Error: staged launcher returned an unexpected version: $STAGED_VERSION" >&2
+  exit 1
+}
 
 # Migrate only installations whose ownership can be established. Never
 # overwrite an unknown command in PREFIX/bin: it may belong to another tool.
@@ -466,7 +479,7 @@ chmod 755 "$LAUNCHER"
 }
 
 echo "Checking installed runtime..."
-FINAL_VERSION="$( unset LD_PRELOAD; export SSL_CERT_FILE="$CERT"; "$RUNTIME/bin/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
+FINAL_VERSION="$( unset LD_PRELOAD; bash "$LAUNCHER" --version )" || { echo "Error: installed launcher failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
 # Remove only recognizable legacy project commands. Never delete unrelated files.
 if [[ -f "$PREFIX/bin/opencode-termux-update" ]] &&
