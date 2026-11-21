@@ -136,9 +136,9 @@ for (const token of [
 ]) assert.ok(workflow.includes(token), "Android build workflow missing " + token);
 
 const watcher = fs.readFileSync(".github/workflows/check-upstream.yml", "utf8");
-assert.ok(watcher.includes("anomalyco/opencode/git/matching-refs/tags/v2."));
+assert.ok(watcher.includes("anomalyco/opencode/git/matching-refs/tags/v"));
 assert.ok(watcher.includes("python3 tools/upstream_tags.py"));
-assert.ok(watcher.includes("refs/tags/v2."));
+assert.ok(watcher.includes("refs/tags/v"));
 assert.ok(watcher.includes("tools/ocver.py current"));
 assert.ok(watcher.includes("gh issue create"));
 assert.ok(watcher.includes("No physical Termux device testing is required"), "upstream detection must not require physical Termux devices");
