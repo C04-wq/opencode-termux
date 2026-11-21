@@ -111,6 +111,7 @@ set -e
 printf '%s\n' "$OPENCODE_ROOT" > "$BUN_TEST_LOG.root"
 printf '%s\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
 printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
+printf '%s\n' "${OPENCODE_PTY_BIN:-}" > "$BUN_TEST_LOG.daemon"
 if [[ ${OPENCODE_DISABLE_AUTOUPDATE+x} ]]; then
   printf '%s\n' set > "$BUN_TEST_LOG.autoupdate"
 else
@@ -140,6 +141,11 @@ fi
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
 grep -Fxq "$ROOT/lib/opencode/$PTY_LIBRARY" "$BUN_TEST_LOG.pty"
+if [[ -f "$ROOT/lib/opencode/opencode-pty.required" ]]; then
+  grep -Fxq "$ROOT/lib/opencode/opencode-pty" "$BUN_TEST_LOG.daemon"
+else
+  grep -Fxq "" "$BUN_TEST_LOG.daemon"
+fi
 # Published legacy archives may contain the old launcher that explicitly
 # exported OPENCODE_DISABLE_AUTOUPDATE. Compare the stub's observed environment
 # with the launcher actually under test; new candidate bundles use the current
