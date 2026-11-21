@@ -140,7 +140,15 @@ fi
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
 grep -Fxq "$ROOT/lib/opencode/$PTY_LIBRARY" "$BUN_TEST_LOG.pty"
-grep -Fxq unset "$BUN_TEST_LOG.autoupdate"
+# Published legacy archives may contain the old launcher that explicitly
+# exported OPENCODE_DISABLE_AUTOUPDATE. Compare the stub's observed environment
+# with the launcher actually under test; new candidate bundles use the current
+# launcher template and must leave this variable unset (enforced by static CI).
+if grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE' "$ROOT/bin/opencode"; then
+  grep -Fxq set "$BUN_TEST_LOG.autoupdate"
+else
+  grep -Fxq unset "$BUN_TEST_LOG.autoupdate"
+fi
 grep -Fq -- '--smol' "$BUN_TEST_LOG.args"
 grep -Fq -- "$ROOT/lib/opencode/index.js --version" "$BUN_TEST_LOG.args"
 echo "PASS: Android $TARGET_ARCH ELF modules are Bionic shared libraries without glibc dependencies."
