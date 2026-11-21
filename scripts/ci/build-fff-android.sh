@@ -127,7 +127,7 @@ export PKG_CONFIG_ALLOW_CROSS=1
 built="$SRC/target/$target/release/libfff_c.so"
 [[ -s "$built" ]] || { echo "FFF: Cargo did not produce $built" >&2; exit 1; }
 header="$(readelf -h "$built")"
-grep -Fq "Class: ELF64" <<<"$header" || { echo "FFF: library is not a 64-bit ELF" >&2; exit 1; }
+grep -Eq 'Class:[[:space:]]+ELF64' <<<"$header" || { echo "FFF: library is not a 64-bit ELF" >&2; exit 1; }
 grep -q "Type:.*DYN" <<<"$header" || { echo "FFF: C ABI output is not a shared library" >&2; exit 1; }
 grep -Fq "$expected_machine" <<<"$header" || { echo "FFF: wrong ELF architecture for $TARGET_ARCH" >&2; exit 1; }
 alignments="$(readelf -lW "$built" | awk '$1 == "LOAD" { print $NF }')"
