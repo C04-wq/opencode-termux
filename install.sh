@@ -54,7 +54,7 @@ migrate_legacy_termux_repository() {
     # and unrelated repositories, including root and X11.
     # Migrate only the legacy Main endpoint. Do not touch termux-root or
     # termux-x11 entries even when they share the old termux.net host.
-    if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net(/apt/termux-main)?([/:[:space:]]|$)' "$file"; then
+    if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net(/apt/termux-main)?([[:space:]]|$)' "$file"; then
       backup="${file}.opencode-termux.bak"
       suffix=0
       while [[ -e "$backup" ]]; do
@@ -74,7 +74,7 @@ migrate_legacy_termux_repository() {
         return 1
       fi
 
-      if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net(/apt/termux-main)?([/:[:space:]]|$)' "$file"; then
+      if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net(/apt/termux-main)?([[:space:]]|$)' "$file"; then
         cp -p "$backup" "$file"
         echo "Error: legacy termux.net source remains in $file; refusing to continue." >&2
         return 1
