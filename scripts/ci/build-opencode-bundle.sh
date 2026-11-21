@@ -106,13 +106,13 @@ git -C "$src" checkout -q --detach FETCH_HEAD
 test "$(git -C "$src" rev-parse HEAD)" = "$commit"
 # The lock mirrors pins upstream owns; stop before shipping mismatched natives.
 python3 - "$src" "$(python3 tools/ocver.py field opentui_version "$OPENCODE_VERSION")" \
-  "$(python3 tools/ocver.py bunpty ref)" <<'PY'
+  "$(python3 tools/ocver.py bunpty ref)" "$(python3 -c 'import json; print(json.load(open("tools/supply-chain-lock.json"))["fff"]["version"])')" <<'PY'
 import json
 import re
 import sys
 from pathlib import Path
 
-root, opentui, bunpty = Path(sys.argv[1]), sys.argv[2], sys.argv[3].lstrip("v")
+root, opentui, bunpty, fff = Path(sys.argv[1]), sys.argv[2], sys.argv[3].lstrip("v"), sys.argv[4]
 
 
 def pin(path: Path, name: str) -> str:
@@ -123,11 +123,13 @@ def pin(path: Path, name: str) -> str:
     return match.group(1)
 
 
+bun_lock = json.loads((root / "bun.lock").read_text(encoding="utf-8"))
 found = {
     "opentui": pin(root / "package.json", "@opentui/core"),
     "bun-pty": pin(root / "packages/core/package.json", "bun-pty"),
+    "fff": bun_lock["workspaces"]["packages/core"]["dependencies"]["@ff-labs/fff-bun"],
 }
-expected = {"opentui": opentui, "bun-pty": bunpty}
+expected = {"opentui": opentui, "bun-pty": bunpty, "fff": fff}
 drift = {name: (found[name], expected[name]) for name in found if found[name] != expected[name]}
 if drift:
     raise SystemExit(
