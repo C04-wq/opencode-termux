@@ -67,17 +67,20 @@ git -C "$SRC" fetch --depth=1 origin "$FFF_COMMIT"
 git -C "$SRC" checkout --detach "$FFF_COMMIT"
 [[ "$(git -C "$SRC" rev-parse HEAD)" == "$FFF_COMMIT" ]] || { echo "FFF: source commit does not match lock" >&2; exit 1; }
 
-python3 - "$SRC/Cargo.toml" "$SRC/crates/fff-c/Cargo.toml" "$FFF_VERSION" "$FFF_CRATE" <<'PY'
-import re, sys
-workspace, crate, version, name = sys.argv[1:]
-root = open(workspace, encoding="utf-8").read()
+python3 - "$SRC/Cargo.lock" "$SRC/crates/fff-c/Cargo.toml" "$FFF_VERSION" "$FFF_CRATE" <<'PY'
+import re, sys, tomllib
+lock_path, crate, version, name = sys.argv[1:]
 manifest = open(crate, encoding="utf-8").read()
-if not re.search(rf'fff-search.*version = "{re.escape(version)}"', root, re.S):
-    raise SystemExit("FFF workspace crate version differs from source lock")
+locked = tomllib.load(open(lock_path, "rb"))
 if not re.search(rf'^name\s*=\s*"{re.escape(name)}"', manifest, re.M):
     raise SystemExit("FFF C ABI crate name differs from source lock")
 if not re.search(rf'^version\s*=\s*"{re.escape(version)}"', manifest, re.M):
     raise SystemExit("FFF C ABI crate version differs from source lock")
+if not re.search(rf'package\s*=\s*"fff-search".*?version\s*=\s*"{re.escape(version)}"', manifest, re.S):
+    raise SystemExit("FFF search core version differs from source lock")
+core = next((item for item in locked["package"] if item["name"] == "fff-search"), None)
+if not core or core["version"] != version:
+    raise SystemExit("FFF Cargo.lock core version differs from source lock")
 PY
 [[ -s "$SRC/Cargo.lock" ]] || { echo "FFF: upstream Cargo.lock is missing" >&2; exit 1; }
 
