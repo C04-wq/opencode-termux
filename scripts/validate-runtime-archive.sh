@@ -108,4 +108,10 @@ if [[ ! -x "$DESTINATION/bin/opencode" ]]; then
   exit 1
 fi
 
+if [[ ! -x "$DESTINATION/lib/opencode/opencode-pty" ]]; then
+  rm -rf "$DESTINATION"
+  echo "Error: official opencode-pty daemon is not executable." >&2
+  exit 1
+fi
+
 echo "Native Android $TARGET_ARCH bundle structure verified."
