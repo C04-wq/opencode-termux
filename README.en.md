@@ -165,6 +165,7 @@ There are three related update and recovery paths.
 Before starting a normal OpenCode session, the launcher runs the managed updater at most once every six hours. The updater fast-forwards the managed Git checkout and reruns the installer, which verifies release checksums and uses the installer's transactional replacement and recovery path.
 
 - It is skipped for `opencode --version`, `opencode --help`, `opencode update` and `opencode upgrade`.
+- Existing installations must run `opencode-termux update` once to install this launcher; checks are automatic afterward.
 - Disable it with `OPENCODE_TERMUX_AUTOUPDATE=0`.
 - Results are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`.
 - If networking or updating fails, the launcher continues with the installed version.
