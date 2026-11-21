@@ -175,10 +175,10 @@ jobs:
               "process_daemon": daemon_pin,
               "fff": fff_pin,
               "required_review": [
-                  "Review upstream source and dependency changes against the inherited Android toolchain pins.",
-                  "Confirm ARM64 and x86_64 CI builds, archive validation, and smoke tests pass.",
+                  "Require exact upstream source and native dependency pins to pass static and supply-chain checks.",
+                  "Require ARM64 and x86_64 CI builds, daemon/FFF/watcher compilation, archive validation and smoke tests to pass.",
                   "No physical Termux device testing is required; automated ARM64 and x86_64 CI validation is the acceptance gate.",
-                  "Do not modify release-checksums.json or publish from this candidate artifact."
+                  "Only the tag-triggered release workflow may publish immutable archives and update release-checksums.json."
               ]
           }
           pathlib.Path("candidate/upstream-update-candidate.json").write_text(
@@ -226,7 +226,8 @@ jobs:
           set -euo pipefail
           EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length')"
           if [[ "$EXISTING" != "0" ]]; then
-            echo "An open candidate PR already exists for OpenCode $VERSION; leaving it unchanged."
+            echo "An open candidate PR already exists for OpenCode $VERSION; dispatching validation again."
+            gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
             exit 0
           fi
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
