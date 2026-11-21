@@ -147,7 +147,7 @@ manifest="$SRC_ROOT/packages/process-daemon/Cargo.toml"
   # Run the upstream daemon's complete native test suite once on the Linux CI
   # host (the x86_64 build job); both Android targets still compile test harnesses.
   if [[ "${RUN_UPSTREAM_NATIVE_TESTS:-1}" == "1" ]]; then
-    env -u CC -u CXX -u AR -u CARGO_BUILD_TARGET -u CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER -u CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER -u CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS -u CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS cargo test --locked --manifest-path "$manifest"
+    env -u CC -u CXX -u AR -u CARGO_BUILD_TARGET -u CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER -u CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER -u CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS -u CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS -u ANDROID_NDK_HOME -u ANDROID_NDK_ROOT -u CMAKE_TOOLCHAIN_FILE -u CMAKE_ANDROID_NDK -u CMAKE_ANDROID_ARCH_ABI -u CMAKE_SYSTEM_VERSION -u ANDROID_ABI -u ANDROID_PLATFORM cargo test --locked --manifest-path "$manifest"
   fi
   cargo build --locked --release --target "$target" --manifest-path "$manifest"
   cargo test --locked --no-run --target "$target" --manifest-path "$manifest"
