@@ -98,7 +98,7 @@ jobs:
           echo "$HASH  $ARCHIVE" | sha256sum -c -
           REQUIRE_OFFICIAL_PTY_DAEMON=0 REQUIRE_16KB_PAGE_ALIGNMENT=0 bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
 
-      - name: Exercise installer, dependency bootstrap and automatic updater in an isolated prefix
+      - name: Exercise installer and dependency bootstrap in an isolated prefix
         env:
           PREFIX: ${{ runner.temp }}/termux-prefix
           OPENCODE_TEST_ARCHIVE: ${{ runner.temp }}/opencode-native.tar.gz
@@ -161,71 +161,14 @@ jobs:
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256")" = "$OPENCODE_TEST_SHA256"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
-          # Replace the updater with a deterministic stub so this test never
-          # mutates the workflow checkout or needs a live GitHub release.
-          cat > "$PREFIX/lib/opencode-termux/update-runtime.sh" <<'UPDATER_TEST'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          RUNTIME="$PREFIX/lib/opencode-termux"
-          printf '%s\n' "$OPENCODE_TEST_REMOTE_VERSION" > "$RUNTIME/.opencode-termux-version"
-          printf '%s\n' "${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}" > "$RUNTIME/.opencode-termux-runtime-id"
-          printf '%s\n' "${OPENCODE_TEST_REMOTE_SHA256:-$OPENCODE_TEST_SHA256}" > "$RUNTIME/.opencode-termux-archive-sha256"
-          printf '%s\n' "$OPENCODE_TEST_REMOTE_VERSION" >> "$PREFIX/auto-update-calls"
-          UPDATER_TEST
-          chmod 755 "$PREFIX/lib/opencode-termux/update-runtime.sh"
-
-          # Same-version runtime migration (legacy musl -> Bionic) is an update.
-          printf 'legacy-musl\n' > "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
-          rm -rf "$PREFIX/var/cache/opencode-termux"
-          OPENCODE_TEST_REMOTE_VERSION=2.3.2 OPENCODE_TEST_VERSION=2.3.2 \
-            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/migration-auto-update.txt" 2>&1 || { cat "$RUNNER_TEMP/migration-auto-update.txt"; exit 1; }
-          grep -Fq 'Verified OpenCode update 2.3.2 is available; installing automatically.' "$RUNNER_TEMP/migration-auto-update.txt"
-          grep -Fxq 'android-bionic-bun-v1' "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
-          test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 1
-
-          # A new OpenCode version is installed without an interactive prompt.
-          NEW_SHA="$(printf 'b%.0s' {1..64})"
-          rm -rf "$PREFIX/var/cache/opencode-termux"
-          OPENCODE_TEST_REMOTE_VERSION=2.3.3 OPENCODE_TEST_REMOTE_SHA256="$NEW_SHA" OPENCODE_TEST_VERSION=2.3.3 \
-            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/version-auto-update.txt" 2>&1
-          grep -Fq 'Verified OpenCode update 2.3.3 is available; installing automatically.' "$RUNNER_TEMP/version-auto-update.txt"
-          grep -Fxq '2.3.3' "$PREFIX/lib/opencode-termux/.opencode-termux-version"
-          grep -Fxq "$NEW_SHA" "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256"
-          test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 2
-
-          # A same-version rebuild with a changed archive checksum is installed.
-          REBUILT_SHA="$(printf 'c%.0s' {1..64})"
-          rm -rf "$PREFIX/var/cache/opencode-termux"
-          OPENCODE_TEST_REMOTE_VERSION=2.3.3 OPENCODE_TEST_REMOTE_SHA256="$REBUILT_SHA" OPENCODE_TEST_VERSION=2.3.3 \
-            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/rebuilt-auto-update.txt" 2>&1
-          grep -Fxq "$REBUILT_SHA" "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256"
-          test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 3
-
-          # Matching metadata, --version and opt-out must not run the updater.
-          rm -rf "$PREFIX/var/cache/opencode-termux"
-          OPENCODE_TEST_REMOTE_VERSION=2.3.3 OPENCODE_TEST_REMOTE_SHA256="$REBUILT_SHA" OPENCODE_TEST_VERSION=2.3.3 \
-            bash "$PREFIX/bin/opencode" > /dev/null 2>&1
-          rm -rf "$PREFIX/var/cache/opencode-termux"
-          OPENCODE_TEST_REMOTE_VERSION=2.3.4 OPENCODE_TEST_VERSION=2.3.3 \
-            bash "$PREFIX/bin/opencode" --version | grep -Fxq 'opencode v2.3.3'
-          rm -rf "$PREFIX/var/cache/opencode-termux"
-          OPENCODE_TERMUX_AUTOUPDATE=0 OPENCODE_TEST_REMOTE_VERSION=2.3.4 OPENCODE_TEST_VERSION=2.3.3 \
-            bash "$PREFIX/bin/opencode" > /dev/null 2>&1
-          test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 3
-
-          # A failed update is logged and the installed runtime still starts.
-          cat > "$PREFIX/lib/opencode-termux/update-runtime.sh" <<'UPDATER_FAIL'
-          #!/usr/bin/env bash
-          echo "simulated update failure" >&2
-          exit 42
-          UPDATER_FAIL
-          chmod 755 "$PREFIX/lib/opencode-termux/update-runtime.sh"
-          rm -rf "$PREFIX/var/cache/opencode-termux"
-          OPENCODE_TEST_REMOTE_VERSION=2.3.4 OPENCODE_TEST_VERSION=2.3.3 \
-            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/failed-auto-update.txt" 2>&1
-          grep -Fq 'Automatic update failed (exit 42)' "$RUNNER_TEMP/failed-auto-update.txt"
-          grep -Fq 'simulated update failure' "$PREFIX/var/log/opencode-termux/auto-update.log"
-          echo "PASS: installer, automatic version/runtime/hash updates, opt-out and failure fallback."
+          # OpenCode owns update discovery and prompts. The launcher must not
+          # run a second periodic checker or install a private update command.
+          test ! -e "$PREFIX/lib/opencode-termux/update-runtime.sh"
+          ! grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE' "$PREFIX/bin/opencode"
+          ! grep -Fq 'OPENCODE_TERMUX_AUTOUPDATE' "$PREFIX/bin/opencode"
+          ! grep -Fq 'Verified OpenCode update' "$PREFIX/bin/opencode"
+          bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
+          echo "PASS: installer, official OpenCode updater remains enabled, no launcher auto-update helper."
 
   build-x86_64-native:
     name: Build and verify Android x86_64 runtime
