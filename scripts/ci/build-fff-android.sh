@@ -87,9 +87,11 @@ PY
 manifest="$SRC/Cargo.toml"
 (
   cd "$SRC"
-  # Exercise the official crate tests natively before setting cross-compiler
-  # variables; otherwise CMake/cc would try to use the Android linker on host.
-  cargo test --locked -p "$FFF_CRATE" --manifest-path "$manifest"
+  # Exercise the official crate tests natively once on the Linux CI host.
+  # Cross-target test harnesses are compiled for both Android architectures below.
+  if [[ "${RUN_UPSTREAM_NATIVE_TESTS:-1}" == "1" ]]; then
+    cargo test --locked -p "$FFF_CRATE" --manifest-path "$manifest"
+  fi
 )
 
 toolchain="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/bin"
