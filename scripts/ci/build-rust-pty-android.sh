@@ -98,6 +98,8 @@ if [ -n "${NDK:-}" ]; then
   test -x "$linker" || { echo "bun-pty: missing NDK linker $linker" >&2; exit 1; }
   rustup target list --installed | grep -qx "$target" || rustup target add "$target"
   printf -v cargo_linker_var 'CARGO_TARGET_%s_LINKER' "$rust_env"
+  printf -v cargo_rustflags_var 'CARGO_TARGET_%s_RUSTFLAGS' "$rust_env"
+  export "$cargo_rustflags_var=-C link-arg=-Wl,-z,max-page-size=16384"
   printf -v cc_var 'CC_%s' "$cc_env"
   printf -v ar_var 'AR_%s' "$cc_env"
   export "$cargo_linker_var=$linker"
@@ -129,6 +131,15 @@ machine="$(readelf -h "$built" | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p'
   echo "bun-pty: expected ELF machine '$expected_elf' for $TARGET_ARCH, got '${machine:-unknown}'" >&2
   exit 1
 }
+alignments="$(readelf -lW "$built" | awk '$1 == "LOAD" { print $NF }')"
+[[ -n "$alignments" ]] || { echo "bun-pty: no PT_LOAD segments found" >&2; exit 1; }
+while IFS= read -r alignment; do
+  alignment="${alignment#0x}"
+  if (( 16#$alignment < 16384 )); then
+    echo "bun-pty: Android 16 KB page alignment missing (PT_LOAD alignment 0x$alignment)" >&2
+    exit 1
+  fi
+done <<<"$alignments"
 needed="$(readelf -d "$built" | awk '/NEEDED/{print $NF}')"
 if printf '%s\n' "$needed" | grep -Eq 'lib(c|m|dl|pthread|rt)\.so\.[0-9]'; then
   echo "bun-pty: glibc-linked NEEDED found: $needed" >&2
