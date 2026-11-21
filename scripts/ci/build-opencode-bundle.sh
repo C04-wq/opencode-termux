@@ -261,8 +261,6 @@ cd "$src/packages/cli"
 OPENCODE_CHANNEL=latest OPENCODE_VERSION="$OPENCODE_VERSION" \
 OPENCODE_TARGET=linux-$OPENCODE_ARCH-android \
 OPENCODE_INSTALL_DIR="$install_dir" \
-OPENCODE_PTY_BIN="$pty_daemon" \
-OPENCODE_PTY_ALLOW_CROSS=1 \
   "$host_bun" run script/build.ts --skip-install
 cd "$ROOT"
 
@@ -300,12 +298,13 @@ rm -rf "$out"
 mkdir -p "$out/lib"
 cp -a "$lib/." "$out/lib/"
 install -m 0755 "$pty" "$out/lib/$PTY_LIB_NAME"
+install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"
 install -m 0644 "$watcher" "$out/lib/watcher.node"
 # Empty bunfig: the wrapper points bun at it so a project's bunfig.toml or
 # .env in the user's cwd never changes how the CLI starts.
 : > "$out/lib/bunfig.toml"
 find "$out/lib" -type f -exec chmod 0644 {} +
-chmod 0755 "$out/lib/$PTY_LIB_NAME"
+chmod 0755 "$out/lib/$PTY_LIB_NAME" "$out/lib/opencode/opencode-pty"
 
 # Every asset the bundle references by absolute path must exist in the tree;
 # a missing one only shows up on device otherwise.
