@@ -30,6 +30,7 @@ class TermuxUpdaterContract(unittest.TestCase):
         self.assertIn('current: () => Effect.gen(function* ()', PATCH)
         self.assertIn('return yield* Ref.get(installedVersion)', PATCH)
         self.assertIn('updater.current()', PATCH)
+        self.assertIn('current.includes("-termux.") ? "curl"', PATCH)
         self.assertIn('if (version === current)', PATCH)
         self.assertIn('From ${current} → ${version}', PATCH)
         self.assertIn('.opencode-termux-release-tag', PATCH)
