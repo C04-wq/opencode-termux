@@ -214,23 +214,7 @@ assert.ok(validationWorkflow.includes("Package and verify the Termux runtime arc
 assert.ok(watcher.includes('cron: "17 */6 * * *"'), "official upstream release detection must run every six hours");
 assert.ok(!watcher.includes("contents/package.json"), "upstream version discovery must not rely on the dev branch manifest");
 
-const autoMergeWorkflow = fs.readFileSync(".github/workflows/auto-merge-upstream.yml", "utf8");
-for (const token of [
-  "workflow_run:",
-  "github.event.workflow_run.event == 'workflow_dispatch'",
-  "github.event.workflow_run.conclusion == 'success'",
-  "github.event.workflow_run.head_sha",
-  "github-actions[bot]",
-  "tools/supply-chain-lock.json",
-  "gh pr ready",
-  "gh pr merge",
-  "python3 tools/ocver.py tag",
-  'git push origin "$RELEASE_TAG"',
-  'gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_TAG"',
-  '.event == "workflow_dispatch"',
-  "gh release view",
-  "archiveSha256X86_64"
-]) assert.ok(autoMergeWorkflow.includes(token), "automatic release gate missing " + token);
+assert.ok(!fs.existsSync(".github/workflows/auto-merge-upstream.yml"), "upstream candidates must never be auto-merged or auto-published after CI");
 const candidateWorkflow = fs.readFileSync(".github/workflows/prepare-upstream-update.yml", "utf8");
 assert.ok(candidateWorkflow.includes("anomalyco/opencode/git/matching-refs/tags/v"));
 assert.ok(candidateWorkflow.includes("python3 tools/upstream_tags.py"));
