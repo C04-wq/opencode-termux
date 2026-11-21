@@ -12,7 +12,7 @@ This document separates source inclusion from runtime verification. A feature be
 | HTTP server, WebSocket API and web application assets | Bundled | Bundled | Runtime integration coverage is incomplete |
 | TUI and OpenTUI renderer | Bionic native build | Bionic native build | Build/ELF checks exist; full interactive device coverage remains |
 | Bun PTY native library (`librust_pty_*.so`) | Built | Built | This is a shared library, not the process daemon |
-| Official persistent process daemon (`opencode-pty`) | New cross-build path | New cross-build path | Being added from upstream `packages/process-daemon`; must pass CI and real-device IPC tests before release |
+| Official persistent process daemon (`opencode-pty`) | Source-build implemented | Source-build implemented | Built from upstream `packages/process-daemon` with pinned Ghostty; CI and Android IPC verification pending |
 | Ghostty terminal VT engine used by the daemon | Statically linked from the pinned upstream Ghostty revision | Statically linked from the pinned upstream Ghostty revision | Android target requires the NDK and a supported Zig toolchain |
 | File watching (`@parcel/watcher`) | Source-built | Source-built | Rebuilt from the exact upstream package source for both Android targets; real file-change behavior still needs device coverage |
 | FFF search/index backend | Source-build path added | Source-build path added | Rebuilt from the exact FFF Rust source version pinned by official OpenCode; CI must still validate Android compilation and 16 KB ELF alignment |
@@ -23,7 +23,7 @@ This document separates source inclusion from runtime verification. A feature be
 ## Remaining parity work
 
 ### Native runtime
-- Finish and pass the Android cross-build of the official `opencode-pty` daemon for both Rust targets.
+- Pass the Android cross-build of the official `opencode-pty` daemon for both Rust targets in CI.
 - Verify the daemon's Android ELF interpreter, 64-bit architecture, Bionic dependencies and executable permissions.
 - Run the daemon's upstream Rust test suite on Linux CI and compile its test harnesses for both Android targets.
 - On real Termux, verify daemon startup, ownership handshake, IPC, PTY creation, resize, output replay, process exit, cleanup and restart.
@@ -44,7 +44,7 @@ This document separates source inclusion from runtime verification. A feature be
 - If candidate CI fails, the PR remains a draft and the six-hour watcher retries validation. The automated merge workflow also retries transient tag-release failures.
 - The installed launcher checks for updates at most once every six hours before a normal session, invokes the managed updater and verified installer, and continues with the installed runtime if the update fails. Users can opt out with `OPENCODE_TERMUX_AUTOUPDATE=0`.
 - These automation paths still require successful GitHub Actions verification and real-device tests of rollback, interrupted downloads, concurrent launches and post-update recovery.
-- Verify that the interactive OpenCode update path, launch-time updater and `opencode-termux update` all install the same verified ARM64/x86_64 release and never bypass checksum validation.
+- Verify that the launch-time updater and `opencode-termux update` both install the same verified ARM64/x86_64 release and never bypass checksum validation.
 
 ## Acceptance criteria
 
