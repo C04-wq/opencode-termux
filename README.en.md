@@ -200,7 +200,7 @@ curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install
 
 It detects the managed checkout and uses the installation procedure again. This is useful for repairing missing launchers or executable permissions as well as installing the version pinned by the checkout's release metadata.
 
-> **Important:** OpenCode's own self-updater is disabled by the launcher with `OPENCODE_DISABLE_AUTOUPDATE=1`. This prevents upstream self-update from replacing the Termux-managed runtime outside the project's verified installation flow.
+> **Important:** `OPENCODE_DISABLE_AUTOUPDATE=1` disables upstream automatic checks at startup; it does not remove manual updates. The built-in `opencode update` command (an alias for `opencode upgrade`) and the TUI update action are patched to query only this repository's `release-checksums.json`. They validate the source, version, runtime identifier and architecture-specific checksum, then run the Termux installer pinned to the version just checked. If no verified ARM64 or x86_64 package exists, the update is refused; it never falls back to an official upstream release.
 
 ## 🧰 Management CLI
 
