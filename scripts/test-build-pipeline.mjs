@@ -47,6 +47,8 @@ for (const token of [
   "aarch64-linux-android",
   "x86_64-linux-android",
   "readelf -l",
+  "ANDROID_NDK_HOME",
+  "ANDROID_NDK_ROOT",
   "/system/bin/linker64",
   "libc\\.so\\.6"
 ]) assert.ok(daemonBuild.includes(token), "official opencode-pty Android build missing " + token);
