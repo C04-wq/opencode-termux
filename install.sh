@@ -233,6 +233,10 @@ CERT="$PREFIX/etc/tls/cert.pem"
 RESOLVER="$PREFIX/etc/resolv.conf"
 [[ -f "$META" ]] || { echo "Error: release-checksums.json missing." >&2; exit 1; }
 VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+if [[ -n "${OPENCODE_TERMUX_EXPECTED_VERSION:-}" && "$VERSION" != "$OPENCODE_TERMUX_EXPECTED_VERSION" ]]; then
+  echo "Error: requested Termux runtime $OPENCODE_TERMUX_EXPECTED_VERSION, but repository metadata currently selects $VERSION. Refusing to install a different release." >&2
+  exit 1
+fi
 HASH="$(sed -n "s/.*\"$HASH_FIELD\"[[:space:]]*:[[:space:]]*\"\\([a-f0-9]*\\)\".*/\\1/p" "$META" | head -n1)"
 SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
