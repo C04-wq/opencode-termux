@@ -40,7 +40,7 @@ jobs:
           sh -n packing/launcher/opencode
           bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/ci/build-opencode-pty-android.sh scripts/ci/build-fff-android.sh scripts/ci/build-parcel-watcher-android.sh scripts/test-termux-device.sh
           bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
-          bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh
+          bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh scripts/test-installer-in-prefix.sh
           bash scripts/test-package-owner.sh
           bash scripts/test-termux-repository-migration.sh
           bash scripts/test-runtime-archive.sh
@@ -375,6 +375,7 @@ jobs:
           python3 tools/analyze-runtime-size.py "$ARCHIVE" --top 25
           (cd dist && sha256sum -c SHA256SUMS)
           cat dist/release-checksums.json
+          TARGET_ARCH=x86_64 bash scripts/test-installer-in-prefix.sh "$ARCHIVE" dist/release-checksums.json x86_64
 
       - name: Upload x86_64 automated CI candidate
         if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
@@ -610,11 +611,14 @@ jobs:
               "sourceTag": "v" + version,
               "releaseTag": release_tag,
               "archiveSha256": digest,
+              "archiveSha256X86_64": digest,
+              "archiveNameX86_64": path.rsplit("/", 1)[-1],
               "runtimeId": "android-bionic-bun-v1"
           }, indent=2))
           PY
           cat dist/release-checksums.json
           (cd dist && sha256sum -c SHA256SUMS)
+          TARGET_ARCH=aarch64 bash scripts/test-installer-in-prefix.sh "$ARCHIVE" dist/release-checksums.json aarch64
 
       - name: Upload ARM64 automated CI candidate
         if: github.event_name == 'pull_request'
