@@ -26,6 +26,7 @@ for (const token of [
   "tools/patch-opentui-loader.py",
   "tools/patch-fff-android.py",
   "scripts/ci/build-rust-pty-android.sh",
+  "scripts/ci/build-opencode-pty-android.sh",
   "artifacts/bundle/"
 ]) assert.ok(build.includes(token), "native build script missing " + token);
 assert.ok(build.includes("--filter 'opencode'"), "native typecheck must install root workspace development tools");
@@ -34,6 +35,19 @@ assert.ok(build.includes('TARGET_ARCH="${TARGET_ARCH:-aarch64}"'), "runtime bund
 assert.ok(build.includes('OPENCODE_ARCH="x64"'), "x86_64 must map to OpenCode x64 target naming");
 assert.ok(build.includes("build-parcel-watcher-android.sh"), "x86_64 bundle must use the Bionic watcher source build");
 assert.ok(build.includes("fff: disabled for x86_64"), "x86_64 must fall back from unavailable Android FFF to ripgrep");
+assert.ok(build.includes('install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"'), "the official daemon must be packaged in the runtime archive");
+assert.ok(build.includes('opencode-pty.required'), "new archives must mark the daemon as required");
+const daemonBuild = fs.readFileSync("scripts/ci/build-opencode-pty-android.sh", "utf8");
+for (const token of [
+  "packages/process-daemon/Cargo.toml",
+  "packages/process-daemon/Cargo.lock",
+  "cargo build --locked --release",
+  "aarch64-linux-android",
+  "x86_64-linux-android",
+  "readelf -l",
+  "/system/bin/linker64",
+  "libc\\.so\\.6"
+]) assert.ok(daemonBuild.includes(token), "official opencode-pty Android build missing " + token);
 const bundlePatch = fs.readFileSync("tools/patch-opencode-bundle.py", "utf8");
 assert.ok(bundlePatch.includes('choices=("aarch64", "x86_64")'), "bundle patcher must expose only the official 64-bit architecture targets");
 assert.ok(bundlePatch.includes('opencode_arch = "arm64" if args.target_arch == "aarch64" else "x64"'), "bundle patcher must map Termux architectures to OpenCode target names");
@@ -182,6 +196,7 @@ assert.ok(launcher.includes('OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"'), 
 assert.ok(!launcher.includes('if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/opencode" ]; then'), "candidate bundles must not hijack an existing production launcher");
 assert.ok(launcher.includes('aarch64) BUN_PTY_LIB="$root/librust_pty_arm64.so"'), "ARM64 launcher must preserve the shipped PTY library name");
 assert.ok(launcher.includes('x86_64) BUN_PTY_LIB="$root/librust_pty_x86_64.so"'), "x86_64 launcher must select its matching PTY library");
+assert.ok(launcher.includes('OPENCODE_PTY_BIN=$root/opencode-pty'), "launcher must point OpenCode at the official daemon");
 for (const token of ["OPENCODE_ROOT", "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PATH", "--smol", "__OPENCODE_VERSION__"]) {
   assert.ok(launcher.includes(token), "Termux Bun launcher missing " + token);
 }
@@ -189,6 +204,7 @@ for (const token of ["OPENCODE_ROOT", "BUN_PTY_LIB", "OPENCODE_PARCEL_WATCHER_PA
 const archiveValidator = fs.readFileSync("scripts/validate-runtime-archive.sh", "utf8");
 assert.ok(archiveValidator.includes('PTY_LIBRARY="librust_pty_x86_64.so"'), "archive validator must require the x86_64 PTY library for x86_64 bundles");
 assert.ok(archiveValidator.includes("OTHER_PTY_LIBRARY"), "archive validator must reject a mismatched architecture PTY library");
+assert.ok(archiveValidator.includes("lib/opencode/opencode-pty.required"), "archive validator must require the official daemon marker");
 const archiveSmoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
 assert.ok(archiveSmoke.includes('EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"'), "archive smoke test must validate x86_64 ELF machines");
 const deviceTest = fs.readFileSync("scripts/test-termux-device.sh", "utf8");
