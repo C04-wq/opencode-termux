@@ -9,7 +9,7 @@
 #
 #   lib/opencode/index.js + hashed assets   module graph (this build)
 #   lib/opencode/libopentui-*.so            bionic OpenTUI (zig + NDK)
-#   lib/librust_pty_<architecture>.so              bionic bun-pty (cargo)
+#   lib/opencode/librust_pty_<architecture>.so   bionic bun-pty (cargo)
 #   lib/opencode/libfff_c-*.so               Bionic FFF C ABI (cargo, both arches)
 #   lib/opencode/opencode-pty                official OpenCode PTY daemon (cargo + Ghostty)
 #   lib/opencode/watcher.node               bionic @parcel/watcher
