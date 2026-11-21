@@ -27,10 +27,8 @@ jobs:
         run: |
           set -euo pipefail
           CURRENT="$(python3 tools/ocver.py current)"
-          TAGS="$(curl --fail --location --silent --show-error \
-            --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
-            "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v")"
-          read -r LATEST_TAG LATEST LATEST_SHA < <(printf '%s' "$TAGS" | python3 tools/upstream_tags.py)
+          TAGS="$(git ls-remote --tags https://github.com/anomalyco/opencode.git 'refs/tags/v*')"
+          read -r LATEST_TAG LATEST LATEST_SHA < <(printf '%s\n' "$TAGS" | python3 tools/upstream_tags.py)
           [[ "$LATEST_TAG" == "v$LATEST" && "$LATEST_SHA" =~ ^[0-9a-f]{40}$ ]]
 
           UPDATE_AVAILABLE="$(python3 - "$CURRENT" "$LATEST" <<'PY'
