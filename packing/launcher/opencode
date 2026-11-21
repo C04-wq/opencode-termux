@@ -31,55 +31,6 @@ esac
 base=$(cd "$self_dir/.." && pwd)
 root=${OPENCODE_ROOT:-$base/lib/opencode}
 
-# Unattended device-side updates: check at most once every six hours, only
-# before starting a normal OpenCode session. The updater verifies the release
-# checksums and uses the installer's transactional replacement/rollback path.
-# Set OPENCODE_TERMUX_AUTOUPDATE=0 to opt out.
-case "${1:-}" in
-  --version|-v|--help|-h|update|upgrade) AUTO_UPDATE_SKIP=1 ;;
-  *) AUTO_UPDATE_SKIP=0 ;;
-esac
-if [ -n "${PREFIX:-}" ] &&
-   [ -z "${OPENCODE_ROOT:-}" ] &&
-   [ "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" ] &&
-   [ "$AUTO_UPDATE_SKIP" = "0" ] &&
-   [ -x "$PREFIX/bin/opencode-termux-update" ]; then
-  cache_dir="$PREFIX/var/cache/opencode-termux"
-  log_dir="$PREFIX/var/log/opencode-termux"
-  state="$cache_dir/last-auto-update-check"
-  lock="$cache_dir/auto-update.lock"
-  if mkdir -p "$cache_dir" "$log_dir" 2>/dev/null; then
-    now="$(date +%s 2>/dev/null || echo 0)"
-    last="$(cat "$state" 2>/dev/null || echo 0)"
-    case "$now:$last" in
-      *[!0-9:]*|:*) now=0; last=0 ;;
-    esac
-    if [ "$now" -gt 0 ] && { [ "$last" -eq 0 ] || [ "$now" -lt "$last" ] || [ "$((now - last))" -ge 21600 ]; }; then
-      (
-        if mkdir "$lock" 2>/dev/null; then
-          trap 'rmdir "$lock" 2>/dev/null || true' 0 HUP INT TERM
-          printf '%s\n' "$now" > "$state.tmp"
-          mv "$state.tmp" "$state"
-          if command -v timeout >/dev/null 2>&1; then
-            timeout 300 "$PREFIX/bin/opencode-termux-update" >> "$log_dir/auto-update.log" 2>&1 || true
-          else
-            "$PREFIX/bin/opencode-termux-update" >> "$log_dir/auto-update.log" 2>&1 || true
-          fi
-        fi
-      ) || true
-    fi
-    # A second launch that observes the fresh timestamp waits for the first
-    # installer transaction to finish before touching the runtime directory.
-    if [ -d "$lock" ]; then
-      wait_seconds=0
-      while [ -d "$lock" ] && [ "$wait_seconds" -lt 300 ]; do
-        sleep 1
-        wait_seconds=$((wait_seconds + 1))
-      done
-    fi
-  fi
-fi
-
 if [ -z "${OPENCODE_BUN:-}" ]; then
   if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/bun" ]; then
     OPENCODE_BUN=$PREFIX/bin/bun
