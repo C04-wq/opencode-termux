@@ -255,7 +255,6 @@ assert.ok(installer.includes('HASH_FIELD="archiveSha256X86_64"'), "x86_64 instal
 assert.ok(!installer.includes("physical Termux validation"), "installer must not require physical-device validation for x86_64");
 assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
-const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(launcher.includes('OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"'), "launcher must preserve the managed public path or fall back to itself");
 assert.ok(!launcher.includes('if [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/opencode" ]; then'), "candidate bundles must not hijack an existing production launcher");
 assert.ok(launcher.includes('aarch64) BUN_PTY_LIB="$root/librust_pty_arm64.so"'), "ARM64 launcher must preserve the shipped PTY library name");
