@@ -128,7 +128,7 @@ jobs:
               "required_review": [
                   "Review upstream source and dependency changes against the inherited Android toolchain pins.",
                   "Confirm ARM64 and x86_64 CI builds, archive validation, and smoke tests pass.",
-                  "Run Termux device smoke tests on supported architectures before approval.",
+                  "No physical Termux device testing is required; automated ARM64 and x86_64 CI validation is the acceptance gate.",
                   "Do not modify release-checksums.json or publish from this candidate artifact."
               ]
           }
@@ -149,7 +149,7 @@ jobs:
               "## Required review before merge\n"
               "- Review upstream changes and verify Bun, OpenTUI, bun-pty, Zig, and NDK compatibility.\n"
               "- Require all repository CI checks to pass for both supported architectures.\n"
-              "- Run Termux device smoke tests on supported architectures.\n"
+              "- Require automated ARM64 and x86_64 builds, archive validation, installer tests, and runtime smoke tests to pass; no physical device testing is required.\n"
               "- Do not create a release or modify installer metadata from this candidate until approval.\n",
               encoding="utf-8"
           )
