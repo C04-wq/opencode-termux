@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 concurrency:
   group: prepare-upstream-candidate
@@ -108,7 +109,7 @@ jobs:
           lock["opencode"][version] = entry
           lock["current"] = version
           lock["package_revision"] = 1
-          lock_file.write_text(json.dumps(lock, indent=2, sort_keys=False) + "\\n", encoding="utf-8")
+          lock_file.write_text(json.dumps(lock, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
           candidate = {
               "schema_version": 1,
@@ -132,24 +133,24 @@ jobs:
               ]
           }
           pathlib.Path("candidate/upstream-update-candidate.json").write_text(
-              json.dumps(candidate, indent=2, sort_keys=True) + "\\n", encoding="utf-8"
+              json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8"
           )
           pathlib.Path("candidate/upstream-update-pr-body.md").write_text(
-              "# Automated upstream update candidate\\n\\n"
-              f"- Official source: [{tag}](https://github.com/anomalyco/opencode/tree/{commit})\\n"
-              f"- Previous locked version: {current}\\n"
-              f"- Candidate version: {version}\\n"
-              f"- Source commit: \u0060{commit}\u0060\\n"
-              f"- Source archive SHA-256: \u0060{digest}\u0060\\n\\n"
-              "## What this PR does\\n"
-              "- Adds the exact upstream commit and source archive digest to the supply-chain lock.\\n"
-              "- Advances the candidate lock version so ARM64/x86_64 pull-request CI builds the new source.\\n"
-              "- Reuses the last known Android toolchain pins only as a starting candidate.\\n\\n"
-              "## Required review before merge\\n"
-              "- Review upstream changes and verify Bun, OpenTUI, bun-pty, Zig, and NDK compatibility.\\n"
-              "- Require all repository CI checks to pass for both supported architectures.\\n"
-              "- Run Termux device smoke tests on supported architectures.\\n"
-              "- Do not create a release or modify installer metadata from this candidate until approval.\\n",
+              "# Automated upstream update candidate\\n\n"
+              f"- Official source: [{tag}](https://github.com/anomalyco/opencode/tree/{commit})\n"
+              f"- Previous locked version: {current}\n"
+              f"- Candidate version: {version}\n"
+              f"- Source commit: \u0060{commit}\u0060\n"
+              f"- Source archive SHA-256: \u0060{digest}\u0060\\n\n"
+              "## What this PR does\n"
+              "- Adds the exact upstream commit and source archive digest to the supply-chain lock.\n"
+              "- Advances the candidate lock version so ARM64/x86_64 pull-request CI builds the new source.\n"
+              "- Reuses the last known Android toolchain pins only as a starting candidate.\\n\n"
+              "## Required review before merge\n"
+              "- Review upstream changes and verify Bun, OpenTUI, bun-pty, Zig, and NDK compatibility.\n"
+              "- Require all repository CI checks to pass for both supported architectures.\n"
+              "- Run Termux device smoke tests on supported architectures.\n"
+              "- Do not create a release or modify installer metadata from this candidate until approval.\n",
               encoding="utf-8"
           )
           PY
@@ -194,6 +195,7 @@ jobs:
             --draft \
             --title "Prepare OpenCode $VERSION Android/Termux update" \
             --body-file candidate/upstream-update-pr-body.md
+          gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
 
       - name: Upload candidate provenance
         if: steps.candidate.outputs.update_available == 'true'
@@ -216,5 +218,5 @@ jobs:
             echo "- Source SHA-256: ${{ steps.candidate.outputs.sha256 }}"
             echo "- Draft PR branch: ${{ steps.candidate.outputs.branch }}"
             echo
-            echo "The draft PR triggers normal pull-request CI. No release was published and installer metadata was not changed."
+            echo "The workflow explicitly dispatches validate.yml against the candidate branch because PRs created with GITHUB_TOKEN do not trigger pull_request workflows. No release was published and installer metadata was not changed."
           } >> "$GITHUB_STEP_SUMMARY"
