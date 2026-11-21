@@ -98,7 +98,7 @@ jobs:
           echo "$HASH  $ARCHIVE" | sha256sum -c -
           REQUIRE_OFFICIAL_PTY_DAEMON=0 REQUIRE_16KB_PAGE_ALIGNMENT=0 bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
 
-      - name: Exercise installer, dependency bootstrap and manager in an isolated prefix
+      - name: Exercise installer, dependency bootstrap and automatic updater in an isolated prefix
         env:
           PREFIX: ${{ runner.temp }}/termux-prefix
           OPENCODE_TEST_ARCHIVE: ${{ runner.temp }}/opencode-native.tar.gz
