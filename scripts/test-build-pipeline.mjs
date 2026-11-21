@@ -44,7 +44,7 @@ assert.match(supplyChain.process_daemon.version, /^\d+\.\d+\.\d+/);
 assert.match(supplyChain.process_daemon.ghostty_commit, /^[a-f0-9]{40}$/);
 assert.deepEqual(supplyChain.process_daemon.android_targets, ["aarch64-linux-android", "x86_64-linux-android"]);
 assert.equal(supplyChain.fff.package, "@ff-labs/fff-bun");
-assert.match(supplyChain.fff.version, /^\\d+\\.\\d+\\.\\d+/);
+assert.match(supplyChain.fff.version, /^\d+\.\d+\.\d+/);
 assert.match(supplyChain.fff.commit, /^[a-f0-9]{40}$/);
 assert.deepEqual(supplyChain.fff.android_targets, ["aarch64-linux-android", "x86_64-linux-android"]);
 const fffBuild = fs.readFileSync("scripts/ci/build-fff-android.sh", "utf8");
