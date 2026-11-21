@@ -145,54 +145,27 @@ El instalador tampoco elimina la configuración, las sesiones, los proyectos ni 
 | SHA-256 del bundle instalado | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Marcador de ruta del repositorio | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
 
-En Termux, `$PREFIX` normalmente corresponde a `/data/data/com.termux/files/usr`. El instalador comprueba que el único comando público instalado, `opencode`, sea ejecutable.
+En Termux, `$PREFIX` normalmente corresponde a `/data/data/com.termux/files/usr`. El único comando público instalado es `opencode`.
 
 Conserva la copia gestionada del repositorio: el comando de actualización la utiliza para obtener cambios y volver a ejecutar el instalador.
 
 ## 🔄 Actualizaciones
 
-Hay tres mecanismos relacionados de actualización y recuperación.
-
-### 1. Actualización automática al iniciar OpenCode
-
-Antes de iniciar una sesión normal, el lanzador ejecuta el actualizador gestionado como máximo una vez cada seis horas. El actualizador adelanta la copia Git mediante fast-forward y vuelve a ejecutar el instalador, que verifica los checksums del release y utiliza el reemplazo transaccional con recuperación.
-
-- No se ejecuta para `opencode --version`, `opencode --help`, `opencode update` ni `opencode upgrade`.
-- Se puede desactivar con `OPENCODE_TERMUX_AUTOUPDATE=0`.
-- Los resultados se guardan en `$PREFIX/var/log/opencode-termux/auto-update.log`.
-- Si falla la red o la actualización, el lanzador continúa con la versión instalada.
-
-### 2. Actualizar manualmente el proyecto y el entorno
-
-Para obtener el código más reciente del proyecto y reinstalar el entorno verificado:
+OpenCode conserva sus comandos oficiales. Para actualizar manualmente, utiliza el comando integrado:
 
 ```bash
+opencode update
 ```
 
-Este comando ejecuta una actualización Git solo mediante fast-forward (`git pull --ff-only`) en la copia gestionada y después ejecuta su `install.sh`. Actualiza el gestor, el lanzador, el actualizador y el entorno según el repositorio y sus metadatos de release.
+En OpenCode, `update` es un alias de `upgrade`. En esta adaptación para Termux, ambos pasan por el actualizador integrado parcheado para consultar las releases verificadas de este repositorio. Comprueba la versión, la arquitectura y el SHA-256 antes de ejecutar el instalador. No recurre a una release upstream si falta un paquete verificado.
 
-El actualizador establece la opción local de Git `core.filemode=false`. Así evita que diferencias exclusivas de permisos se consideren cambios de código en Termux, sin dejar de detectar modificaciones en el contenido.
+El lanzador también comprueba automáticamente si hay una release nueva, como máximo cada seis horas, y puede instalarla sin interrumpir el inicio si falla la red o la descarga. El mecanismo auxiliar permanece dentro del runtime: no instala comandos adicionales en `$PREFIX/bin`. Puedes desactivar esta comprobación con `OPENCODE_TERMUX_AUTOUPDATE=0`. Los registros están en `$PREFIX/var/log/opencode-termux/auto-update.log`.
 
-Si los cambios locales o los archivos sin seguimiento impiden el fast-forward, la operación se detiene en lugar de sobrescribirlos. Inspecciona la copia:
-
-```bash
-git -C "$PREFIX/opt/opencode-termux" status --short
-```
-
-Confirma, guarda temporalmente o resuelve los cambios antes de volver a actualizar.
-
-### 3. Volver a ejecutar el instalador para reparar la instalación
-
-También puedes ejecutar de nuevo el instalador:
+Para reparar o reinstalar el runtime, vuelve a ejecutar el instalador:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh | bash
 ```
-
-Detecta la copia gestionada y repite el procedimiento de instalación. Sirve para reparar lanzadores o permisos de ejecución ausentes, además de instalar la versión indicada por los metadatos de release de la copia local.
-
-> **Importante:** el lanzador desactiva el actualizador propio de OpenCode mediante `OPENCODE_DISABLE_AUTOUPDATE=1`. Así se evita que el actualizador upstream sustituya el entorno gestionado por Termux fuera del proceso verificado de este proyecto.
-
 ## 🧩 Descripción técnica
 
 ### Arquitectura del runtime
