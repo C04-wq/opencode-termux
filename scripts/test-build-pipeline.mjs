@@ -97,7 +97,7 @@ assert.ok(!tlsShim.includes("int pthread_tryjoin_np("), "unsafe pthread_tryjoin_
 const workflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
 assert.ok(workflow.includes("group: validate-native-${{ github.event.pull_request.number || github.ref }}"), "validation runs for the same PR must share one concurrency group");
 assert.ok(workflow.includes("cancel-in-progress: true"), "new PR validation must cancel superseded runs");
-assert.ok(workflow.includes("build-x86_64-native:"), "CI must build the x86_64 OpenTUI native library independently");
+assert.ok(workflow.includes("build-x86_64-native:"), "CI must build the complete x86_64 runtime independently");
 assert.ok(workflow.includes("libnode-dev"), "CI must install Node-API headers for the x86_64 Parcel watcher build");
 assert.ok(workflow.includes("patch-opentui-android.py --target-arch x86_64"), "x86_64 CI must select the architecture-specific OpenTUI patch path");
 assert.ok(workflow.includes("x86_64 OpenTUI unexpectedly contains unsupported Bionic TLSDESC relocations"), "x86_64 CI must reject unsupported TLSDESC relocations");
@@ -174,6 +174,8 @@ assert.ok(candidateWorkflow.includes("No physical Termux device testing is requi
 assert.ok(!candidateWorkflow.includes("Run Termux device smoke tests"), "physical Termux testing must not be a release-candidate requirement");
 
 const installer = fs.readFileSync("install.sh", "utf8");
+assert.ok(installer.includes('HASH_FIELD="archiveSha256X86_64"'), "x86_64 installer must select its own published archive digest");
+assert.ok(!installer.includes("physical Termux validation"), "installer must not require physical-device validation for x86_64");
 assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
 assert.ok(launcher.includes('OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"'), "launcher must preserve the managed public path or fall back to itself");
