@@ -34,7 +34,8 @@ assert.ok(build.includes('export PATH="$work/host/bun-linux-x64:$PATH"'), "verif
 assert.ok(build.includes('TARGET_ARCH="${TARGET_ARCH:-aarch64}"'), "runtime bundle builder must select an explicit supported architecture");
 assert.ok(build.includes('OPENCODE_ARCH="x64"'), "x86_64 must map to OpenCode x64 target naming");
 assert.ok(build.includes("build-parcel-watcher-android.sh"), "x86_64 bundle must use the Bionic watcher source build");
-assert.ok(build.includes("fff: disabled for x86_64"), "x86_64 must fall back from unavailable Android FFF to ripgrep");
+assert.ok(build.includes("scripts/ci/build-fff-android.sh"), "both architectures must compile FFF from its pinned Rust source");
+assert.ok(!build.includes("fff: disabled for x86_64"), "x86_64 must not silently disable the official FFF backend");
 assert.ok(build.includes('install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"'), "the official daemon must be packaged in the runtime archive");
 assert.ok(build.includes('opencode-pty.required'), "new archives must mark the daemon as required");
 const supplyChain = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
@@ -42,6 +43,23 @@ assert.equal(supplyChain.process_daemon.package, "opencode-pty");
 assert.match(supplyChain.process_daemon.version, /^\d+\.\d+\.\d+/);
 assert.match(supplyChain.process_daemon.ghostty_commit, /^[a-f0-9]{40}$/);
 assert.deepEqual(supplyChain.process_daemon.android_targets, ["aarch64-linux-android", "x86_64-linux-android"]);
+assert.equal(supplyChain.fff.package, "@ff-labs/fff-bun");
+assert.match(supplyChain.fff.version, /^\\d+\\.\\d+\\.\\d+/);
+assert.match(supplyChain.fff.commit, /^[a-f0-9]{40}$/);
+assert.deepEqual(supplyChain.fff.android_targets, ["aarch64-linux-android", "x86_64-linux-android"]);
+const fffBuild = fs.readFileSync("scripts/ci/build-fff-android.sh", "utf8");
+for (const token of [
+  "crates/fff-c/Cargo.toml",
+  "cargo build --locked --release",
+  "aarch64-linux-android",
+  "x86_64-linux-android",
+  "CMAKE_TOOLCHAIN_FILE",
+  "max-page-size=16384",
+  "readelf -lW"
+]) assert.ok(fffBuild.includes(token), "official FFF Android build missing " + token);
+const fffPatch = fs.readFileSync("tools/patch-fff-android.py", "utf8");
+assert.ok(fffPatch.includes('choices=("aarch64", "x86_64")'), "FFF patch must support both Android architectures");
+assert.ok(fffPatch.includes("@ff-labs/fff-bin-android-x64"), "FFF x86_64 package must be selected");
 const daemonBuild = fs.readFileSync("scripts/ci/build-opencode-pty-android.sh", "utf8");
 for (const token of [
   "packages/process-daemon/Cargo.toml",
