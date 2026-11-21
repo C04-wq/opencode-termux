@@ -15,7 +15,7 @@ This document separates source inclusion from runtime verification. A feature be
 | Official persistent process daemon (`opencode-pty`) | New cross-build path | New cross-build path | Being added from upstream `packages/process-daemon`; must pass CI and real-device IPC tests before release |
 | Ghostty terminal VT engine used by the daemon | Statically linked from the pinned upstream Ghostty revision | Statically linked from the pinned upstream Ghostty revision | Android target requires the NDK and a supported Zig toolchain |
 | File watching (`@parcel/watcher`) | Android module | Android source build | Build checks exist; real file-change behavior still needs device coverage |
-| FFF search/index backend | Android binary | Disabled | x86_64 uses the ripgrep fallback; behavior/performance is not identical |
+| FFF search/index backend | Source-built | Source-built | Rebuilt from the exact FFF Rust source version pinned by official OpenCode; 16 KB ELF alignment is checked |
 | Scalar/Swagger API reference UI | Stubbed | Stubbed | API server remains; embedded API-reference UI assets are currently omitted |
 | Shell integration, SQLite storage/migrations, providers, authentication, MCP, LSP and plugins | Upstream JS source bundled | Upstream JS source bundled | Broad feature regression coverage on Android is still required |
 | Desktop GUI application | Not ported | Not ported | Separate desktop product; not part of the Termux CLI/server runtime |
@@ -32,7 +32,7 @@ This document separates source inclusion from runtime verification. A feature be
 
 ### Feature integration
 - Restore or replace the currently stubbed Scalar/Swagger API-reference assets without removing the upstream HTTP API.
-- Port or build an Android x86_64 FFF backend; until then, ripgrep is a fallback, not exact feature parity.
+- Verify FFF search/index semantics, watcher integration and performance on both Android architectures after the source-built backend passes CI.
 - Exercise `opencode serve`, `opencode web`, remote clients, HTTP authentication, WebSocket upgrades, OAuth callbacks and browser-based login flows on Android.
 - Run provider/authentication regression tests for API keys, OAuth refresh, model discovery, usage limits and credential persistence.
 - Exercise MCP stdio/SSE/HTTP transports, LSP startup/shutdown, plugins, skills, shell commands, file edits, search, git tools, images and session persistence.
