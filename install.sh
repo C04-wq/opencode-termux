@@ -450,7 +450,7 @@ if [[ -n "$REPO_DIR" && "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" && "$AUTO_UPDA
           if [[ "$UPDATE_STATUS" == 0 ]]; then
             rmdir "$LOCK" 2>/dev/null || true
             trap - EXIT HUP INT TERM
-            exec "$0" "$@"
+            exec "$BASH" "$0" "$@"
           fi
           printf 'Automatic update failed (exit %s); starting the installed version. See %s/auto-update.log.\n' "$UPDATE_STATUS" "$LOG_DIR" >&2
         fi
