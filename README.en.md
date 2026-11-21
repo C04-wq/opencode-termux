@@ -49,7 +49,7 @@ The runtime is a JavaScript bundle executed by Termux Bun, with OpenTUI, the `bu
 - Bun-based JavaScript bundle with Android/Bionic OpenTUI, `bun-pty`, the official Rust `opencode-pty` daemon and file watching.
 - SHA-256-pinned release asset, validated before extraction.
 - Automatic installation of missing Termux dependencies: bun, ripgrep and libc++.
-- Automatic update at normal session launch, at most once every six hours, with runtime and SHA-256 verification.
+- OpenCode's built-in updater is enabled and connected to this repository's verified releases.
 
 ## 📸 Screenshots
 
@@ -126,8 +126,8 @@ The installer is deliberately conservative: it does not delete a command or pack
 
 It can replace recognized installations when ownership can be established:
 
-- The legacy global npm package `opencode-termux` is removed only when its package metadata is valid and the existing `opencode` symlink resolves inside that package.
-- A short allowlist of Termux/dpkg package owners is recognized through package ownership metadata: `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` and `opencode1-wrapper`.
+- The legacy global npm package `opencode` is removed only when its package metadata is valid and the existing `opencode` symlink resolves inside that package.
+- A short allowlist of Termux/dpkg package owners is recognized through package ownership metadata: `opencode`, `opencode1`, `opencode`, `opencode-wrapper` and `opencode1-wrapper`.
 - A previous project-managed `opencode` launcher is replaced after its contents are recognized.
 
 If an existing command is unknown, manually copied, or cannot be safely attributed to one of those installations, the installer stops and leaves it untouched. Identify and remove that installation yourself only after confirming its origin. It does not perform a broad cleanup of every similarly named file (for example, arbitrary `opencode2` binaries), unrelated npm packages, or unrelated directories.
@@ -149,7 +149,7 @@ The default managed layout is:
 
 In Termux, `$PREFIX` normally resolves to `/data/data/com.termux/files/usr`. The only public command installed is `opencode`.
 
-Keep the managed checkout in place: the update command uses it to retrieve repository changes and rerun the installer.
+The built-in updater uses the installer and release packages published by this repository.
 
 ## 🔄 Updates
 
@@ -196,7 +196,7 @@ The bundle contains a shell launcher, the JavaScript module graph, a Bionic Open
 
 The launcher compares the OpenCode version, runtime-generation marker and installed bundle SHA-256. This detects both the musl-to-Bionic migration and a rebuilt bundle that keeps the same version and runtime generation.
 
-The automatic update check and its helper remain internal to the runtime; no additional public command is installed.
+Only the official OpenCode CLI commands are installed.
 
 ## 🔐 Security and integrity
 
@@ -241,7 +241,7 @@ The installer sets mode `755` on the OpenCode launcher after placing it in its f
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/install.sh"
-ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/lib/opencode-termux/update-runtime.sh"
+ls -l "$PREFIX/bin/opencode"
 ```
 
 ### Unsupported architecture
@@ -302,7 +302,6 @@ After confirmation, it removes only:
 
 - `$PREFIX/lib/opencode-termux` — the managed runtime and its markers.
 - `$PREFIX/bin/opencode` — this project's launcher.
-- `$PREFIX/lib/opencode-termux/update-runtime.sh` — the internal updater.
 
 It verifies the runtime marker and launcher identities before deleting files. If ownership cannot be established, it stops and leaves the installation untouched.
 
