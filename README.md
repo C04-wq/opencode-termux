@@ -143,7 +143,7 @@ El instalador tampoco elimina la configuración, las sesiones, los proyectos ni 
 | Comando OpenCode | `$PREFIX/bin/opencode` |
 | Marcador de versión instalada | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
 | SHA-256 del bundle instalado | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
-| Marcador de ruta del repositorio | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
+| Etiqueta de release instalada | `$PREFIX/lib/opencode-termux/.opencode-termux-release-tag` |
 
 En Termux, `$PREFIX` normalmente corresponde a `/data/data/com.termux/files/usr`. El único comando público instalado es `opencode`.
 
@@ -270,7 +270,7 @@ El instalador comprueba el paquete CA y la configuración DNS de Termux. No omit
 
 ### La actualización no puede hacer fast-forward
 
-El actualizador utiliza intencionadamente `git pull --ff-only`. Inspecciona la copia:
+Cuando el instalador reutiliza la copia del repositorio, la actualiza con `git pull --ff-only`. Si falla, inspecciona la copia:
 
 ```bash
 git -C "$PREFIX/opt/opencode-termux" status --short
@@ -278,28 +278,20 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 
 
-El lanzador no intenta actualizar en estos casos:
+No separate six-hour launcher timer is added by this port. Update discovery and notification follow OpenCode's built-in updater policy.
 
-- El comando es `opencode --version`, `opencode --help`, `opencode update` o `opencode upgrade`.
-- Todavía no han transcurrido seis horas desde la última comprobación.
-- No está disponible el actualizador gestionado o falla la consulta de metadatos.
-
-
-Para eliminar la instalación gestionada de Termux:
-
-```bash
-```
-
-El desinstalador solicita confirmación. También puedes ejecutarlo directamente desde la copia del repositorio:
+Para eliminar la instalación gestionada de Termux, ejecuta el desinstalador:
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/uninstall.sh"
 ```
 
+El desinstalador solicita confirmación. Después de confirmar, elimina únicamente:
 Después de confirmar, elimina únicamente:
 
 - `$PREFIX/lib/opencode-termux`: entorno gestionado y marcadores.
 - `$PREFIX/bin/opencode`: lanzador de este proyecto.
+- `$PREFIX/bin/opencode2`, solo si se identifica como un lanzador antiguo de este proyecto.
 
 Verifica el marcador del entorno y la identidad de los lanzadores antes de borrar archivos. Si no puede establecer la propiedad, se detiene y deja la instalación intacta.
 
