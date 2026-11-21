@@ -164,8 +164,8 @@ jobs:
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-release-tag")" = "$OPENCODE_TEST_RELEASE_TAG"
           if [[ -s "$PREFIX/lib/opencode-termux/lib/opencode-pty.required" ]]; then
-            test -x "$PREFIX/lib/opencode-termux/lib/opencode-pty"
-            test -s "$PREFIX/lib/opencode-termux/lib/librust_pty_arm64.so"
+            test -x "$PREFIX/lib/opencode-termux/lib/opencode/opencode-pty"
+            test -s "$PREFIX/lib/opencode-termux/lib/opencode/librust_pty_arm64.so"
           fi
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256")" = "$OPENCODE_TEST_SHA256"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
