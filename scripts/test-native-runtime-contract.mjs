@@ -49,5 +49,7 @@ for (const token of ["bin/opencode", "lib/opencode/index.js", "librust_pty_arm64
 }
 const uninstall = fs.readFileSync("uninstall.sh", "utf8");
 assert.ok(uninstall.includes('rm -rf "$RUNTIME"'), "uninstaller must remove the complete native bundle");
+assert.ok(installer.includes('"$PREFIX/bin/opencode2"') && installer.includes('"opencode", "opencode2"'), "installer must detect only owned legacy opencode2 commands");
+assert.ok(uninstall.includes('LEGACY_LAUNCHER2="$PREFIX/bin/opencode2"'), "uninstaller must remove only project-owned legacy opencode2 launchers");
 assert.ok(installer.includes('THIRD_PARTY_NOTICES.md'), "installer must install third-party license notices");
 console.log("Native runtime metadata, installer, validator and uninstall contracts passed.");
