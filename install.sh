@@ -258,7 +258,7 @@ if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
     exit 1
   }
 fi
-[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
+[[ "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
   echo "Error: native runtime source is not an approved release." >&2
   exit 1
 }
