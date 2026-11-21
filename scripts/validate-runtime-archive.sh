@@ -66,7 +66,7 @@ printf '%s\n' "$VERBOSE" | awk '
   }
 ' || exit 1
 
-for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node lib/opencode/opencode-pty; do
+for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node lib/opencode/opencode-pty lib/opencode/opencode-pty.required; do
   printf '%s\n' "$LISTING" | grep -Fxq "$required" || {
     echo "Error: required runtime entry is missing: $required" >&2
     exit 1
@@ -90,7 +90,7 @@ if ! tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE" -C "$DESTINATION"
   exit 1
 fi
 
-for path in bin/opencode lib/opencode/index.js "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node; do
+for path in bin/opencode lib/opencode/index.js "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node lib/opencode/opencode-pty lib/opencode/opencode-pty.required; do
   if [[ ! -f "$DESTINATION/$path" || -L "$DESTINATION/$path" || ! -s "$DESTINATION/$path" ]]; then
     rm -rf "$DESTINATION"
     echo "Error: required runtime file is missing or invalid: $path" >&2
