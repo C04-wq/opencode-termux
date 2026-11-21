@@ -250,7 +250,7 @@ def main() -> None:
         '      }))\n'
         '      return\n'
         '    }\n'
-                '    if (method === "apt") return yield* Effect.fail(new Error("APT updates are not supported for this installation"))\\n'
+        '    if (method === "apt") return yield* Effect.fail(new Error("APT updates are not supported for this installation"))\n'
 '    const packageName =\n',
     )
     replace_once(
@@ -310,9 +310,9 @@ def main() -> None:
     upgrade_fixture = root / "packages/cli/test/fixture/upgrade.ts"
     replace_once(
         upgrade_fixture,
-        '      apply: () => Effect.die("Manual upgrades must not apply TUI updates"),\\n',
-        '      apply: () => Effect.die("Manual upgrades must not apply TUI updates"),\\n'
-        '      current: () => Effect.succeed("0.0.0-test"),\\n',
+        '      apply: () => Effect.die("Manual upgrades must not apply TUI updates"),\n',
+        '      apply: () => Effect.die("Manual upgrades must not apply TUI updates"),\n'
+        '      current: () => Effect.succeed("0.0.0-test"),\n',
     )
 
     uninstall = root / "packages/cli/src/commands/handlers/uninstall.ts"
