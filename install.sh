@@ -47,16 +47,20 @@ install_termux_packages() {
   if pkg install -y "$@" >"$log" 2>&1; then
     rm -f "$log"
     return 0
+  else
+    status=$?
   fi
 
-  status=$?
   if [[ "$APT_INDEX_REFRESHED" == 0 ]] &&
      grep -Eiq 'Unable to locate package|has no installation candidate|Package .* is not available' "$log"; then
     rm -f "$log"
     APT_INDEX_REFRESHED=1
     echo "A required Termux package was not found in the local package index; refreshing repositories..."
     update_log="$(mktemp)"
-    if ! pkg update -y >"$update_log" 2>&1; then
+    if pkg update -y >"$update_log" 2>&1; then
+      cat "$update_log"
+      rm -f "$update_log"
+    else
       status=$?
       cat "$update_log" >&2
       rm -f "$update_log"
@@ -64,15 +68,14 @@ install_termux_packages() {
       echo "Check your connection and repository selection with: termux-change-repo" >&2
       return "$status"
     fi
-    cat "$update_log"
-    rm -f "$update_log"
 
     log="$(mktemp)"
     if pkg install -y "$@" >"$log" 2>&1; then
       rm -f "$log"
       return 0
+    else
+      status=$?
     fi
-    status=$?
   fi
 
   cat "$log" >&2
