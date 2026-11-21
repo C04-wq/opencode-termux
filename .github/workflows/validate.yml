@@ -82,7 +82,7 @@ jobs:
           SOURCE="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).sourceRepo')"
           SOURCE_TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).sourceTag')"
           RELEASE_TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).releaseTag')"
-          case "$SOURCE" in C04-wq/opencode-termux|Spectra010s/opencode-termux) ;; *) echo "Unapproved runtime source: $SOURCE" >&2; exit 1 ;; esac
+          case "$SOURCE" in C04-wq/opencode-termux) ;; *) echo "Unapproved runtime source: $SOURCE" >&2; exit 1 ;; esac
           test "$SOURCE_TAG" = "v$VERSION"
           if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
             RELEASE_REVISION="${RELEASE_TAG#v$VERSION-}"
