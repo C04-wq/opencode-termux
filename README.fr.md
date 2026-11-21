@@ -49,8 +49,8 @@ Le runtime est fourni sous forme de bundle JavaScript lancé par le Bun de Termu
 - Bundle JavaScript exécuté par Bun avec OpenTUI, `bun-pty`, le daemon Rust officiel `opencode-pty` et la surveillance des fichiers, adaptés à Android/Bionic.
 - Archive de release épinglée par SHA-256 et vérifiée avant extraction.
 - Installation automatique de bun, ripgrep et libc++ s’ils manquent.
-- Mise à jour automatique au lancement d’une session normale, au maximum toutes les six heures, avec vérification du runtime et du SHA-256.
-- CLI opencode-termux et remplacement transactionnel du runtime avec restauration en cas d’échec.
+- Programme de mise à jour intégré d’OpenCode activé et connecté aux releases vérifiées de ce dépôt.
+- Commandes CLI officielles d’OpenCode, sans commandes de gestion supplémentaires.
 
 ## 📸 Captures d’écran
 
@@ -125,8 +125,8 @@ L’installateur est volontairement prudent : il ne supprime pas une commande ou
 
 Il peut remplacer les installations reconnues lorsque leur propriété peut être établie :
 
-- L’ancien paquet npm global `opencode-termux` n’est supprimé que si ses métadonnées sont valides et si le lien symbolique `opencode` existant pointe à l’intérieur de ce paquet.
-- Une liste restreinte de propriétaires de paquets Termux/dpkg est reconnue à partir des métadonnées de propriété : `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` et `opencode1-wrapper`.
+- L’ancien paquet npm global `opencode` n’est supprimé que si ses métadonnées sont valides et si le lien symbolique `opencode` existant pointe à l’intérieur de ce paquet.
+- Une liste restreinte de propriétaires de paquets Termux/dpkg est reconnue à partir des métadonnées de propriété : `opencode`, `opencode1`, `opencode`, `opencode-wrapper` et `opencode1-wrapper`.
 - Un ancien lanceur géré par ce projet (`opencode`) est remplacé après reconnaissance de son contenu.
 
 Si une commande existante est inconnue, copiée manuellement ou ne peut pas être attribuée en toute sécurité à l’une de ces installations, l’installateur s’arrête et n’y touche pas. Identifiez et supprimez cette installation vous-même uniquement après en avoir confirmé l’origine. Il n’effectue pas de nettoyage global de tous les fichiers portant un nom similaire (par exemple, des binaires `opencode2` arbitraires), des paquets npm sans rapport ou des répertoires étrangers au projet.
@@ -193,7 +193,7 @@ Le bundle comprend un lanceur shell, les modules JavaScript, le moteur de rendu 
 
 Le lanceur compare la version d’OpenCode, l’identifiant de génération du runtime et le SHA-256 du bundle installé. Cela détecte la migration musl vers Bionic ainsi qu’une reconstruction du bundle conservant la même version et la même génération.
 
-La vérification automatique et son helper restent internes au runtime ; aucune commande supplémentaire n’est installée.
+Seules les commandes officielles d’OpenCode sont installées.
 
 ## 🔐 Sécurité et intégrité
 
@@ -239,7 +239,7 @@ L’installateur applique le mode `755` au lanceur OpenCode après son installat
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/install.sh"
-ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/lib/opencode-termux/update-runtime.sh"
+ls -l "$PREFIX/bin/opencode"
 ```
 
 ### Architecture non prise en charge
@@ -300,7 +300,6 @@ Après confirmation, il supprime uniquement :
 
 - `$PREFIX/lib/opencode-termux` — l’environnement géré et ses marqueurs.
 - `$PREFIX/bin/opencode` — le lanceur de ce projet.
-- `$PREFIX/lib/opencode-termux/update-runtime.sh` — le programme de mise à jour interne.
 
 Il vérifie le marqueur runtime et l’identité des lanceurs avant toute suppression. Si la propriété ne peut pas être établie, il s’arrête et laisse l’installation intacte.
 
