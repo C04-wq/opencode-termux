@@ -631,21 +631,23 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Add verified x86_64 archive to the dual-architecture release
-        if: startsWith(github.ref, 'refs/tags/v') && vars.X86_64_TERMUX_VALIDATED_SHA256 != ''
+      - name: Add CI-verified x86_64 archive to the dual-architecture release
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_X86_64_SHA256: ${{ vars.X86_64_TERMUX_VALIDATED_SHA256 }}
         run: |
           set -euo pipefail
-          [[ "$EXPECTED_X86_64_SHA256" =~ ^[a-f0-9]{64}$ ]] || { echo "Invalid X86_64_TERMUX_VALIDATED_SHA256 repository variable." >&2; exit 1; }
           mkdir -p dist/x86_64
           gh run download "$GITHUB_RUN_ID" --name "android-x86_64-candidate-$GITHUB_SHA" --dir dist/x86_64
           X86_ARCHIVE="opencode-$OPENCODE_VERSION-android-x86_64-bundle.tar.gz"
           test -s "dist/x86_64/$X86_ARCHIVE"
+          test -s dist/x86_64/SHA256SUMS
+          # Verify the exact archive produced by the x86_64 job in this run.
+          # No manually maintained repository variable or per-release device test is required.
+          (cd dist/x86_64 && sha256sum -c SHA256SUMS)
           cp "dist/x86_64/$X86_ARCHIVE" "dist/$X86_ARCHIVE"
-          ACTUAL_X86_64_SHA256="$(sha256sum "dist/$X86_ARCHIVE" | awk '{print $1}')"
-          [[ "$ACTUAL_X86_64_SHA256" == "$EXPECTED_X86_64_SHA256" ]] || { echo "The rebuilt x86_64 archive differs from the physically validated artifact." >&2; exit 1; }
+          TARGET_ARCH=x86_64 bash scripts/validate-runtime-archive.sh "dist/$X86_ARCHIVE" "$RUNNER_TEMP/x86_64-release-validation"
+          TARGET_ARCH=x86_64 bash scripts/smoke-test-runtime-archive.sh "dist/$X86_ARCHIVE" "$OPENCODE_VERSION" "$RUNNER_TEMP/x86_64-release-smoke"
           cp "dist/x86_64/report.json" "dist/report-x86_64.json"
           python3 - "$OPENCODE_VERSION" "dist/$X86_ARCHIVE" "dist/release-checksums.json" <<'PY'
           import hashlib, json, sys
@@ -658,11 +660,10 @@ jobs:
           data["archiveNameX86_64"] = archive.rsplit("/", 1)[-1]
           with open(metadata, "w", encoding="utf-8") as f:
               json.dump(data, f, indent=2)
-              f.write("\n")
+              f.write(chr(10))
           PY
           (cd dist && sha256sum "opencode-$OPENCODE_VERSION-android-aarch64-bundle.tar.gz" "$X86_ARCHIVE" > SHA256SUMS)
           (cd dist && sha256sum -c SHA256SUMS)
-
       - name: Publish immutable GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:

@@ -129,7 +129,7 @@ for (const token of [
   "RELEASE_TAG",
   "releases/download/$RELEASE_TAG/opencode-$VERSION-android-aarch64-bundle.tar.gz",
   "archiveSha256X86_64", "android-x86_64-candidate-$GITHUB_SHA", "android-x86_64-bundle.tar.gz",
-  "vars.X86_64_TERMUX_VALIDATED_SHA256 != ''", "RELEASE_ASSETS", "EXPECTED_X86_64_SHA256", "report-x86_64.json",
+  "CI-verified x86_64 archive to the dual-architecture release", "android-x86_64-candidate-$GITHUB_SHA", "sha256sum -c SHA256SUMS", "archiveSha256X86_64", "RELEASE_ASSETS", "report-x86_64.json",
   "Invalid package release tag",
   "ocver.py tag",
   "C04-wq/opencode-termux"
