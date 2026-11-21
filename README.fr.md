@@ -154,7 +154,7 @@ Conservez la copie gérée du dépôt : la commande de mise à jour l’utilise 
 
 ## 🔄 Mises à jour
 
-Il existe trois mécanismes liés de mise à jour et de récupération.
+Il existe quatre mécanismes liés de mise à jour et de récupération.
 
 ### 1. Vérification automatique des mises à jour au lancement
 
