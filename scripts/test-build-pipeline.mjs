@@ -76,6 +76,7 @@ for (const token of [
   "/system/bin/linker64",
   "libc\\.so\\.6",
   "max-page-size=16384",
+  "common-page-size=16384",
   "readelf -lW"
 ]) assert.ok(daemonBuild.includes(token), "official opencode-pty Android build missing " + token);
 const bundlePatch = fs.readFileSync("tools/patch-opencode-bundle.py", "utf8");
