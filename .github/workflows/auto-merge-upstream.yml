@@ -84,12 +84,14 @@ jobs:
             git tag -a "$RELEASE_TAG" -m "OpenCode $VERSION Android/Termux release" "$MAIN_SHA"
             git push origin "$RELEASE_TAG"
           fi
-          existing_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/validate.yml/runs?per_page=30" | jq -r --arg tag "$RELEASE_TAG" '.workflow_runs[] | select(.head_branch == $tag and .event == "workflow_dispatch") | .id' | head -n1)"
+          existing_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/validate.yml/runs?per_page=30" | jq -r --arg sha "$RELEASE_SHA" '.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch") | .id' | head -n1)"
           if [[ -z "$existing_run" ]]; then
             # GITHUB_TOKEN pushes do not trigger push workflows; explicitly dispatch
             # the tag ref so the release-only jobs run with github.ref=refs/tags/...
             gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_TAG"
           fi
+          RELEASE_SHA="$(git rev-parse "$RELEASE_TAG^{commit}")"
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
@@ -97,6 +99,7 @@ jobs:
         if: steps.candidate.outputs.merge == 'true'
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_SHA: ${{ steps.tag.outputs.sha }}
           VERSION: ${{ steps.tag.outputs.version }}
         shell: bash
         run: |
@@ -105,7 +108,7 @@ jobs:
           for attempt in 1 2 3; do
             completed=false
             for poll in $(seq 1 360); do
-              release_run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/validate.yml/runs?per_page=30" | jq -r --arg tag "$RELEASE_TAG" '.workflow_runs[] | select(.head_branch == $tag and .event == "workflow_dispatch") | .id' | head -n1)"
+              release_run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/validate.yml/runs?per_page=30" | jq -r --arg sha "$RELEASE_SHA" '.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch") | .id' | head -n1)"
               if [[ -n "$release_run_id" ]]; then
                 run="$(gh run view "$release_run_id" --repo "$GITHUB_REPOSITORY" --json status,conclusion)"
                 status="$(jq -r '.status' <<<"$run")"
