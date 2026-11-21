@@ -7,10 +7,12 @@ TARGET_ARCH="${TARGET_ARCH:-aarch64}"
 case "$TARGET_ARCH" in
   aarch64)
     EXPECTED_ELF_MACHINE="AArch64"
+    EXPECTED_ANDROID_LINKER="/system/bin/linker64"
     PTY_LIBRARY="librust_pty_arm64.so"
     ;;
   x86_64)
     EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"
+    EXPECTED_ANDROID_LINKER="/system/bin/linker64"
     PTY_LIBRARY="librust_pty_x86_64.so"
     ;;
   *)
@@ -69,6 +71,17 @@ case "$TARGET_ARCH" in
     done
     ;;
 esac
+
+# The official opencode-pty daemon is an executable (not bun-pty's .so).
+# Check its machine, Android dynamic linker and absence of glibc dependencies.
+daemon="$ROOT/lib/opencode/opencode-pty"
+[[ -s "$daemon" && -x "$daemon" ]] || { echo "official opencode-pty daemon missing or not executable" >&2; exit 1; }
+daemon_header="$(readelf -h "$daemon")"
+grep -q "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$daemon_header"
+daemon_interpreter="$(readelf -l "$daemon" | sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p')"
+[[ "$daemon_interpreter" == "$EXPECTED_ANDROID_LINKER" ]] || { echo "wrong opencode-pty Android interpreter: $daemon_interpreter" >&2; exit 1; }
+daemon_needed="$(readelf -d "$daemon" | awk '/NEEDED/{print $NF}')"
+if grep -Eq 'libc\.so\.6|ld-linux|libgcc_s\.so' <<<"$daemon_needed"; then echo "glibc dependency found in opencode-pty: $daemon_needed" >&2; exit 1; fi
 
 # Exercise the shipped shell launcher without loading Android/Bionic modules
 # on the Linux CI host. The stub verifies the module path and argument contract.
