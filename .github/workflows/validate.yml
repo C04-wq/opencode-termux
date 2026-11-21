@@ -153,7 +153,6 @@ jobs:
           bash install.sh
           test -x "$PREFIX/bin/opencode"
           test ! -e "$PREFIX/bin/opencode-termux"
-          test ! -e "$PREFIX/lib/opencode-termux/update-runtime.sh"
           test -x "$PREFIX/lib/opencode-termux/update-runtime.sh"
           test -s "$PREFIX/lib/opencode-termux/lib/opencode/index.js"
           test -f "$PREFIX/lib/opencode-termux/lib/opencode/bunfig.toml"
