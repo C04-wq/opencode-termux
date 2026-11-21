@@ -94,6 +94,8 @@ assert.ok(sourcePatch.includes("release-checksums.json"), "native updater must u
 assert.ok(sourcePatch.includes('exec(["bash", installer], "4 hours")'), "native updater must invoke the Bash installer with Bash");
 assert.ok(sourcePatch.includes("actualVersion !== version"), "native and APT update paths must verify the installed version");
 assert.ok(sourcePatch.includes('item.abi !== "android"'), "Android targets must never resolve a glibc PTY asset");
+assert.ok(sourcePatch.includes("packages/process-daemon/src/service.rs"), "Android port must preserve official foreground-process detection");
+assert.ok(sourcePatch.includes('#[cfg(any(target_os = "linux", target_os = "android"))]'), "Android process-daemon cfg must include Linux /proc behavior");
 assert.ok(sourcePatch.includes("isCurlMethod(method)"), "curl installation detection must remain type-safe in the upstream uninstall patch");
 assert.ok(!sourcePatch.includes("'    if (prefix) return\\n'"), "Termux must not suppress detection of legacy package-managed installations");
 assert.ok(!sourcePatch.includes('exec(["sh", installer]'), "Bash installer must never be invoked through sh");
