@@ -37,6 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n install.sh uninstall.sh manager.sh opencode-termux
+          sh -n packing/launcher/opencode
           bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/ci/build-opencode-pty-android.sh scripts/ci/build-fff-android.sh scripts/ci/build-parcel-watcher-android.sh scripts/test-termux-device.sh
           bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
           bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh
@@ -48,7 +49,7 @@ jobs:
           bash manager.sh version | grep -Fq 'opencode-termux manager'
           bash manager.sh status | grep -Fq 'Status: not installed'
           bash opencode-termux help >/dev/null
-          shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux scripts/*.sh
+          shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux packing/launcher/opencode scripts/*.sh
       - name: Validate native runtime contract
         run: |
           set -euo pipefail
