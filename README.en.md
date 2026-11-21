@@ -158,9 +158,18 @@ Keep the managed checkout in place: the update command uses it to retrieve repos
 
 ## 🔄 Updates
 
-There are two related but different update paths. Understanding the difference is important.
+There are four related update and recovery paths.
 
-### 1. Interactive OpenCode update prompt
+### 1. Automatic update check at launch
+
+Before starting a normal OpenCode session, the launcher runs the managed updater at most once every six hours. The updater fast-forwards the managed Git checkout and reruns the installer, which verifies release checksums and uses the installer's transactional replacement and recovery path.
+
+- It is skipped for `opencode --version`, `opencode --help`, `opencode update` and `opencode upgrade`.
+- Disable it with `OPENCODE_TERMUX_AUTOUPDATE=0`.
+- Results are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`.
+- If networking or updating fails, the launcher continues with the installed version.
+
+### 2. Interactive OpenCode update prompt
 
 When you run `opencode` in an interactive terminal, the launcher checks the repository's `main` branch release metadata for a newer OpenCode runtime version.
 
@@ -182,7 +191,7 @@ Use ↑/↓ to choose and Enter to confirm.
 
 The prompt compares the installed OpenCode version with the version in `release-checksums.json`. It is a **runtime-version prompt**, not a general notification that every repository file or management script has changed. A manager-only or installer-only change may therefore require a manual project update even when OpenCode itself has not received a new version.
 
-### 2. Update the project and runtime manually
+### 3. Update the project and runtime manually
 
 To retrieve the latest project code and reinstall the verified runtime, run:
 
@@ -202,7 +211,7 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 Commit, stash or otherwise resolve your local changes before updating.
 
-### 3. Re-run the installer to repair the installation
+### 4. Re-run the installer to repair the installation
 
 You can also rerun the one-line installer:
 
