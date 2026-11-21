@@ -82,6 +82,8 @@ for (const token of [
 assert.ok(watcherBuild.includes("unsupported TARGET_ARCH"), "watcher builder must reject unsupported targets");
 const smoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
 assert.ok(smoke.includes("export TARGET_ARCH"), "archive smoke test must pass the selected architecture to the validator");
+assert.ok(smoke.includes("16#$alignment < 16384"), "all Android ELF modules must satisfy 16 KB page alignment");
+assert.ok(smoke.includes("readelf -lW"), "archive smoke test must inspect ELF program headers for page alignment");
 for (const token of [
   "N-API constructor registration import",
   "napi_module_register",
