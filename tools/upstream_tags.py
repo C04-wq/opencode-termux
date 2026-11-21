@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import sys
 
-TAG_PATTERN = re.compile(r"refs/tags/(v[0-9]+[.][0-9]+[.][0-9]+)(\\^\\{\\})?$")
+TAG_PATTERN = re.compile(r"refs/tags/(v[0-9]+[.][0-9]+[.][0-9]+)(\^\{\})?$")
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 
 
