@@ -47,7 +47,7 @@ migrate_legacy_termux_repository() {
 
   for file in "$PREFIX/etc/apt/sources.list" "$sources_dir"/*.list; do
     [[ -f "$file" ]] || continue
-    if grep -Eq '^[[:space:]]*deb.*https?://termux\\.net([/:[:space:]]|$)' "$file"; then
+    if grep -Eq '^[[:space:]]*deb.*https?://termux\.net([/:[:space:]]|$)' "$file"; then
       backup="${file}.opencode-termux.bak"
       suffix=0
       while [[ -e "$backup" ]]; do
@@ -55,7 +55,7 @@ migrate_legacy_termux_repository() {
         backup="${file}.opencode-termux.bak.${suffix}"
       done
       cp -p "$file" "$backup"
-      if ! sed -i -E 's#https?://termux\\.net/?#https://packages.termux.dev/apt/termux-main#g' "$file"; then
+      if ! sed -i -E 's#https?://termux\.net/?#https://packages.termux.dev/apt/termux-main#g' "$file"; then
         cp -p "$backup" "$file"
         echo "Error: could not migrate the obsolete Termux repository in $file." >&2
         return 1
