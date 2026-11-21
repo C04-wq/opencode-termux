@@ -54,14 +54,19 @@ OPENCODE_ROOT=$root
 export OPENCODE_LAUNCHER OPENCODE_ROOT
 export OPENCODE_DISABLE_AUTOUPDATE=1
 
-# OpenCode 2.3.2+ uses its persistent PTY service for managed terminals.
-# The official daemon is built from the same upstream commit for Android/Bionic.
-if [ ! -x "$root/opencode-pty" ]; then
-  echo "opencode: official PTY daemon is missing or not executable: $root/opencode-pty" >&2
-  exit 1
+# New bundles carry a requirement marker and the official Android daemon.
+# Older published bundles predate this component and remain launchable during migration.
+if [ -f "$root/opencode-pty.required" ]; then
+  if [ ! -x "$root/opencode-pty" ]; then
+    echo "opencode: required official PTY daemon is missing or not executable: $root/opencode-pty" >&2
+    exit 1
+  fi
+  OPENCODE_PTY_BIN=$root/opencode-pty
+  export OPENCODE_PTY_BIN
+elif [ -x "$root/opencode-pty" ]; then
+  OPENCODE_PTY_BIN=$root/opencode-pty
+  export OPENCODE_PTY_BIN
 fi
-OPENCODE_PTY_BIN=$root/opencode-pty
-export OPENCODE_PTY_BIN
 
 # bun-pty dlopens this at import time; upstream npm packages ship glibc/musl.
 # Select only the native library built for this exact Android architecture.
