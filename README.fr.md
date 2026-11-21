@@ -40,7 +40,7 @@
 
 OpenCode est un agent de programmation open source fonctionnant dans le terminal. Ce dépôt le distribue pour Android Termux en utilisant l’environnement Bionic natif de Termux et Bun.
 
-Le runtime est fourni sous forme de bundle JavaScript lancé par le Bun de Termux, accompagné de bibliothèques Android natives pour l’interface terminal, le PTY et la surveillance des fichiers. Il n’exécute plus le binaire ELF Linux/musl d’origine et ne nécessite ni PRoot, ni machine virtuelle Linux, ni Node.js, ni npm sur l’appareil.
+Le runtime est fourni sous forme de bundle JavaScript lancé par le Bun de Termux, avec OpenTUI, la bibliothèque partagée `bun-pty`, le daemon officiel `opencode-pty` compilé depuis `packages/process-daemon` et le module de surveillance des fichiers. Il n’exécute plus le binaire ELF Linux/musl d’origine et ne nécessite ni PRoot, ni machine virtuelle Linux, ni Node.js, ni npm sur l’appareil.
 
 > [!IMPORTANT]
 > Il s’agit d’une adaptation communautaire non officielle pour Termux. OpenCode est développé par anomalyco/opencode. Ce dépôt maintient l’installateur Termux, l’intégration, le gestionnaire de mises à jour et les validations.
@@ -48,7 +48,7 @@ Le runtime est fourni sous forme de bundle JavaScript lancé par le Bun de Termu
 ### Fonctionnalités principales
 
 - Runtime Android/Bionic natif pour Termux ARM64/aarch64 et x86_64 (Android 9 / API 28 ou ultérieur).
-- Bundle JavaScript exécuté par Bun avec modules Bionic pour OpenTUI, PTY et la surveillance des fichiers.
+- Bundle JavaScript exécuté par Bun avec OpenTUI, `bun-pty`, le daemon Rust officiel `opencode-pty` et la surveillance des fichiers, adaptés à Android/Bionic.
 - Archive de release épinglée par SHA-256 et vérifiée avant extraction.
 - Installation automatique de bun, ripgrep et libc++ s’ils manquent.
 - Menu interactif avec Install update now et Wait for the next version.
@@ -256,7 +256,7 @@ Le diagnostic vérifie :
 - Que l’architecture de l’appareil est `aarch64` ou `x86_64`.
 - Que les commandes requises (`git`, `curl`, `tar`, `sha256sum`, `bun` et `rg`) sont disponibles.
 - Que la bibliothèque partagée libc++ de Termux est installée.
-- Que le lanceur natif, le point d’entrée JavaScript, la bibliothèque PTY et le module watcher existent.
+- Que le lanceur natif, le point d’entrée JavaScript, la bibliothèque `bun-pty`, l’exécutable daemon officiel `opencode-pty` et le module watcher existent.
 - Que le lanceur natif possède les permissions d’exécution.
 - Que le marqueur de version existe et respecte un format valide.
 - Que le lanceur OpenCode est bien celui géré par le projet.
@@ -277,9 +277,9 @@ Cette architecture remplace l’ancienne approche Linux/musl : l’installateur 
 
 ### Source épinglée
 
-Le pipeline de ce dépôt compile OpenCode à partir d’un commit épinglé du code source officiel (anomalyco/opencode). GitHub Actions compile les bibliothèques Bionic d’OpenTUI et PTY, prépare le bundle JavaScript, inspecte les modules ELF et vérifie l’archive ainsi que son condensat SHA-256. tools/supply-chain-lock.json enregistre les révisions des sources et outils. L’installateur télécharge la release indiquée par release-checksums.json ; ces métadonnées resteront épinglées au runtime déjà vérifié jusqu’à ce que la nouvelle compilation réussisse les builds ARM64 et x86_64, les contrôles ELF, la validation des archives et les smoke tests automatisés dans la CI.
+Le pipeline de ce dépôt compile OpenCode à partir d’un commit épinglé du code source officiel (anomalyco/opencode). GitHub Actions compile OpenTUI, `bun-pty`, le daemon Rust officiel `opencode-pty` depuis `packages/process-daemon` et le watcher Android/Bionic, puis prépare le bundle JavaScript, inspecte les modules ELF et vérifie l’archive ainsi que son condensat SHA-256. tools/supply-chain-lock.json enregistre les révisions des sources et outils. L’installateur télécharge la release indiquée par release-checksums.json ; ces métadonnées resteront épinglées au runtime déjà vérifié jusqu’à ce que la nouvelle compilation réussisse les builds ARM64 et x86_64, les contrôles ELF, la validation des archives et les smoke tests automatisés dans la CI.
 
-Le bundle comprend un lanceur shell, les modules JavaScript, le moteur de rendu Bionic OpenTUI, une bibliothèque PTY Android et un module Android de surveillance des fichiers.
+Le bundle comprend un lanceur shell, les modules JavaScript, le moteur de rendu Bionic OpenTUI, la bibliothèque partagée `bun-pty`, l’exécutable daemon officiel `opencode-pty` et un module Android de surveillance des fichiers.
 
 ### Installation et restauration
 
