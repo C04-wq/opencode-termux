@@ -72,7 +72,7 @@ jobs:
           set -euo pipefail
           git fetch origin main --tags
           git switch --detach origin/main
-          VERSION="$(python3 tools/ocver.py field version)"
+          VERSION="$(python3 tools/ocver.py current)"
           RELEASE_TAG="$(python3 tools/ocver.py tag)"
           [[ "$RELEASE_TAG" == v* ]] || { echo "Invalid release tag: $RELEASE_TAG" >&2; exit 1; }
           MAIN_SHA="$(git rev-parse origin/main)"
