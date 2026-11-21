@@ -226,8 +226,8 @@ TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
   bash "$ROOT/scripts/ci/build-rust-pty-android.sh" "$pty"
 
 # Build the official OpenCode persistent PTY daemon (not bun-pty's shared
-# library). The daemon is embedded by the upstream CLI bundler as a verified
-# file asset and extracted by core's persistent-pty runtime on first use.
+# library). It is packaged beside the bundle and selected through the upstream
+# OPENCODE_PTY_BIN override supported by core's persistent-pty runtime.
 pty_daemon="$work/opencode-pty"
 TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
   bash "$ROOT/scripts/ci/build-opencode-pty-android.sh" "$src" "$pty_daemon"
@@ -299,6 +299,7 @@ mkdir -p "$out/lib"
 cp -a "$lib/." "$out/lib/"
 install -m 0755 "$pty" "$out/lib/$PTY_LIB_NAME"
 install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"
+printf '%s\n' "$commit" > "$out/lib/opencode/opencode-pty.required"
 install -m 0644 "$watcher" "$out/lib/watcher.node"
 # Empty bunfig: the wrapper points bun at it so a project's bunfig.toml or
 # .env in the user's cwd never changes how the CLI starts.
