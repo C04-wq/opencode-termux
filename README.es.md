@@ -155,9 +155,18 @@ Conserva la copia gestionada del repositorio: el comando de actualización la ut
 
 ## 🔄 Actualizaciones
 
-Existen dos mecanismos de actualización relacionados, pero distintos.
+Hay cuatro mecanismos relacionados de actualización y recuperación.
 
-### 1. Aviso interactivo de actualización de OpenCode
+### 1. Actualización automática al iniciar OpenCode
+
+Antes de iniciar una sesión normal, el lanzador ejecuta el actualizador gestionado como máximo una vez cada seis horas. El actualizador adelanta la copia Git mediante fast-forward y vuelve a ejecutar el instalador, que verifica los checksums del release y utiliza el reemplazo transaccional con recuperación.
+
+- No se ejecuta para `opencode --version`, `opencode --help`, `opencode update` ni `opencode upgrade`.
+- Se puede desactivar con `OPENCODE_TERMUX_AUTOUPDATE=0`.
+- Los resultados se guardan en `$PREFIX/var/log/opencode-termux/auto-update.log`.
+- Si falla la red o la actualización, el lanzador continúa con la versión instalada.
+
+### 2. Aviso interactivo de actualización de OpenCode
 
 Al ejecutar `opencode` en una terminal interactiva, el lanzador comprueba los metadatos de releases de la rama `main` para detectar una versión más reciente del entorno OpenCode.
 
@@ -179,7 +188,7 @@ Use ↑/↓ to choose and Enter to confirm.
 
 El aviso compara la versión instalada de OpenCode con la versión de `release-checksums.json`. Es un aviso de **versión del entorno de ejecución**, no una notificación general de cambios en todos los archivos del repositorio. Por tanto, un cambio exclusivo del gestor o del instalador puede requerir una actualización manual del proyecto aunque OpenCode no haya publicado una versión nueva.
 
-### 2. Actualizar manualmente el proyecto y el entorno
+### 3. Actualizar manualmente el proyecto y el entorno
 
 Para obtener el código más reciente del proyecto y reinstalar el entorno verificado:
 
@@ -199,7 +208,7 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 Confirma, guarda temporalmente o resuelve los cambios antes de volver a actualizar.
 
-### 3. Volver a ejecutar el instalador para reparar la instalación
+### 4. Volver a ejecutar el instalador para reparar la instalación
 
 También puedes ejecutar de nuevo el instalador:
 
