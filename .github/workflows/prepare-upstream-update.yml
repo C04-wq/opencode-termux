@@ -35,7 +35,7 @@ jobs:
           CURRENT="$(python3 tools/ocver.py current)"
           TAGS_JSON="$(curl --fail --location --silent --show-error \
             --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
-            "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v2.")"
+            "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v")"
           read -r UPSTREAM_TAG TAG_VERSION UPSTREAM_SHA < <(printf '%s' "$TAGS_JSON" | python3 tools/upstream_tags.py)
           [[ "$UPSTREAM_TAG" == "v$TAG_VERSION" && "$UPSTREAM_SHA" =~ ^[a-f0-9]{40}$ ]]
 
