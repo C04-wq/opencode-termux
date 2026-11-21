@@ -137,6 +137,7 @@ assert.ok(sourcePatch.includes('exec(["bash", "-c"'), "native updater must invok
 assert.ok(sourcePatch.includes('OPENCODE_TERMUX_EXPECTED_VERSION="$1" OPENCODE_TERMUX_EXPECTED_RELEASE_TAG="$3" exec bash "$2"'), "native updater must pin the installer to the checked package revision");
 assert.ok(sourcePatch.includes('return `${version}-termux.${revision}'), "native updater must compare Termux package revisions, not only OpenCode versions");
 assert.ok(sourcePatch.includes("current: () => Ref.get(installedVersion)") && sourcePatch.includes("updater.current()"), "the CLI upgrade command must compare the repository package revision with the installed revision");
+assert.ok(sourcePatch.includes("data.archiveName === expectedArchive") && sourcePatch.includes("data.archiveNameX86_64 === expectedArchive"), "the updater must verify the exact archive name for both architectures");
 assert.ok(sourcePatch.includes('current.includes("-termux.") ? "curl"'), "the CLI must not allow an alternate package manager to bypass the Termux repository updater");
 assert.ok(sourcePatch.indexOf('if (nativeTermux) return "curl"') < sourcePatch.indexOf('if (prefix && executable === path.join(prefix, "bin", "opencode"))'), "Termux must be routed to the repository updater before APT package detection");
 assert.ok(sourcePatch.includes('if (method === "apt" && !nativeTermux)'), "an explicit --method apt must not bypass the Termux repository updater");
