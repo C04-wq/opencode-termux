@@ -142,7 +142,7 @@ jobs:
 
           upstream_bun_lock = json.load(open(pathlib.Path(source_root, "bun.lock"), encoding="utf-8"))
           upstream_fff_version = upstream_bun_lock["workspaces"]["packages/core"]["dependencies"]["@ff-labs/fff-bun"]
-          if upstream_fff_version != fff_version or not re.fullmatch(r"\\d+\\.\\d+\\.\\d+", fff_version):
+          if upstream_fff_version != fff_version or not re.fullmatch(r"\d+\.\d+\.\d+", fff_version):
               raise SystemExit("Official OpenCode bun.lock FFF dependency differs from its resolved source tag.")
           if not re.fullmatch(r"[0-9a-f]{40}", fff_commit):
               raise SystemExit("Official FFF source tag did not resolve to a full commit SHA.")
