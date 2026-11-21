@@ -312,9 +312,9 @@ def main() -> None:
     replace_once(upgrade_handler, 'import { OPENCODE_VERSION } from "../../version"\n', "")
     replace_once(
         upgrade_handler,
-        '      const version = target.trim().replace(/^v/, "")\n',
-        '      const version = target.trim().replace(/^v/, "")\n'
-        '      const current = yield* updater.current()\n',
+        '      const method = Option.getOrUndefined(input.method) ?? (yield* updater.method())\n',
+        '      const current = yield* updater.current()\n'
+        '      const method = current.includes("-termux.") ? "curl" : Option.getOrUndefined(input.method) ?? (yield* updater.method())\n',
     )
     replace_once(upgrade_handler, '      if (version === OPENCODE_VERSION) {\n', '      if (version === current) {\n')
     replace_once(upgrade_handler, '      log.info(`From ${OPENCODE_VERSION} → ${version}`)\n', '      log.info(`From ${current} → ${version}`)\n')
