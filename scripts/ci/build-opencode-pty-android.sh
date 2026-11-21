@@ -97,7 +97,8 @@ PY
 toolchain="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/bin"
 linker="$toolchain/${linker_prefix}${ANDROID_API}-clang"
 [[ -x "$linker" ]] || { echo "opencode-pty: missing NDK linker $linker" >&2; exit 1; }
-rustup target list --installed | grep -qx "$target" || rustup target add "$target"
+# Install the target under the upstream process-daemon toolchain override.
+# Its rust-toolchain.toml may differ from the repository builder toolchain.
 
 printf -v linker_var 'CARGO_TARGET_%s_LINKER' "$cargo_env"
 printf -v rustflags_var 'CARGO_TARGET_%s_RUSTFLAGS' "$cargo_env"
@@ -113,6 +114,7 @@ export ANDROID_NDK_ROOT="$NDK"
 manifest="$SRC_ROOT/packages/process-daemon/Cargo.toml"
 (
   cd "$SRC_ROOT/packages/process-daemon"
+  rustup target list --installed | grep -qx "$target" || rustup target add "$target"
   # Run the upstream daemon's complete native test suite once on the Linux CI
   # host (the x86_64 build job); both Android targets still compile test harnesses.
   if [[ "${RUN_UPSTREAM_NATIVE_TESTS:-1}" == "1" ]]; then
