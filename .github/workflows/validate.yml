@@ -105,6 +105,7 @@ jobs:
         run: |
           set -euo pipefail
           export OPENCODE_TEST_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).version')"
+          export OPENCODE_TEST_RELEASE_TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).releaseTag')"
           export OPENCODE_TEST_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).archiveSha256')"
           export OPENCODE_TEST_REMOTE_SHA256="$OPENCODE_TEST_SHA256"
           mkdir -p "$PREFIX/etc/tls" "$PREFIX/etc" "$RUNNER_TEMP/termux-stubs"
@@ -158,6 +159,7 @@ jobs:
           test -f "$PREFIX/lib/opencode-termux/lib/opencode/bunfig.toml"
           test -s "$PREFIX/lib/opencode-termux/THIRD_PARTY_NOTICES.md"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
+          test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-release-tag")" = "$OPENCODE_TEST_RELEASE_TAG"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256")" = "$OPENCODE_TEST_SHA256"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
           # OpenCode owns update discovery and prompts. The launcher must not
