@@ -122,11 +122,19 @@ def main() -> None:
         '  const termuxPath = path.join(global.home, ".local", "bin", "opencode")\n'
         '  const termuxBinary = yield* fs.realPath(termuxPath).pipe(Effect.orElseSucceed(() => termuxPath))\n'
         '  const prefixLauncher = process.env.PREFIX === undefined ? undefined : path.join(process.env.PREFIX, "bin", "opencode")\n'
-        '  const nativeTermux = executable === termuxBinary || (prefixLauncher !== undefined && executable === prefixLauncher)\n',
+        '  const nativeTermux = executable === termuxBinary || (prefixLauncher !== undefined && executable === prefixLauncher)\n'
+        '  if (nativeTermux) {\n'
+        '    const releaseMarker = process.env.PREFIX === undefined ? undefined : path.join(process.env.PREFIX, "lib", "opencode-termux", ".opencode-termux-release-tag")\n'
+        '    const installedReleaseTag = releaseMarker === undefined ? "" : yield* fs.readFileString(releaseMarker).pipe(Effect.orElseSucceed(() => ""))\n'
+        '    const match = installedReleaseTag.trim().match(/^v(\\d+\\.\\d+\\.\\d+)(?:-([1-9]\\d*))?$/)\n'
+        '    const current = match ? `${match[1]}-termux.${match[2] ?? "0"}` : `${OPENCODE_VERSION}-termux.0`\n'
+        '    yield* Ref.set(installedVersion, current)\n'
+        '  }\n',
     )
     replace_once(
         updater,
-        '    if (executable === curlBinary) return "curl"\n',
+        '    if (executable === curlBinary) return "curl"\n'
+        '    if (nativeTermux) return "curl"\n',
         '    if (executable === curlBinary) return "curl"\n'
         '    const prefix = process.env.PREFIX\n'
         '    if (prefix && executable === path.join(prefix, "bin", "opencode")) {\n'
@@ -159,7 +167,8 @@ def main() -> None:
         '      const releaseTagOK = /^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[1-9][0-9]*)?$/.test(releaseTag) && (releaseTag === "v" + version || releaseTag.startsWith("v" + version + "-"))\n'
         '      const archiveNameOK = process.arch === "arm64" || data.archiveNameX86_64 === expectedArchive\n'
         '      if (!version || !/^\\d+\\.\\d+\\.\\d+$/.test(version) || data.sourceRepo !== "C04-wq/opencode-termux" || data.sourceTag !== "v" + version || !releaseTagOK || data.runtimeId !== "android-bionic-bun-v1" || !checksum || !/^[a-f0-9]{64}$/.test(checksum) || !archiveNameOK) throw new Error("Runtime metadata does not identify a complete, verified Termux release for this architecture")\n'
-        '      return version\n'
+        '      const revision = releaseTag === "v" + version ? "0" : releaseTag.slice(("v" + version + "-").length)\n'
+        '      return `${version}-termux.${revision}`\n'
         '    },\n'
         '    catch: (cause) => new Error(`Could not check native Termux releases: ${errorDetail(cause)}`),\n'
         '  })\n'
@@ -207,7 +216,11 @@ def main() -> None:
         '      return\n'
         '    }\n'
         '    if (nativeTermux) {\n'
-        '      if (!/^\\d+\\.\\d+\\.\\d+$/.test(version)) return yield* Effect.fail(new Error(`Unsupported native Termux release: ${input}`))\n'
+        '      const match = version.match(/^(\\d+\\.\\d+\\.\\d+)(?:-termux\\.([0-9]+))?$/)\n'
+        '      if (!match) return yield* Effect.fail(new Error(`Unsupported native Termux release: ${input}`))\n'
+        '      const expectedVersion = match[1]\n'
+        '      const expectedRevision = match[2]\n'
+        '      const expectedReleaseTag = expectedRevision === undefined ? "" : Number(expectedRevision) === 0 ? `v${expectedVersion}` : `v${expectedVersion}-${Number(expectedRevision)}`\n'
         '      yield* Effect.scoped(Effect.gen(function* () {\n'
         '        yield* flock.acquire("cli-upgrade", undefined, { timeoutMs: Duration.toMillis("5 hours") })\n'
         '        yield* fs.makeDirectory(global.cache, { recursive: true })\n'
