@@ -25,6 +25,7 @@ for (const token of [
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
 assert.ok(installer.includes('"$PREFIX/bin/bun" --version') && installer.includes("BUN_VERSION_PIN"), "installer must reject an incompatible Termux Bun runtime before installing the bundle");
+assert.ok(installer.includes("INSTALLED_BUN_PATCH") && installer.includes("10#$INSTALLED_BUN_PATCH < 10#$REQUIRED_BUN_PATCH"), "installer must allow newer patch releases but reject older or different major/minor Bun runtimes");
 assert.ok(installer.includes('cp -a "$STAGE/files/lib/." "$NEW/lib/"'), "installer must copy the complete validated lib tree, including the official PTY daemon and native libraries");
 assert.ok(installer.includes('[[ ! -x "$PREFIX/bin/bun" ]]'), "installer must not mistake a host PATH Bun for the Termux runtime");
 const newline = String.fromCharCode(10);
