@@ -160,6 +160,8 @@ assert.ok(candidateWorkflow.includes('gh pr create') && candidateWorkflow.includ
 assert.ok(candidateWorkflow.includes('gh workflow run validate.yml') && candidateWorkflow.includes('--ref "$BRANCH"'), "GITHUB_TOKEN-created candidate PRs must explicitly dispatch validation against their branch");
 assert.ok(candidateWorkflow.includes('candidate_only_not_approved_for_release'), "automated upstream candidates must remain explicitly unapproved for release");
 assert.ok(candidateWorkflow.includes('package_revision"] = 1'), "a new upstream version must start at package revision one");
+assert.ok(candidateWorkflow.includes("No physical Termux device testing is required"), "upstream candidates must rely on automated CI rather than physical device tests");
+assert.ok(!candidateWorkflow.includes("Run Termux device smoke tests"), "physical Termux testing must not be a release-candidate requirement");
 
 const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
