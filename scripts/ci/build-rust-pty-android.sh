@@ -99,7 +99,7 @@ if [ -n "${NDK:-}" ]; then
   rustup target list --installed | grep -qx "$target" || rustup target add "$target"
   printf -v cargo_linker_var 'CARGO_TARGET_%s_LINKER' "$rust_env"
   printf -v cargo_rustflags_var 'CARGO_TARGET_%s_RUSTFLAGS' "$rust_env"
-  export "$cargo_rustflags_var=-C link-arg=-Wl,-z,max-page-size=16384"
+  export "$cargo_rustflags_var=-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
   printf -v cc_var 'CC_%s' "$cc_env"
   printf -v ar_var 'AR_%s' "$cc_env"
   export "$cargo_linker_var=$linker"
