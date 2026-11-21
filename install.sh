@@ -38,11 +38,57 @@ run_quiet() {
   fi
 }
 
+# Migrate the obsolete termux.net Main repository before attempting package
+# installation. That endpoint can return a successful but incomplete index, so
+# pkg update alone does not make current packages such as bun discoverable.
+migrate_legacy_termux_repository() {
+  local sources_dir file backup suffix update_log status changed=0
+  sources_dir="$PREFIX/etc/apt/sources.list.d"
+
+  for file in "$PREFIX/etc/apt/sources.list" "$sources_dir"/*.list; do
+    [[ -f "$file" ]] || continue
+    if grep -Eq '^[[:space:]]*deb.*https?://termux\\.net([/:[:space:]]|$)' "$file"; then
+      backup="${file}.opencode-termux.bak"
+      suffix=0
+      while [[ -e "$backup" ]]; do
+        suffix=$((suffix + 1))
+        backup="${file}.opencode-termux.bak.${suffix}"
+      done
+      cp -p "$file" "$backup"
+      if ! sed -i -E 's#https?://termux\\.net/?#https://packages.termux.dev/apt/termux-main#g' "$file"; then
+        cp -p "$backup" "$file"
+        echo "Error: could not migrate the obsolete Termux repository in $file." >&2
+        return 1
+      fi
+      changed=1
+      echo "Updated obsolete Termux Main repository in $file"
+      echo "Backup: $backup"
+    fi
+  done
+
+  if [[ "$changed" == 1 ]]; then
+    echo "Refreshing the official Termux Main repository (packages.termux.dev)..."
+    update_log="$(mktemp)"
+    if pkg update -y >"$update_log" 2>&1; then
+      cat "$update_log"
+      rm -f "$update_log"
+    else
+      status=$?
+      cat "$update_log" >&2
+      rm -f "$update_log"
+      echo "Error: the official Termux Main repository could not be refreshed." >&2
+      echo "Check connectivity, then run: pkg update" >&2
+      return "$status"
+    fi
+  fi
+}
+
 # Install Termux dependencies. If a package is missing from stale local
 # indexes, refresh the repository metadata once and retry before failing.
 APT_INDEX_REFRESHED=0
 install_termux_packages() {
   local log status update_log
+  migrate_legacy_termux_repository
   log="$(mktemp)"
   if pkg install -y "$@" >"$log" 2>&1; then
     rm -f "$log"
