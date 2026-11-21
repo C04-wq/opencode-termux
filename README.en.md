@@ -158,7 +158,7 @@ Keep the managed checkout in place: the update command uses it to retrieve repos
 
 ## 🔄 Updates
 
-There are four related update and recovery paths.
+There are three related update and recovery paths.
 
 ### 1. Automatic update check at launch
 
@@ -169,29 +169,7 @@ Before starting a normal OpenCode session, the launcher runs the managed updater
 - Results are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`.
 - If networking or updating fails, the launcher continues with the installed version.
 
-### 2. Interactive OpenCode update prompt
-
-When you run `opencode` in an interactive terminal, the launcher checks the repository's `main` branch release metadata for a newer OpenCode runtime version.
-
-If a newer version is available, it displays a menu:
-
-```text
-A new OpenCode version is available: 2.x.x (installed: 2.x.x).
-
-Use ↑/↓ to choose and Enter to confirm.
-
-● Install update now
-  Wait for the next version
-```
-
-- **Install update now:** runs this project's updater, which fast-forwards the managed Git checkout and reruns the installer to download and verify the new runtime.
-- **Wait for the next version:** starts the currently installed OpenCode version without updating.
-- **Network unavailable:** the check is best-effort; a failed GitHub request does not prevent the installed OpenCode runtime from starting.
-- **Non-interactive execution:** the menu is not shown when standard input/output are not terminals.
-
-The prompt compares the installed OpenCode version with the version in `release-checksums.json`. It is a **runtime-version prompt**, not a general notification that every repository file or management script has changed. A manager-only or installer-only change may therefore require a manual project update even when OpenCode itself has not received a new version.
-
-### 3. Update the project and runtime manually
+### 2. Update the project and runtime manually
 
 To retrieve the latest project code and reinstall the verified runtime, run:
 
@@ -211,7 +189,7 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 Commit, stash or otherwise resolve your local changes before updating.
 
-### 4. Re-run the installer to repair the installation
+### 3. Re-run the installer to repair the installation
 
 You can also rerun the one-line installer:
 
