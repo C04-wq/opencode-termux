@@ -179,7 +179,7 @@ jobs:
           printf 'legacy-musl\n' > "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
           rm -rf "$PREFIX/var/cache/opencode-termux"
           OPENCODE_TEST_REMOTE_VERSION=2.3.2 OPENCODE_TEST_VERSION=2.3.2 \
-            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/migration-auto-update.txt" 2>&1
+            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/migration-auto-update.txt" 2>&1 || { cat "$RUNNER_TEMP/migration-auto-update.txt"; exit 1; }
           grep -Fq 'Verified OpenCode update 2.3.2 is available; installing automatically.' "$RUNNER_TEMP/migration-auto-update.txt"
           grep -Fxq 'android-bionic-bun-v1' "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
           test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 1
