@@ -197,7 +197,7 @@ curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install
 
 Detecta la copia gestionada y repite el procedimiento de instalación. Sirve para reparar lanzadores o permisos de ejecución ausentes, además de instalar la versión indicada por los metadatos de release de la copia local.
 
-> **Importante:** el lanzador desactiva el actualizador propio de OpenCode mediante `OPENCODE_DISABLE_AUTOUPDATE=1`. Así se evita que el actualizador upstream sustituya el entorno gestionado por Termux fuera del proceso verificado de este proyecto.
+> **Importante:** `OPENCODE_DISABLE_AUTOUPDATE=1` desactiva las comprobaciones automáticas upstream al iniciar, pero no elimina la actualización manual integrada. El comando `opencode update` (alias de `opencode upgrade`) y la acción de actualización de la TUI están adaptados para consultar exclusivamente `release-checksums.json` de este repositorio. Validan el origen, la versión, el identificador del runtime y el checksum de la arquitectura; después ejecutan el instalador de Termux fijando la versión consultada. Si no existe un paquete verificado para ARM64 o x86_64, la actualización se rechaza sin recurrir a una release oficial.
 
 ## 🧰 CLI de administración
 
