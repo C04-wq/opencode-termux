@@ -161,7 +161,8 @@ jobs:
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256")" = "$OPENCODE_TEST_SHA256"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
-          "$PREFIX/bin/opencode-termux" doctor
+          test -x "$PREFIX/bin/opencode-termux"
+          bash "$PREFIX/bin/opencode-termux" doctor
           # Replace the updater with a deterministic stub so this test never
           # mutates the workflow checkout or needs a live GitHub release.
           cat > "$PREFIX/bin/opencode-termux-update" <<'UPDATER_TEST'
