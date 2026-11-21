@@ -82,6 +82,8 @@ export CC="$linker"
 export CXX="$toolchain/${linker_prefix}${ANDROID_API}-clang++"
 export AR="$toolchain/llvm-ar"
 export CARGO_BUILD_TARGET="$target"
+export ANDROID_NDK_HOME="$NDK"
+export ANDROID_NDK_ROOT="$NDK"
 
 manifest="$SRC_ROOT/packages/process-daemon/Cargo.toml"
 (
