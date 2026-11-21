@@ -66,13 +66,26 @@ def main() -> None:
         '    ...(item.os === "linux" ? { libc: item.abi ?? "glibc" } : {}),\n'
         "  })\n",
         "  const opencodePty: Awaited<ReturnType<typeof resolveOpencodePty>> =\n"
-        '    item.os === process.platform && item.arch === process.arch && item.abi !== "android"\n'
-        "      ? await resolveOpencodePty({\n"
-        "          platform: item.os,\n"
-        "          arch: item.arch,\n"
-        '          ...(item.os === "linux" ? { libc: item.abi ?? "glibc" } : {}),\n'
-        "        })\n"
-        "      : undefined\n",
+        '    item.abi === "android" && process.env.OPENCODE_PTY_BIN\n'
+        "      ? await resolveOpencodePty({ platform: item.os, arch: item.arch })\n"
+        '      : item.os === process.platform && item.arch === process.arch && item.abi !== "android"\n'
+        "        ? await resolveOpencodePty({\n"
+        "            platform: item.os,\n"
+        "            arch: item.arch,\n"
+        '            ...(item.os === "linux" ? { libc: item.abi ?? "glibc" } : {}),\n'
+        "          })\n"
+        "        : undefined\n",
+    )
+
+    # Build the official process daemon from this exact source checkout.
+    # Its binary is cross-compiled for Android and embedded as a Bun file asset.
+    pty_resolver = root / "packages/cli/script/opencode-pty.ts"
+    replace_once(
+        pty_resolver,
+        '  if (local && (target.platform !== process.platform || target.arch !== process.arch))\n'
+        '    throw new Error("OPENCODE_PTY_BIN can only be embedded in a build for the current platform and architecture")\n',
+        '  if (local && (target.platform !== process.platform || target.arch !== process.arch) && process.env.OPENCODE_PTY_ALLOW_CROSS !== "1")\n'
+        '    throw new Error("OPENCODE_PTY_BIN can only be embedded in a build for the current platform and architecture")\n',
     )
 
     # Termux reports process.platform "android" for a bionic userspace that has
