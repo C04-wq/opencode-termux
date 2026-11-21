@@ -57,7 +57,7 @@ if [ -n "${PREFIX:-}" ] &&
     if [ "$now" -gt 0 ] && { [ "$last" -eq 0 ] || [ "$now" -lt "$last" ] || [ "$((now - last))" -ge 21600 ]; }; then
       (
         if mkdir "$lock" 2>/dev/null; then
-          trap 'rmdir "$lock" 2>/dev/null || true' EXIT HUP INT TERM
+          trap 'rmdir "$lock" 2>/dev/null || true' 0 HUP INT TERM
           printf '%s\n' "$now" > "$state.tmp"
           mv "$state.tmp" "$state"
           if command -v timeout >/dev/null 2>&1; then
