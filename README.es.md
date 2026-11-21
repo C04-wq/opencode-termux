@@ -41,7 +41,7 @@
 
 OpenCode es un agente de programación con IA de código abierto que funciona en la terminal. Este repositorio lo empaqueta para Android Termux utilizando el entorno nativo Bionic de Termux y Bun.
 
-El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, acompañado de bibliotecas Android nativas para la interfaz de terminal, PTY y vigilancia de archivos. Ya no ejecuta el binario ELF Linux/musl original y no requiere PRoot, una máquina virtual Linux, Node.js ni npm en el dispositivo.
+El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, acompañado de OpenTUI, la biblioteca compartida `bun-pty`, el daemon oficial `opencode-pty` compilado desde `packages/process-daemon` y el módulo de vigilancia de archivos. Ya no ejecuta el binario ELF Linux/musl original y no requiere PRoot, una máquina virtual Linux, Node.js ni npm en el dispositivo.
 
 > [!IMPORTANT]
 > Esta es una adaptación comunitaria no oficial para Termux. OpenCode es desarrollado por anomalyco/opencode. Este repositorio mantiene el instalador de Termux, la integración, el gestor de actualizaciones y las validaciones.
@@ -49,7 +49,7 @@ El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, 
 ### Características principales
 
 - Runtime Android/Bionic nativo para Termux ARM64/aarch64 y x86_64 (Android 9 / API 28 o posterior).
-- Bundle JavaScript basado en Bun con módulos Bionic para OpenTUI, PTY y vigilancia de archivos.
+- Bundle JavaScript basado en Bun con OpenTUI, `bun-pty`, el daemon oficial `opencode-pty` y vigilancia de archivos, todos adaptados a Android/Bionic.
 - Release fijada mediante SHA-256 y validada antes de extraerla.
 - Instalación automática de bun, ripgrep y libc++ si faltan.
 - Menú interactivo con Install update now y Wait for the next version.
@@ -278,9 +278,9 @@ Esto sustituye el enfoque anterior basado en Linux/musl: el instalador ya no par
 
 ### Origen fijado
 
-El pipeline de este repositorio construye OpenCode desde un commit fijado del código fuente oficial (anomalyco/opencode). GitHub Actions compila las bibliotecas Bionic de OpenTUI y PTY, prepara el bundle JavaScript, inspecciona los ELF y valida el archivo y su SHA-256. tools/supply-chain-lock.json registra los commits y versiones de las fuentes y herramientas. El instalador descarga la release indicada por release-checksums.json; esa metadata seguirá apuntando al runtime previamente verificado hasta que la nueva compilación supere las compilaciones, validaciones de ELF, pruebas de archivo y smoke tests automatizados de ARM64 y x86_64 en CI.
+El pipeline de este repositorio construye OpenCode desde un commit fijado del código fuente oficial (anomalyco/opencode). GitHub Actions compila OpenTUI, `bun-pty`, el daemon oficial Rust `opencode-pty` desde `packages/process-daemon` y el watcher para Android/Bionic, y prepara el bundle JavaScript, inspecciona los ELF y valida el archivo y su SHA-256. tools/supply-chain-lock.json registra los commits y versiones de las fuentes y herramientas. El instalador descarga la release indicada por release-checksums.json; esa metadata seguirá apuntando al runtime previamente verificado hasta que la nueva compilación supere las compilaciones, validaciones de ELF, pruebas de archivo y smoke tests automatizados de ARM64 y x86_64 en CI.
 
-El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador Bionic OpenTUI, una biblioteca PTY Android y un módulo Android para vigilar archivos.
+El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador Bionic OpenTUI, la biblioteca compartida `bun-pty`, el ejecutable `opencode-pty` (daemon oficial de OpenCode) y un módulo Android para vigilar archivos.
 
 ### Instalación y reversión
 
