@@ -337,7 +337,7 @@ jobs:
           command -v cargo
           command -v rustup
           rustup target add x86_64-linux-android
-          TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" LLVM_STRIP="$LLVM_STRIP" \
+          RUN_UPSTREAM_NATIVE_TESTS=1 TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" LLVM_STRIP="$LLVM_STRIP" \
             bash scripts/ci/build-opencode-bundle.sh
           STAGED="artifacts/bundle/$(python3 tools/ocver.py current)-x86_64"
           test -s "$STAGED/lib/index.js"
@@ -573,7 +573,7 @@ jobs:
         run: |
           set -euo pipefail
           rustup target add aarch64-linux-android
-          bash scripts/ci/build-opencode-bundle.sh
+          RUN_UPSTREAM_NATIVE_TESTS=0 bash scripts/ci/build-opencode-bundle.sh
           # Build and verify the first x86_64 native dependency independently.
           # This does not imply that the complete OpenCode bundle supports x86_64.
           TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" \
