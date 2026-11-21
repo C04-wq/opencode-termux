@@ -55,7 +55,7 @@ migrate_legacy_termux_repository() {
         backup="${file}.opencode-termux.bak.${suffix}"
       done
       cp -p "$file" "$backup"
-      if ! sed -i -E 's#https?://termux\.net/?#https://packages.termux.dev/apt/termux-main#g' "$file"; then
+      if ! sed -i -E '/^[[:space:]]*deb/ s#https?://termux\.net/?#https://packages.termux.dev/apt/termux-main#g' "$file"; then
         cp -p "$backup" "$file"
         echo "Error: could not migrate the obsolete Termux repository in $file." >&2
         return 1
