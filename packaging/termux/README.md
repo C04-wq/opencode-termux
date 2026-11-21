@@ -4,7 +4,7 @@
 
 ## Goal
 
-Submit a source-built `opencode` package to `termux/termux-packages`, so users can install and update it with Termux's package manager. The target is limited to the 64-bit architectures published by OpenCode: `aarch64` (ARM64) and `x86_64` (x64). 32-bit `arm` and `i686` are explicitly out of scope. The current installer, manager, updater and GitHub Releases remain independent and must not be removed or changed as part of this effort.
+Submit a source-built `opencode` package to `termux/termux-packages`, so users can install and update it with Termux's package manager. The target is limited to the 64-bit architectures published by OpenCode: `aarch64` (ARM64) and `x86_64` (x64). 32-bit `arm` and `i686` are explicitly out of scope. The curl installer and GitHub Releases are the active distribution path. The former standalone `opencode-termux` manager/updater commands have been removed; update discovery is intended to remain inside OpenCode's built-in updater. This package proposal must not reintroduce a parallel manager or updater.
 
 Architecture support is a release gate, not a marketing promise: an architecture is supported only after its runtime, every native addon, package build, installation, and real launch have passed. Unsupported architectures must fail early with a precise explanation rather than receive another architecture's binary.
 
@@ -23,7 +23,7 @@ The official package recipe ultimately belongs at `packages/opencode/build.sh` i
 
 ### 1. Package size
 
-The latest published ARM64 runtime archive is 122,380,887 bytes (about 116.7 MiB compressed). This is a warning sign, not proof that the final `.deb` exceeds the limit: Termux's policy applies to the resulting package, whose compression and metadata differ from this tarball.
+The currently published ARM64 runtime archive in release `v2.3.2-2` is 39,580,614 bytes (about 37.8 MiB compressed). This is a warning sign, not proof that the final `.deb` exceeds the limit: Termux's policy applies to the resulting package, whose compression and metadata differ from this tarball.
 
 The final `.deb` must be built and measured before declaring the size requirement passed or failed. If it exceeds 100 MiB, reduce the package or request an explicit exception from maintainers. Do not hide files from the package merely to pass the size check if they are required at runtime.
 
@@ -38,7 +38,7 @@ The current shipped runtime is ARM64-only. The intended Termux target matrix is:
 
 Although Termux itself supports 32-bit architectures, those targets are not in OpenCode's official release matrix. This project will not build or advertise `arm` or `i686`; they are explicitly excluded.
 
-The first practical expansion target is `x86_64`, while retaining `aarch64`. The official Termux Bun recipe supports x86_64, so the JavaScript runtime itself is available there. The OpenCode lock currently provides Android prebuilt packages only for ARM64 (`@parcel/watcher-android-arm64` and `@ff-labs/fff-bin-android-arm64`). This branch now adds an x86_64 Bionic OpenTUI build, a source-built x86_64 Parcel watcher, architecture-specific PTY and bundle paths, and a ripgrep fallback instead of the ARM64-only FFF binary. CI is being extended to build and smoke-test a complete x86_64 candidate archive. These additions are not yet a verified release: no x86_64 support claim is valid until the full candidate passes CI and launches on a real x86_64 Termux device.
+The project now publishes ARM64 and x86_64 runtime assets. The x86_64 path uses an Android/Bionic OpenTUI build, a source-built Parcel watcher, architecture-specific PTY and bundle paths, and a source-built FFF C ABI. GitHub Actions builds and validates the two architectures independently. The published x86_64 asset is not, by itself, proof of successful operation on every x86_64 Termux device; real-device launch and interactive TUI checks remain valuable acceptance evidence.
 
 ### 3. Termux build-system integration
 
@@ -53,7 +53,7 @@ The existing GitHub Actions pipeline must be made reproducible through Termux's 
 
 ### 4. Native dependency portability
 
-The production release asset and curl installer remain AArch64-only. This branch now parameterizes `scripts/ci/build-opencode-bundle.sh` for `aarch64` and `x86_64`, builds the matching PTY and watcher, selects the matching OpenTUI library, and emits architecture-specific PTY filenames. The launcher, archive validator, smoke test and physical-device test also recognize both 64-bit architectures. A separate CI job is being added to build, package and upload an x86_64 candidate for physical Termux validation. Until that candidate passes and the installer/release metadata are extended safely, the published runtime remains ARM64-only.
+The production release metadata, GitHub Release assets, curl installer, launcher, archive validator, smoke test and device test support both `aarch64` and `x86_64`. Each architecture has a distinct checksum and archive name. The separate Termux package recipe remains unfinished and must not be confused with the already-published curl-based runtime distribution.
 
 ## Implementation sequence
 
