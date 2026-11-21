@@ -39,7 +39,7 @@ case "$TARGET_ARCH" in
     EXPECTED_TUI_MACHINE="x86-64"
     TUI_ARTIFACT="$ROOT/artifacts/transplant/opentui-bionic-x86_64/libopentui.so"
     TUI_SLOT="core-linux-x64-musl"
-    FFF_ANDROID=0
+    FFF_ANDROID=1
     ;;
   *)
     echo "unsupported TARGET_ARCH '$TARGET_ARCH' (supported: aarch64, x86_64)" >&2
@@ -151,9 +151,23 @@ cd "$src"
 # installed @opentui/core chunks, so they run before Bun bundles them.
 python3 "$ROOT/tools/patch-opentui-ffi.py" "$src"
 python3 "$ROOT/tools/patch-opentui-loader.py" "$src"
-if [ "$FFF_ANDROID" = 1 ]; then
-  python3 "$ROOT/tools/patch-fff-android.py" "$src"
-fi
+# Build FFF's official C ABI from its pinned Rust source for this exact
+# Android target. Replace the npm binary package's native file with our build;
+# x86_64 gets a local platform package using the same official source version.
+fff_lib="$work/libfff_c.so"
+TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
+  bash "$ROOT/scripts/ci/build-fff-android.sh" "$fff_lib"
+FFF_VERSION="$(python3 -c 'import json; print(json.load(open("tools/supply-chain-lock.json"))["fff"]["version"])')"
+fff_package="$src/node_modules/@ff-labs/fff-bin-android-$OPENCODE_ARCH"
+mkdir -p "$fff_package"
+printf '{"name":"@ff-labs/fff-bin-android-%s","version":"%s","license":"MIT","os":["android"],"cpu":["%s"],"files":["libfff_c.so"]}\n' \
+  "$OPENCODE_ARCH" "$FFF_VERSION" "$OPENCODE_ARCH" > "$fff_package/package.json"
+install -m 0644 "$fff_lib" "$fff_package/libfff_c.so"
+file "$fff_package/libfff_c.so" | grep -q "$EXPECTED_TUI_MACHINE" || {
+  echo "FFF C ABI has the wrong architecture for $TARGET_ARCH" >&2
+  exit 1
+}
+python3 "$ROOT/tools/patch-fff-android.py" --target-arch "$TARGET_ARCH" "$src"
 
 # Typecheck the patched CLI so updater/launcher integration errors fail CI
 # before the JavaScript bundle is emitted.
@@ -204,22 +218,7 @@ for slot in "${tui_slots[@]}"; do
 done
 echo "opentui: installed the stripped bionic build in ${#tui_slots[@]} slots"
 
-# FFF currently ships an Android native binary only for ARM64. On x86_64,
-# leave its Android backend unavailable so OpenCode selects its ripgrep layer.
-if [ "$FFF_ANDROID" = 1 ]; then
-  fff_lib="$(find "$src/node_modules" -path '*@ff-labs/fff-bin-android-arm64/libfff_c.so')"
-  test "$(printf '%s\n' "$fff_lib" | wc -l)" -eq 1 && [ -f "$fff_lib" ] || {
-    echo "expected one fff android arm64 build, got: ${fff_lib:-none}" >&2
-    exit 1
-  }
-  file "$fff_lib" | grep -q 'ARM aarch64' || {
-    echo "fff android build is not aarch64: $fff_lib" >&2
-    exit 1
-  }
-  echo "fff: $(basename "$fff_lib")"
-else
-  echo "fff: disabled for x86_64; ripgrep fallback will be used"
-fi
+echo "fff: source-built Android C ABI installed for $TARGET_ARCH"
 
 pty="$work/librust_pty_$TARGET_ARCH.so"
 TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
