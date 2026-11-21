@@ -128,7 +128,7 @@ Puede reemplazar instalaciones reconocidas cuando puede establecer su propiedad:
 
 - El paquete global npm heredado `opencode-termux` solo se elimina si sus metadatos son válidos y el enlace simbólico `opencode` existente apunta dentro de ese paquete.
 - Se reconoce una lista limitada de propietarios de paquetes Termux/dpkg mediante sus metadatos: `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` y `opencode1-wrapper`.
-- Un lanzador anterior gestionado por este proyecto (`opencode`, `internal update helper` u `opencode-termux`) se sustituye después de reconocer su contenido.
+- Un lanzador anterior gestionado por este proyecto (`opencode`) se sustituye después de reconocer su contenido.
 
 Si un comando existente es desconocido, se copió manualmente o no puede atribuirse con seguridad a una de esas instalaciones, el instalador se detiene y no lo modifica. Identifica y elimina esa instalación manualmente solo después de confirmar su origen. No realiza una limpieza indiscriminada de todos los archivos con nombres parecidos (por ejemplo, binarios arbitrarios `opencode2`), paquetes npm ajenos ni directorios no relacionados.
 
@@ -194,7 +194,7 @@ El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador B
 
 El lanzador compara la versión de OpenCode, el identificador de generación del runtime y el SHA-256 del bundle instalado. Así detecta tanto la migración desde musl como una reconstrucción del bundle que conserve la misma versión y generación.
 
-El gestor, el actualizador, el automatic launch-time update check y el desinstalador siguen separados del bundle de runtime.
+La comprobación automática y su helper permanecen dentro del runtime; no se instalan comandos adicionales.
 
 ## 🔐 Seguridad e integridad
 
@@ -284,12 +284,7 @@ El lanzador no intenta actualizar en estos casos:
 - Todavía no han transcurrido seis horas desde la última comprobación.
 - No está disponible el actualizador gestionado o falla la consulta de metadatos.
 
-Si la red o el instalador fallan, OpenCode continúa con el runtime instalado. El detalle queda en `$PREFIX/var/log/opencode-termux/auto-update.log`. Para recuperar cambios del gestor o del instalador manualmente, ejecuta:
-
-```bash
-```
-
-## 🗑️ Desinstalación
+Si la red o el instalador fallan, OpenCode continúa con el runtime instalado. El detalle queda en `$PREFIX/var/log/opencode-termux/auto-update.log`. ## 🗑️ Desinstalación
 
 Para eliminar la instalación gestionada de Termux:
 
