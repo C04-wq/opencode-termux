@@ -68,6 +68,15 @@ if [ -n "${PREFIX:-}" ] &&
         fi
       ) || true
     fi
+    # A second launch that observes the fresh timestamp waits for the first
+    # installer transaction to finish before touching the runtime directory.
+    if [ -d "$lock" ]; then
+      wait_seconds=0
+      while [ -d "$lock" ] && [ "$wait_seconds" -lt 300 ]; do
+        sleep 1
+        wait_seconds=$((wait_seconds + 1))
+      done
+    fi
   fi
 fi
 
