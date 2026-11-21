@@ -52,7 +52,7 @@ El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, 
 - Bundle JavaScript basado en Bun con OpenTUI, `bun-pty`, el daemon oficial `opencode-pty` y vigilancia de archivos, todos adaptados a Android/Bionic.
 - Release fijada mediante SHA-256 y validada antes de extraerla.
 - Instalación automática de bun, ripgrep y libc++ si faltan.
-- Menú interactivo con Install update now y Wait for the next version.
+- Actualización automática al iniciar una sesión normal, como máximo cada seis horas y con verificación del runtime y SHA-256.
 - CLI opencode-termux y sustitución transaccional del runtime con reversión en caso de error.
 
 ## 📸 Capturas de pantalla
@@ -280,11 +280,11 @@ El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador B
 6. Prepara el bundle y conserva el runtime y los lanzadores anteriores hasta activar el nuevo.
 7. Ejecuta --version y restaura la instalación anterior si falla.
 
-Al elegir **Wait for the next version**, se guarda la versión, la generación del runtime y el SHA-256 exacto del bundle pendiente. El mismo bundle no vuelve a generar el aviso, pero una reconstrucción con el mismo número de versión y un hash diferente sí lo hará.
+
 
 El lanzador compara la versión de OpenCode, el identificador de generación del runtime y el SHA-256 del bundle instalado. Así detecta tanto la migración desde musl como una reconstrucción del bundle que conserve la misma versión y generación.
 
-El gestor, el actualizador, el menú interactivo y el desinstalador siguen separados del bundle de runtime.
+El gestor, el actualizador, el automatic launch-time update check y el desinstalador siguen separados del bundle de runtime.
 
 ## 🔐 Seguridad e integridad
 
@@ -383,30 +383,20 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 Confirma, guarda temporalmente o resuelve los cambios locales antes de volver a ejecutar `opencode-termux update`. El actualizador no fuerza un reset del repositorio.
 
-### No aparece el menú interactivo de actualización
+### Cuándo se omite la actualización automática
 
-El menú solo aparece cuando se cumplen todas estas condiciones:
+El lanzador no intenta actualizar en estos casos:
 
-- OpenCode se inicia desde una terminal interactiva.
-- El lanzador puede acceder a los metadatos de releases del repositorio.
-- Los metadatos contienen una versión válida más reciente que la instalada.
+- Se establece `OPENCODE_TERMUX_AUTOUPDATE=0`.
+- El comando es `opencode --version`, `opencode --help`, `opencode update` o `opencode upgrade`.
+- Todavía no han transcurrido seis horas desde la última comprobación.
+- No está disponible el actualizador gestionado o falla la consulta de metadatos.
 
-Un cambio exclusivo del repositorio no implica necesariamente un cambio en la versión del entorno OpenCode. Para obtener directamente cambios del gestor o del instalador, utiliza:
+Si la red o el instalador fallan, OpenCode continúa con el runtime instalado. El detalle queda en `$PREFIX/var/log/opencode-termux/auto-update.log`. Para recuperar cambios del gestor o del instalador manualmente, ejecuta:
 
 ```bash
 opencode-termux update
 ```
-
-### Los comandos de shell de OpenCode se comportan incorrectamente
-
-El lanzador limpia el `LD_PRELOAD` heredado y configura la ruta de bibliotecas del entorno incluido. Primero actualiza el proyecto:
-
-```bash
-opencode-termux update
-opencode-termux doctor
-```
-
-Si el problema continúa, abre un [issue](https://github.com/C04-wq/opencode-termux/issues) e incluye la versión de Android, `uname -m`, la versión de OpenCode, el comando afectado y el error completo. Elimina claves API, tokens y otros secretos de los registros antes de compartirlos.
 
 ## 🗑️ Desinstalación
 
