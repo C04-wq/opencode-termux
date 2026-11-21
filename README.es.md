@@ -155,7 +155,7 @@ Conserva la copia gestionada del repositorio: el comando de actualización la ut
 
 ## 🔄 Actualizaciones
 
-Hay tres mecanismos relacionados de actualización y recuperación.
+Hay cuatro mecanismos relacionados de actualización y recuperación.
 
 ### 1. Actualización automática al iniciar OpenCode
 
