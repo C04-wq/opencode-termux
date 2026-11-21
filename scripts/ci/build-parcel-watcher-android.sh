@@ -110,7 +110,7 @@ mkdir -p "$(dirname "$OUT")"
 # explicit for the standalone NDK build so NODE_API_MODULE's registration
 # entry point is exported from the shared object.
 "$cxx" --sysroot="$sysroot" -shared -pthread -Wl,--export-dynamic "${objects[@]}" \
-  -Wl,-soname,watcher.node -Wl,-z,relro -Wl,-z,now -Wl,-z,max-page-size=16384 -o "$tmp/watcher.node"
+  -Wl,-soname,watcher.node -Wl,-z,relro -Wl,-z,now -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384 -o "$tmp/watcher.node"
 
 machine="$(readelf -h "$tmp/watcher.node" | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p')"
 [[ "$machine" == "$expected_machine" ]] || {
