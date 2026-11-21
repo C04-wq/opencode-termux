@@ -118,7 +118,18 @@ def main() -> None:
     replace_once(
         updater,
         '  return Service.of({ run, check, apply, method, managed, latest, upgrade, removal })\n',
-        '  return Service.of({ run, check, apply, method, managed, latest, current: () => Ref.get(installedVersion), upgrade, removal })\n',
+        '  return Service.of({ run, check, apply, method, managed, latest, current: () => Effect.gen(function* () {\n'
+        '    const prefix = process.env.PREFIX\n'
+        '    const launcher = process.env.OPENCODE_LAUNCHER\n'
+        '    if (prefix !== undefined && launcher === path.join(prefix, "bin", "opencode")) {\n'
+        '      const releaseMarker = path.join(prefix, "lib", "opencode-termux", ".opencode-termux-release-tag")\n'
+        '      const installedReleaseTag = yield* fs.readFileString(releaseMarker).pipe(Effect.orElseSucceed(() => ""))\n'
+        '      const match = installedReleaseTag.trim().match(/^v(\\d+\\.\\d+\\.\\d+)(?:-([1-9]\\d*))?$/)\n'
+        '      const current = match ? `${match[1]}-termux.${match[2] ?? "0"}` : `${OPENCODE_VERSION}-termux.0`\n'
+        '      yield* Ref.set(installedVersion, current)\n'
+        '    }\n'
+        '    return yield* Ref.get(installedVersion)\n'
+        '  }), upgrade, removal })\n',
     )
     replace_once(
         updater,
