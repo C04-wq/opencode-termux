@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cross-compile @parcel/watcher's N-API module for Android/Bionic.
-# This is a build-only helper; it does not advertise x86_64 runtime support.
+# This build-only helper produces the Bionic N-API module for both supported Android targets.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
