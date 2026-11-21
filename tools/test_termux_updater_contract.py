@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+"""Regression tests for routing OpenCode's built-in updater to verified Termux releases."""
+
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+PATCH = (ROOT / "tools/patch-opencode-source.py").read_text(encoding="utf-8")
+INSTALL = (ROOT / "install.sh").read_text(encoding="utf-8")
+
+
+class TermuxUpdaterContract(unittest.TestCase):
+    def test_internal_updater_reads_our_release_metadata_on_termux(self):
+        self.assertIn('https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json', PATCH)
+        self.assertIn('nativeTermux || detected === "apt"', PATCH)
+        self.assertIn('data.sourceRepo !== "C04-wq/opencode-termux"', PATCH)
+        self.assertIn('data.runtimeId !== "android-bionic-bun-v1"', PATCH)
+        self.assertIn('data.archiveSha256X86_64', PATCH)
+        self.assertIn('data.archiveNameX86_64 === expectedArchive', PATCH)
+
+    def test_internal_update_pins_installer_to_checked_version(self):
+        self.assertIn('OPENCODE_TERMUX_EXPECTED_VERSION="$1" exec bash "$2"', PATCH)
+        self.assertIn('"$VERSION" != "$OPENCODE_TERMUX_EXPECTED_VERSION"', INSTALL)
+
+    def test_installer_still_verifies_release_archive_checksum(self):
+        self.assertIn('sha256sum -c -', INSTALL)
+        self.assertIn('scripts/validate-runtime-archive.sh', INSTALL)
+
+    def test_native_termux_auto_update_is_not_upstream_auto_update(self):
+        self.assertIn('export OPENCODE_DISABLE_AUTOUPDATE=1', INSTALL)
+        self.assertIn('nativeTermux || detected === "apt"', PATCH)
+        self.assertNotIn('https://opencode.ai/update/api/', PATCH)
+        self.assertNotIn('https://github.com/anomalyco/opencode/releases', PATCH)
+
+
+if __name__ == "__main__":
+    unittest.main()
