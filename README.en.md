@@ -41,7 +41,7 @@ OpenCode is an open-source AI coding agent for the terminal. This repository pac
 The runtime is a JavaScript bundle executed by Termux Bun, with OpenTUI, the `bun-pty` shared library, the official `opencode-pty` daemon built from `packages/process-daemon`, and the file-watcher module. It does not execute the upstream Linux/musl ELF binary and does not require PRoot, a Linux VM, Node.js or npm on the device.
 
 > [!IMPORTANT]
-> This is an unofficial, community-maintained Termux adaptation. OpenCode itself is developed by anomalyco/opencode. This repository maintains the Termux installer, integration, update manager and validation.
+> This is an unofficial, community-maintained Termux adaptation. OpenCode itself is developed by anomalyco/opencode. This repository maintains the Termux installer, integration, update mechanism and validation.
 
 ### Highlights
 
@@ -128,7 +128,7 @@ It can replace recognized installations when ownership can be established:
 
 - The legacy global npm package `opencode-termux` is removed only when its package metadata is valid and the existing `opencode` symlink resolves inside that package.
 - A short allowlist of Termux/dpkg package owners is recognized through package ownership metadata: `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` and `opencode1-wrapper`.
-- A previous project-managed `opencode`, `internal update helper` or `opencode-termux` launcher is replaced after its contents are recognized.
+- A previous project-managed `opencode` launcher is replaced after its contents are recognized.
 
 If an existing command is unknown, manually copied, or cannot be safely attributed to one of those installations, the installer stops and leaves it untouched. Identify and remove that installation yourself only after confirming its origin. It does not perform a broad cleanup of every similarly named file (for example, arbitrary `opencode2` binaries), unrelated npm packages, or unrelated directories.
 
@@ -285,12 +285,7 @@ The launcher does not attempt an update when:
 - Fewer than six hours have elapsed since the previous check.
 - The managed updater is unavailable or release metadata cannot be fetched.
 
-If networking or installation fails, OpenCode continues with the installed runtime. Details are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`. To retrieve manager or installer changes manually, run:
-
-```bash
-```
-
-## 🗑️ Uninstallation
+If networking or installation fails, OpenCode continues with the installed runtime. Details are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`. ## 🗑️ Uninstallation
 
 To remove the managed Termux installation, run:
 
