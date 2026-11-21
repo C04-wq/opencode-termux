@@ -50,7 +50,9 @@ for (const token of [
   "ANDROID_NDK_HOME",
   "ANDROID_NDK_ROOT",
   "/system/bin/linker64",
-  "libc\\.so\\.6"
+  "libc\\.so\\.6",
+  "max-page-size=16384",
+  "readelf -lW"
 ]) assert.ok(daemonBuild.includes(token), "official opencode-pty Android build missing " + token);
 const bundlePatch = fs.readFileSync("tools/patch-opencode-bundle.py", "utf8");
 assert.ok(bundlePatch.includes('choices=("aarch64", "x86_64")'), "bundle patcher must expose only the official 64-bit architecture targets");
@@ -198,6 +200,8 @@ assert.ok(candidateWorkflow.includes('gh workflow run validate.yml') && candidat
 assert.ok(candidateWorkflow.includes('candidate_only_not_approved_for_release'), "automated upstream candidates must remain explicitly unapproved for release");
 assert.ok(candidateWorkflow.includes('package_revision"] = 1'), "a new upstream version must start at package revision one");
 assert.ok(candidateWorkflow.includes("No physical Termux device testing is required"), "upstream candidates must rely on automated CI rather than physical device tests");
+assert.ok(candidateWorkflow.includes("packages/process-daemon/ghostty-revision"), "upstream automation must update the official daemon Ghostty pin");
+assert.ok(candidateWorkflow.includes("process_daemon"), "upstream provenance must track the official PTY daemon package");
 assert.ok(!candidateWorkflow.includes("Run Termux device smoke tests"), "physical Termux testing must not be a release-candidate requirement");
 
 const installer = fs.readFileSync("install.sh", "utf8");
