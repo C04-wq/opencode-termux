@@ -125,6 +125,8 @@ assert.ok(opentuiPatch.includes("wayland_conversion_started"), "Android blocking
 assert.ok(opentuiPatch.includes('choices=("aarch64", "x86_64")'), "OpenTUI patcher must explicitly support the two official 64-bit targets");
 assert.ok(opentuiPatch.includes('if args.target_arch == "aarch64"'), "AArch64-only TLSDESC fallback must be conditional");
 assert.ok(opentuiPatch.includes("x86_64 build still references the AArch64 TLSDESC shim"), "x86_64 patch path must fail if the AArch64 shim remains");
+assert.ok(opentuiPatch.includes("shared.link_z_max_page_size = 16384"), "OpenTUI Android shared library must be 16 KB page aligned");
+assert.ok(opentuiPatch.includes("shared.link_z_common_page_size = 16384"), "OpenTUI Android shared library must declare the 16 KB common page size");
 const tlsShim = fs.readFileSync("patches/opentui/tlsdesc-shim.c", "utf8");
 assert.ok(!tlsShim.includes("int pthread_tryjoin_np("), "unsafe pthread_tryjoin_np emulation must not be shipped");
 
