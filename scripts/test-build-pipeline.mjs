@@ -48,6 +48,7 @@ assert.match(supplyChain.fff.version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0
 assert.match(supplyChain.fff.commit, /^[a-f0-9]{40}$/);
 assert.deepEqual(supplyChain.fff.android_targets, ["aarch64-linux-android", "x86_64-linux-android"]);
 const fffBuild = fs.readFileSync("scripts/ci/build-fff-android.sh", "utf8");
+assert.ok(fffBuild.includes("grep -Eq 'Class:[[:space:]]+ELF64'"), "FFF ELF64 validation must tolerate readelf field padding");
 for (const token of [
   "crates/fff-c/Cargo.toml",
   "cargo build --locked --release",
@@ -62,6 +63,7 @@ const fffPatch = fs.readFileSync("tools/patch-fff-android.py", "utf8");
 assert.ok(fffPatch.includes('choices=("aarch64", "x86_64")'), "FFF patch must support both Android architectures");
 assert.ok(fffPatch.includes('"x86_64": ("x64", "x64")') && fffPatch.includes('package_name = f"@ff-labs/fff-bin-android-{package_arch}"'), "FFF x86_64 package must be selected");
 const daemonBuild = fs.readFileSync("scripts/ci/build-opencode-pty-android.sh", "utf8");
+assert.ok(daemonBuild.includes("grep -Eq 'Class:[[:space:]]+ELF64'"), "daemon ELF64 validation must tolerate readelf field padding");
 for (const token of [
   "packages/process-daemon/Cargo.toml",
   "packages/process-daemon/Cargo.lock",
