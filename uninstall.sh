@@ -14,8 +14,7 @@ if [[ ! -f "$RUNTIME/.opencode-termux-version" ]]; then
 fi
 if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   if [[ ! -f "$LAUNCHER" ]] ||
-    ! grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE=1' "$LAUNCHER" ||
-    ! grep -Fq '/lib/opencode-termux' "$LAUNCHER"; then
+        ! grep -Fq '/lib/opencode-termux' "$LAUNCHER"; then
     echo "Error: $LAUNCHER is not a recognized OpenCode Termux launcher." >&2
     echo "Nothing was removed; inspect the file before retrying." >&2
     exit 1
