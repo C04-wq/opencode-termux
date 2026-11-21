@@ -307,7 +307,7 @@ Le gestionnaire, le programme de mise à jour, le menu interactif et le désinst
 - L’activation du runtime et des lanceurs est transactionnelle ; l’installation précédente est restaurée si le contrôle final échoue.
 - Le désinstallateur vérifie la propriété des fichiers avant leur suppression.
 
-Limite de confiance : les révisions des sources et les outils de compilation sont épinglés et chaque artefact est vérifié, mais SHA-256 n’est pas une signature indépendante et ne remplace pas l’audit du code et de la chaîne de compilation. Certaines adaptations Android proviennent de scripts MIT de Spectra010s/opencode-termux, désormais maintenus et exécutés par nos propres workflows ; les attributions et licences figurent dans THIRD_PARTY_NOTICES.md.
+Limite de confiance : les révisions des sources et les outils de compilation sont épinglés et chaque artefact est vérifié, mais SHA-256 n’est pas une signature indépendante et ne remplace pas l’audit du code et de la chaîne de compilation. Les composants de compatibilité issus de tiers et leurs mentions de licence obligatoires sont documentés dans THIRD_PARTY_NOTICES.md.
 
 ## 🤖 Automatisation des releases et CI
 
