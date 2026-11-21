@@ -105,5 +105,16 @@
       "aarch64-linux-android",
       "x86_64-linux-android"
     ]
+  },
+  "fff": {
+    "package": "@ff-labs/fff-bun",
+    "version": "0.10.5",
+    "source": "dmtrKovalenko/fff",
+    "commit": "459ebcdbdba094843fe5339a1a7f7dae4ced2d82",
+    "crate": "fff-c",
+    "android_targets": [
+      "aarch64-linux-android",
+      "x86_64-linux-android"
+    ]
   }
 }
