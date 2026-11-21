@@ -9,7 +9,6 @@ if [[ $# -ne 2 ]]; then
   echo "Usage: $0 OPENCODE_SOURCE_ROOT OUTPUT_BINARY" >&2
   exit 64
 fi
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 SRC_ROOT="$(realpath "$1")"
 OUT="$2"
 TARGET_ARCH="${TARGET_ARCH:-aarch64}"
@@ -44,7 +43,7 @@ case "$TARGET_ARCH" in
     ;;
 esac
 
-for tool in cargo rustup zig readelf file python3; do
+for tool in cargo rustup zig readelf python3 realpath stat; do
   command -v "$tool" >/dev/null 2>&1 || { echo "opencode-pty: missing build tool $tool" >&2; exit 1; }
 done
 
