@@ -40,10 +40,11 @@ This document separates source inclusion from runtime verification. A feature be
 - Test process and file-watcher behavior when the app is backgrounded, Android kills child processes, or the device sleeps.
 
 ### Updates and releases
-- The six-hour upstream watcher currently prepares a candidate PR and CI run; it does not yet automatically merge and publish every passing stable upstream release.
-- Release publication is tag-driven. Automatic candidate approval/merge/tagging still needs to be implemented with strict CI gates and immutable source/build provenance.
-- The installed device currently relies on the project updater/installer flow. A fully unattended device-side update policy, rollback and recovery behavior still need to be defined and tested.
-- Verify that the interactive OpenCode update path and `opencode-termux update` both install the same verified ARM64/x86_64 release and never bypass checksum validation.
+- The six-hour upstream watcher prepares a candidate PR, dispatches dual-architecture validation, and a separate workflow is configured to merge the exact bot-authored lock-only PR and create a release tag only after successful CI. The tag then triggers the normal checksum-verified release workflow.
+- If candidate CI fails, the PR remains a draft and the six-hour watcher retries validation. The automated merge workflow also retries transient tag-release failures.
+- The installed launcher checks for updates at most once every six hours before a normal session, invokes the managed updater and verified installer, and continues with the installed runtime if the update fails. Users can opt out with `OPENCODE_TERMUX_AUTOUPDATE=0`.
+- These automation paths still require successful GitHub Actions verification and real-device tests of rollback, interrupted downloads, concurrent launches and post-update recovery.
+- Verify that the interactive OpenCode update path, launch-time updater and `opencode-termux update` all install the same verified ARM64/x86_64 release and never bypass checksum validation.
 
 ## Acceptance criteria
 
