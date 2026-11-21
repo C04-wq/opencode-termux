@@ -150,15 +150,17 @@ Conservez la copie gérée du dépôt : la commande de mise à jour l’utilise 
 
 ## 🔄 Mises à jour
 
-OpenCode conserve ses commandes CLI officielles. Pour effectuer une mise à jour manuelle, utilisez la commande intégrée :
+Le système officiel de détection et de notification des mises à jour d’OpenCode reste activé. Son service partagé de mise à jour est adapté pour consulter uniquement les releases vérifiées publiées par ce dépôt.
+
+Lorsqu’OpenCode signale une nouvelle version, son invite habituelle permet de mettre à jour maintenant ou de reporter l’opération. Si vous choisissez la mise à jour, il consulte le fichier `release-checksums.json` de ce dépôt, sélectionne le paquet correspondant à l’architecture, vérifie le SHA-256 et exécute l’installateur de ce dépôt. Il ne consulte pas les releases officielles upstream d’OpenCode.
+
+Vous pouvez également lancer le même flux officiel avec :
 
 ```bash
 opencode update
 ```
 
-Dans OpenCode, `update` est un alias de `upgrade`. Dans cette adaptation Termux, les deux utilisent le programme de mise à jour intégré et modifié pour consulter les releases vérifiées de ce dépôt. Il vérifie la version, l’architecture et le SHA-256 avant de lancer l’installateur. Il ne bascule jamais vers une release upstream si aucun paquet vérifié n’est disponible.
-
-Le lanceur vérifie également automatiquement les nouvelles releases, au maximum toutes les six heures. Le helper reste dans le runtime et n’installe aucune commande supplémentaire dans `$PREFIX/bin`. Désactivez cette vérification avec `OPENCODE_TERMUX_AUTOUPDATE=0`. Les journaux sont enregistrés dans `$PREFIX/var/log/opencode-termux/auto-update.log`.
+`opencode update` et `opencode upgrade` utilisent le même service intégré. Le lanceur n’effectue aucune vérification périodique supplémentaire ni mise à jour silencieuse au démarrage.
 
 Pour réparer ou réinstaller le runtime, relancez l’installateur :
 
@@ -274,16 +276,13 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 ```
 
 
-### Quand les mises à jour automatiques sont ignorées
 
 Le lanceur ne tente pas de mise à jour dans les cas suivants :
 
-- `OPENCODE_TERMUX_AUTOUPDATE=0` est défini.
 - La commande est `opencode --version`, `opencode --help`, `opencode update` ou `opencode upgrade`.
 - Moins de six heures se sont écoulées depuis la vérification précédente.
 - Le programme de mise à jour géré est indisponible ou les métadonnées de release ne peuvent pas être récupérées.
 
-En cas d’échec réseau ou d’installation, OpenCode continue avec le runtime installé. Les détails sont consignés dans `$PREFIX/var/log/opencode-termux/auto-update.log`. ## 🗑️ Désinstallation
 
 Pour supprimer l’installation Termux gérée :
 
