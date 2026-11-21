@@ -145,7 +145,7 @@ The default managed layout is:
 | OpenCode command | `$PREFIX/bin/opencode` |
 | Installed version marker | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
 | Installed bundle SHA-256 | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
-| Checkout path marker | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
+| Installed release tag marker | `$PREFIX/lib/opencode-termux/.opencode-termux-release-tag` |
 
 In Termux, `$PREFIX` normally resolves to `/data/data/com.termux/files/usr`. The only public command installed is `opencode`.
 
@@ -271,7 +271,7 @@ The installer checks for the Termux CA bundle and resolver configuration. Do not
 
 ### Update cannot fast-forward
 
-The updater intentionally uses `git pull --ff-only`. Inspect the checkout:
+When the installer reuses the project checkout, it updates it with `git pull --ff-only`. If that fails, inspect the checkout:
 
 ```bash
 git -C "$PREFIX/opt/opencode-termux" status --short
@@ -279,28 +279,20 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 
 
-The launcher does not attempt an update when:
+No separate six-hour launcher timer is added by this port. Update discovery and notification follow OpenCode's built-in updater policy.
 
-- The command is `opencode --version`, `opencode --help`, `opencode update` or `opencode upgrade`.
-- Fewer than six hours have elapsed since the previous check.
-- The managed updater is unavailable or release metadata cannot be fetched.
-
-
-To remove the managed Termux installation, run:
-
-```bash
-```
-
-The uninstaller asks for confirmation. You can also invoke it directly from the checkout:
+To remove the managed Termux installation, run the uninstaller:
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/uninstall.sh"
 ```
 
+The uninstaller asks for confirmation. After confirmation, it removes only:
 After confirmation, it removes only:
 
 - `$PREFIX/lib/opencode-termux` — the managed runtime and its markers.
 - `$PREFIX/bin/opencode` — this project's launcher.
+- `$PREFIX/bin/opencode2` — only when it is positively identified as an old launcher from this project.
 
 It verifies the runtime marker and launcher identities before deleting files. If ownership cannot be established, it stops and leaves the installation untouched.
 
