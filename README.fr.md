@@ -142,11 +142,11 @@ L’installateur ne supprime pas non plus les paramètres, sessions, projets ou 
 | Commande OpenCode | `$PREFIX/bin/opencode` |
 | Marqueur de version installée | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
 | SHA-256 du bundle installé | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
-| Marqueur du chemin du dépôt | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
+| Marqueur du tag release installé | `$PREFIX/lib/opencode-termux/.opencode-termux-release-tag` |
 
 Dans Termux, `$PREFIX` correspond généralement à `/data/data/com.termux/files/usr`. La seule commande publique installée est `opencode`.
 
-Conservez la copie gérée du dépôt : la commande de mise à jour l’utilise pour récupérer les modifications et relancer l’installateur.
+Conservez la copie gérée du dépôt : l’installateur la réutilise pour récupérer les modifications avant de déployer le runtime.
 
 ## 🔄 Mises à jour
 
@@ -269,7 +269,7 @@ L’installateur vérifie le bundle CA et la configuration du résolveur Termux.
 
 ### La mise à jour ne peut pas avancer en fast-forward
 
-Le programme de mise à jour utilise volontairement `git pull --ff-only`. Inspectez la copie :
+Lorsque l’installateur réutilise la copie du dépôt, il la met à jour avec `git pull --ff-only`. En cas d’échec, inspectez la copie :
 
 ```bash
 git -C "$PREFIX/opt/opencode-termux" status --short
@@ -277,28 +277,20 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 
 
-Le lanceur ne tente pas de mise à jour dans les cas suivants :
+Aucun minuteur de mise à jour périodique supplémentaire n’est ajouté par ce port. La détection et les notifications suivent la politique du programme de mise à jour intégré d’OpenCode.
 
-- La commande est `opencode --version`, `opencode --help`, `opencode update` ou `opencode upgrade`.
-- Moins de six heures se sont écoulées depuis la vérification précédente.
-- Le programme de mise à jour géré est indisponible ou les métadonnées de release ne peuvent pas être récupérées.
-
-
-Pour supprimer l’installation Termux gérée :
-
-```bash
-```
-
-Le désinstallateur demande confirmation. Vous pouvez également le lancer directement depuis la copie du dépôt :
+Pour supprimer l’installation Termux gérée, lancez le désinstallateur :
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/uninstall.sh"
 ```
 
+Le désinstallateur demande confirmation. Après confirmation, il supprime uniquement :
 Après confirmation, il supprime uniquement :
 
 - `$PREFIX/lib/opencode-termux` — l’environnement géré et ses marqueurs.
 - `$PREFIX/bin/opencode` — le lanceur de ce projet.
+- `$PREFIX/bin/opencode2` — uniquement s’il est identifié comme un ancien lanceur de ce projet.
 
 Il vérifie le marqueur runtime et l’identité des lanceurs avant toute suppression. Si la propriété ne peut pas être établie, il s’arrête et laisse l’installation intacte.
 
