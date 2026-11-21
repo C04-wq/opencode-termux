@@ -1,0 +1,138 @@
+name: Auto merge and publish verified upstream OpenCode updates
+
+on:
+  workflow_run:
+    workflows: ["Validate Termux native runtime"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  merge-and-release:
+    if: >-
+      github.event.workflow_run.event == 'workflow_dispatch' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'automation/upstream-opencode-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify the exact candidate PR
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$CANDIDATE_BRANCH" --state open --json number,isDraft,baseRefName,headRefOid,url --jq '.[0] // empty')"
+          if [[ -z "$pr" ]]; then
+            echo "No open candidate PR exists for $CANDIDATE_BRANCH; nothing to merge."
+            echo "merge=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          number="$(jq -r '.number' <<<"$pr")"
+          draft="$(jq -r '.isDraft' <<<"$pr")"
+          base="$(jq -r '.baseRefName' <<<"$pr")"
+          head="$(jq -r '.headRefOid' <<<"$pr")"
+          if [[ "$draft" != "true" || "$base" != "main" || "$head" != "$VALIDATED_SHA" ]]; then
+            echo "Candidate PR does not match the successful validation run; refusing to merge." >&2
+            echo "PR=$number draft=$draft base=$base head=$head validated=$VALIDATED_SHA" >&2
+            exit 1
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "merge=true" >> "$GITHUB_OUTPUT"
+
+      - name: Merge only after both Android builds and all checks pass
+        if: steps.candidate.outputs.merge == 'true'
+        env:
+          PR_NUMBER: ${{ steps.candidate.outputs.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr ready "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
+
+      - name: Create the immutable release tag
+        if: steps.candidate.outputs.merge == 'true'
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+          git switch --detach origin/main
+          VERSION="$(python3 tools/ocver.py field version)"
+          RELEASE_TAG="$(python3 tools/ocver.py tag)"
+          [[ "$RELEASE_TAG" == v* ]] || { echo "Invalid release tag: $RELEASE_TAG" >&2; exit 1; }
+          MAIN_SHA="$(git rev-parse origin/main)"
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release tag $RELEASE_TAG already exists; the release workflow will be checked."
+          else
+            git tag -a "$RELEASE_TAG" -m "OpenCode $VERSION Android/Termux release" "$MAIN_SHA"
+            git push origin "$RELEASE_TAG"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the tag release workflow and retry transient failures
+        if: steps.candidate.outputs.merge == 'true'
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_run_id=""
+          for attempt in 1 2 3; do
+            completed=false
+            for poll in $(seq 1 360); do
+              release_run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/validate.yml/runs?per_page=30" | jq -r --arg tag "$RELEASE_TAG" '.workflow_runs[] | select(.head_branch == $tag and .event == "push") | .id' | head -n1)"
+              if [[ -n "$release_run_id" ]]; then
+                run="$(gh run view "$release_run_id" --repo "$GITHUB_REPOSITORY" --json status,conclusion)"
+                status="$(jq -r '.status' <<<"$run")"
+                conclusion="$(jq -r '.conclusion // ""' <<<"$run")"
+                if [[ "$status" == "completed" ]]; then
+                  if [[ "$conclusion" == "success" ]]; then
+                    completed=true
+                    break
+                  fi
+                  echo "Tag release run $release_run_id ended with $conclusion."
+                  break
+                fi
+              fi
+              sleep 20
+            done
+            if [[ "$completed" == "true" ]]; then
+              break
+            fi
+            if [[ -n "$release_run_id" && "$attempt" -lt 3 ]]; then
+              echo "Retrying failed tag release workflow (attempt $((attempt + 1))/3)."
+              gh run rerun "$release_run_id" --repo "$GITHUB_REPOSITORY" --failed
+              release_run_id=""
+            else
+              echo "Tag release workflow did not complete successfully." >&2
+              exit 1
+            fi
+          done
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+          gh api "repos/$GITHUB_REPOSITORY/contents/release-checksums.json?ref=main" --jq .content | base64 -d > "$RUNNER_TEMP/release-checksums.json"
+          python3 - "$RUNNER_TEMP/release-checksums.json" "$VERSION" "$RELEASE_TAG" <<'PY'
+          import json, sys
+          metadata = json.load(open(sys.argv[1], encoding="utf-8"))
+          if metadata.get("version") != sys.argv[2] or metadata.get("releaseTag") != sys.argv[3]:
+              raise SystemExit("Published release metadata does not match the validated upstream version/tag.")
+          for key in ("archiveSha256Arm64", "archiveSha256X86_64"):
+              if not metadata.get(key):
+                  raise SystemExit(f"Published release metadata is missing {key}.")
+          PY
