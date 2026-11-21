@@ -69,7 +69,7 @@ Le runtime est fourni sous forme de bundle JavaScript lancé par le Bun de Termu
 | --- | --- |
 | Appareil | Android 9 (API 28) ou ultérieur avec Termux |
 | Architecture | ARM64 / aarch64 et x86_64 |
-| Dépendances | Paquets Termux bun, ripgrep et libc++ (installés s’ils manquent) ; la version de Bun est vérifiée par rapport à la release |
+| Dépendances | Paquets Termux bun, ripgrep et libc++ (installés s’ils manquent) ; Bun doit conserver la même version majeure/mineure et atteindre au moins le correctif indiqué par la release |
 | Outils | Bash, Git, curl, tar, sed et sha256sum |
 | Fichiers Termux | Certificats CA et configuration du résolveur DNS |
 | Réseau | Internet pour l’installation, les téléchargements épinglés, les vérifications de mise à jour et les fournisseurs d’IA |
