@@ -15,6 +15,7 @@ class TermuxUpdaterContract(unittest.TestCase):
         self.assertIn('nativeTermux', PATCH)
         self.assertLess(PATCH.index('if (nativeTermux) return "curl"'), PATCH.index('const prefix = process.env.PREFIX'))
         self.assertIn('if (method === "apt" && !nativeTermux)', PATCH)
+        self.assertIn('const nativeTermux = prefix !== undefined && launcher === path.join(prefix, "bin", "opencode")', PATCH)
         self.assertIn('data.sourceRepo !== "C04-wq/opencode-termux"', PATCH)
         self.assertIn('data.runtimeId !== "android-bionic-bun-v1"', PATCH)
         self.assertIn('data.archiveSha256X86_64', PATCH)
