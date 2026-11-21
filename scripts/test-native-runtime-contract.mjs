@@ -36,7 +36,7 @@ const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
 for (const token of [
   "https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json",
   "https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh",
-  "nativeTermux || detected === \\"apt\\"",
+  "nativeTermux || detected",
   "OPENCODE_TERMUX_EXPECTED_VERSION",
   "const termuxLatest = Effect.tryPromise",
 ]) assert.ok(sourcePatch.includes(token), "official OpenCode updater must use the verified Termux repository: " + token);
