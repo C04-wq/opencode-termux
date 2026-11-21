@@ -41,6 +41,7 @@ jobs:
           bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
           bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh
           bash scripts/test-package-owner.sh
+          bash scripts/test-termux-repository-migration.sh
           bash scripts/test-runtime-archive.sh
           bash scripts/test-rust-pty-build.sh
           bash manager.sh help >/dev/null

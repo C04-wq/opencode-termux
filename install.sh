@@ -45,9 +45,14 @@ migrate_legacy_termux_repository() {
   local sources_dir file backup suffix update_log status changed=0
   sources_dir="$PREFIX/etc/apt/sources.list.d"
 
-  for file in "$PREFIX/etc/apt/sources.list" "$sources_dir"/*.list; do
+  # Current Termux uses deb822 files (main.sources); older installs may use
+  # sources.list or *.list. Inspect all three formats.
+  for file in "$PREFIX/etc/apt/sources.list" "$sources_dir"/*.list "$sources_dir"/*.sources; do
     [[ -f "$file" ]] || continue
-    if grep -Eq '^[[:space:]]*deb.*https?://termux\.net([/:[:space:]]|$)' "$file"; then
+
+    # Only active Main repository declarations are rewritten. Preserve comments
+    # and unrelated repositories, including root and X11.
+    if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net([/:[:space:]]|$)' "$file"; then
       backup="${file}.opencode-termux.bak"
       suffix=0
       while [[ -e "$backup" ]]; do
@@ -55,11 +60,22 @@ migrate_legacy_termux_repository() {
         backup="${file}.opencode-termux.bak.${suffix}"
       done
       cp -p "$file" "$backup"
-      if ! sed -i -E '/^[[:space:]]*deb/ s#https?://termux\.net/?#https://packages.termux.dev/apt/termux-main#g' "$file"; then
+
+      if ! sed -i -E \
+        -e '/^[[:space:]]*deb([[:space:]]|$)/ s#https?://termux\.net(/apt/termux-main)?#https://packages.termux.dev/apt/termux-main#g' \
+        -e '/^[[:space:]]*URIs:[[:space:]]*/ s#https?://termux\.net(/apt/termux-main)?#https://packages.termux.dev/apt/termux-main#g' \
+        "$file"; then
         cp -p "$backup" "$file"
         echo "Error: could not migrate the obsolete Termux repository in $file." >&2
         return 1
       fi
+
+      if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net([/:[:space:]]|$)' "$file"; then
+        cp -p "$backup" "$file"
+        echo "Error: legacy termux.net source remains in $file; refusing to continue." >&2
+        return 1
+      fi
+
       changed=1
       echo "Updated obsolete Termux Main repository in $file"
       echo "Backup: $backup"
