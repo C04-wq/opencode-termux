@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Resolve the highest stable OpenCode 2.x tag from GitHub matching-refs JSON.
+"""Resolve the highest stable OpenCode semantic-version tag from GitHub refs.
 
-The upstream project maintains separate 1.x and 2.x release lines. The latest
-GitHub release endpoint can therefore point at 1.x while this Termux runtime
-tracks 2.x. Only direct commit tags matching v2.MAJOR.MINOR are accepted.
+Compare numeric major, minor and patch components across all major versions.
+Prereleases, annotated tags and malformed refs are deliberately excluded.
 """
 from __future__ import annotations
 
@@ -13,7 +12,7 @@ import sys
 from typing import Any
 
 
-TAG_PATTERN = re.compile(r"refs/tags/(v2[.][0-9]+[.][0-9]+)")
+TAG_PATTERN = re.compile(r"refs/tags/(v[0-9]+[.][0-9]+[.][0-9]+)")
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 
 
@@ -40,7 +39,7 @@ def resolve(payload: str) -> tuple[str, str, str]:
         candidates.append((tuple(map(int, version.split("."))), tag, version, sha))
 
     if not candidates:
-        raise ValueError("No stable official v2.x.y OpenCode commit tags were found")
+        raise ValueError("No stable official OpenCode x.y.z commit tags were found")
 
     _, tag, version, sha = max(candidates)
     return tag, version, sha
