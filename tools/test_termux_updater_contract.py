@@ -24,6 +24,10 @@ class TermuxUpdaterContract(unittest.TestCase):
         self.assertIn('"$RELEASE_TAG" != "$OPENCODE_TERMUX_EXPECTED_RELEASE_TAG"', INSTALL)
         self.assertIn('.opencode-termux-release-tag', INSTALL)
         self.assertIn('return `${version}-termux.${revision}', PATCH)
+        self.assertIn('current: () => Ref.get(installedVersion)', PATCH)
+        self.assertIn('updater.current()', PATCH)
+        self.assertIn('if (version === current)', PATCH)
+        self.assertIn('From ${current} → ${version}', PATCH)
         self.assertIn('.opencode-termux-release-tag', PATCH)
 
     def test_installer_still_verifies_release_archive_checksum(self):
