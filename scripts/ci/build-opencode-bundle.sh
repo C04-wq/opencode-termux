@@ -162,7 +162,7 @@ python3 "$ROOT/tools/patch-opentui-loader.py" "$src"
 fff_lib="$work/libfff_c.so"
 TARGET_ARCH="$TARGET_ARCH" NDK="${NDK:-}" ANDROID_API="$api" \
   bash "$ROOT/scripts/ci/build-fff-android.sh" "$fff_lib"
-FFF_VERSION="$(python3 -c 'import json; print(json.load(open("tools/supply-chain-lock.json"))["fff"]["version"])')"
+FFF_VERSION="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["fff"]["version"])' "$ROOT/tools/supply-chain-lock.json")"
 fff_package="$src/node_modules/@ff-labs/fff-bin-android-$OPENCODE_ARCH"
 mkdir -p "$fff_package"
 printf '{"name":"@ff-labs/fff-bin-android-%s","version":"%s","license":"MIT","os":["android"],"cpu":["%s"],"files":["libfff_c.so"]}\n' \
