@@ -127,6 +127,25 @@ fn addTranslatedCImports(
         '    module.addImport("context_abi_c", header.createModule());',
     )
 
+    # Android's 16 KB page-size devices require matching ELF PT_LOAD alignment.
+    replace(
+        build,
+        """    const shared = b.addLibrary(.{
+        .name = LIB_NAME,
+        .root_module = module,
+        .linkage = .dynamic,
+    });""",
+        """    const shared = b.addLibrary(.{
+        .name = LIB_NAME,
+        .root_module = module,
+        .linkage = .dynamic,
+    });
+    if (target.result.abi == .android) {
+        shared.link_z_max_page_size = 16384;
+        shared.link_z_common_page_size = 16384;
+    }""",
+    )
+
     # Bionic has no libpthread stub: pthread lives in libc.
     replace(
         build,
@@ -293,6 +312,8 @@ fn addTranslatedCImports(
         "addBionicTranslateIncludes(b, miniaudio_translate)",
         "addBionicTranslateIncludes(b, yoga_translate)",
         'b.graph.environ_map.get("BIONIC_LIB_DIR")',
+        "shared.link_z_max_page_size = 16384",
+        "shared.link_z_common_page_size = 16384",
     ):
         if marker not in build_text:
             raise SystemExit(f"patch-opentui: missing postcondition in build.zig: {marker}")
