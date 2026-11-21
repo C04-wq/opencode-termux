@@ -36,8 +36,8 @@ assert.ok(build.includes('OPENCODE_ARCH="x64"'), "x86_64 must map to OpenCode x6
 assert.ok(build.includes("build-parcel-watcher-android.sh"), "both Android bundles must use the Bionic watcher source build");
 assert.ok(build.includes("scripts/ci/build-fff-android.sh"), "both architectures must compile FFF from its pinned Rust source");
 assert.ok(!build.includes("fff: disabled for x86_64"), "x86_64 must not silently disable the official FFF backend");
-assert.ok(build.includes('install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"'), "the official daemon must be packaged in the runtime archive");
-assert.ok(build.includes('opencode-pty.required'), "new archives must mark the daemon as required");
+assert.ok(build.includes('install -m 0755 "$pty_daemon" "$out/lib/opencode-pty"'), "the official daemon must be packaged at the runtime lib root");
+assert.ok(build.includes('printf \'%s\\n\' "$commit" > "$out/lib/opencode-pty.required"'), "new archives must place the required-daemon marker beside the daemon");
 const supplyChain = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
 assert.equal(supplyChain.process_daemon.package, "opencode-pty");
 assert.match(supplyChain.process_daemon.version, /^\d+\.\d+\.\d+/);
