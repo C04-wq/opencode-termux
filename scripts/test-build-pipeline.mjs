@@ -211,6 +211,21 @@ assert.ok(validationWorkflow.includes("Package and verify the Termux runtime arc
 assert.ok(watcher.includes('cron: "17 */6 * * *"'), "official upstream release detection must run every six hours");
 assert.ok(!watcher.includes("contents/package.json"), "upstream version discovery must not rely on the dev branch manifest");
 
+const autoMergeWorkflow = fs.readFileSync(".github/workflows/auto-merge-upstream.yml", "utf8");
+for (const token of [
+  "workflow_run:",
+  "github.event.workflow_run.event == 'workflow_dispatch'",
+  "github.event.workflow_run.conclusion == 'success'",
+  "github.event.workflow_run.head_sha",
+  "github-actions[bot]",
+  "tools/supply-chain-lock.json",
+  "gh pr ready",
+  "gh pr merge",
+  "python3 tools/ocver.py tag",
+  'git push origin "$RELEASE_TAG"',
+  "gh release view",
+  "archiveSha256X86_64"
+]) assert.ok(autoMergeWorkflow.includes(token), "automatic release gate missing " + token);
 const candidateWorkflow = fs.readFileSync(".github/workflows/prepare-upstream-update.yml", "utf8");
 assert.ok(candidateWorkflow.includes("anomalyco/opencode/git/matching-refs/tags/v"));
 assert.ok(candidateWorkflow.includes("python3 tools/upstream_tags.py"));
@@ -225,6 +240,7 @@ assert.ok(candidateWorkflow.includes('lock["current"] = version'), "upstream can
 assert.ok(candidateWorkflow.includes('entry["source_sha256"] = digest'), "upstream candidate must pin the exact source archive digest");
 assert.ok(candidateWorkflow.includes('gh pr create') && candidateWorkflow.includes("--draft"), "upstream automation must open a draft review PR");
 assert.ok(candidateWorkflow.includes('gh workflow run validate.yml') && candidateWorkflow.includes('--ref "$BRANCH"'), "GITHUB_TOKEN-created candidate PRs must explicitly dispatch validation against their branch");
+assert.ok(candidateWorkflow.includes("dispatching validation again"), "failed draft candidates must be revalidated automatically");
 assert.ok(candidateWorkflow.includes('candidate_only_not_approved_for_release'), "automated upstream candidates must remain explicitly unapproved for release");
 assert.ok(candidateWorkflow.includes('package_revision"] = 1'), "a new upstream version must start at package revision one");
 assert.ok(candidateWorkflow.includes("No physical Termux device testing is required"), "upstream candidates must rely on automated CI rather than physical device tests");
