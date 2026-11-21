@@ -66,7 +66,7 @@ printf '%s\n' "$VERBOSE" | awk '
   }
 ' || exit 1
 
-for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node; do
+for required in bin/opencode lib/opencode/index.js lib/opencode/bunfig.toml "lib/opencode/$PTY_LIBRARY" lib/opencode/watcher.node lib/opencode/opencode-pty; do
   printf '%s\n' "$LISTING" | grep -Fxq "$required" || {
     echo "Error: required runtime entry is missing: $required" >&2
     exit 1
