@@ -33,7 +33,7 @@ assert.ok(build.includes("--filter 'opencode'"), "native typecheck must install 
 assert.ok(build.includes('export PATH="$work/host/bun-linux-x64:$PATH"'), "verified host Bun must be available to lifecycle subprocesses");
 assert.ok(build.includes('TARGET_ARCH="${TARGET_ARCH:-aarch64}"'), "runtime bundle builder must select an explicit supported architecture");
 assert.ok(build.includes('OPENCODE_ARCH="x64"'), "x86_64 must map to OpenCode x64 target naming");
-assert.ok(build.includes("build-parcel-watcher-android.sh"), "x86_64 bundle must use the Bionic watcher source build");
+assert.ok(build.includes("build-parcel-watcher-android.sh"), "both Android bundles must use the Bionic watcher source build");
 assert.ok(build.includes("scripts/ci/build-fff-android.sh"), "both architectures must compile FFF from its pinned Rust source");
 assert.ok(!build.includes("fff: disabled for x86_64"), "x86_64 must not silently disable the official FFF backend");
 assert.ok(build.includes('install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"'), "the official daemon must be packaged in the runtime archive");
