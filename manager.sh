@@ -58,7 +58,7 @@ case "${1:---help}" in
     [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "FAIL: Termux libc++ shared library missing"; failed=1; }
     [[ "$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)" == "android-bionic-bun-v1" ]] || { echo "FAIL: native runtime generation marker missing or invalid"; failed=1; }
     [[ "$(cat "$RUNTIME/.opencode-termux-archive-sha256" 2>/dev/null || true)" =~ ^[a-f0-9]{64}$ ]] || { echo "FAIL: runtime archive checksum marker missing or invalid"; failed=1; }
-    for file in bin/opencode lib/opencode/index.js lib/opencode/watcher.node lib/opencode/opencode-pty THIRD_PARTY_NOTICES.md; do
+    for file in bin/opencode lib/opencode/index.js lib/opencode/watcher.node THIRD_PARTY_NOTICES.md; do
       [[ -s "$RUNTIME/$file" ]] || { echo "FAIL: runtime file missing: $file"; failed=1; }
     done
     if [[ -n "$PTY_LIBRARY" ]]; then
