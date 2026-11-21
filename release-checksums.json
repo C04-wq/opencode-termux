@@ -1,8 +1,10 @@
 {
   "version": "2.3.2",
-  "sourceRepo": "Spectra010s/opencode-termux",
+  "sourceRepo": "C04-wq/opencode-termux",
   "sourceTag": "v2.3.2",
-  "releaseTag": "v2.3.2",
-  "archiveSha256": "6d32b72efae7ecb6b78a5e023a8af471ea9118a6faa741fbcde9d1dfa88bd12d",
-  "runtimeId": "android-bionic-bun-v1"
+  "releaseTag": "v2.3.2-2",
+  "archiveSha256": "dee85b04b5050ebcc3c0e226f8a3566876073425b65b81be8aa126053ab2f9d7",
+  "runtimeId": "android-bionic-bun-v1",
+  "archiveSha256X86_64": "e1db80a45468572b394f9da8019a924f1218431bca516152d395997e83895456",
+  "archiveNameX86_64": "opencode-2.3.2-android-x86_64-bundle.tar.gz"
 }
