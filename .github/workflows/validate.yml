@@ -162,31 +162,71 @@ jobs:
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256")" = "$OPENCODE_TEST_SHA256"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
           bash "$PREFIX/bin/opencode-termux" doctor
-          # Existing 2.3.2 musl installs must be offered the Bionic migration
-          # even though the OpenCode version number itself does not change.
+          # Replace the updater with a deterministic stub so this test never
+          # mutates the workflow checkout or needs a live GitHub release.
+          cat > "$PREFIX/bin/opencode-termux-update" <<'UPDATER_TEST'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          RUNTIME="$PREFIX/lib/opencode-termux"
+          printf '%s\n' "$OPENCODE_TEST_REMOTE_VERSION" > "$RUNTIME/.opencode-termux-version"
+          printf '%s\n' "${OPENCODE_TEST_REMOTE_RUNTIME_ID:-android-bionic-bun-v1}" > "$RUNTIME/.opencode-termux-runtime-id"
+          printf '%s\n' "${OPENCODE_TEST_REMOTE_SHA256:-$OPENCODE_TEST_SHA256}" > "$RUNTIME/.opencode-termux-archive-sha256"
+          printf '%s\n' "$OPENCODE_TEST_REMOTE_VERSION" >> "$PREFIX/auto-update-calls"
+          UPDATER_TEST
+          chmod 755 "$PREFIX/bin/opencode-termux-update"
+
+          # Same-version runtime migration (legacy musl -> Bionic) is an update.
           printf 'legacy-musl\n' > "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
-          rm -f "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
-          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/migration-prompt.txt"
-          grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/migration-prompt.txt"
-          grep -Fxq '2.3.2' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version"
-          grep -Fxq 'android-bionic-bun-v1' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id"
-          grep -Fxq "$OPENCODE_TEST_SHA256" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
-          script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/deferred-prompt.txt"
-          if grep -Fq 'A new Termux runtime is available' "$RUNNER_TEMP/deferred-prompt.txt"; then
-            echo "Deferred runtime prompt was shown again for the same target." >&2
-            exit 1
-          fi
-          # A same-version rebuild with the same runtime ID must prompt when its archive hash changes.
-          OPENCODE_TEST_REMOTE_SHA256="$(printf 'a%.0s' {1..64})"
-          export OPENCODE_TEST_REMOTE_SHA256
-          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
-          grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
-          grep -Fxq "$OPENCODE_TEST_REMOTE_SHA256" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
-          OPENCODE_TEST_REMOTE_VERSION=2.3.3
-          export OPENCODE_TEST_REMOTE_VERSION
-          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/next-version-prompt.txt"
-          grep -Fq 'A new OpenCode version is available: 2.3.3' "$RUNNER_TEMP/next-version-prompt.txt"
-          echo "PASS: installer, dependency bootstrap, manager doctor, migration/defer prompts and same-version archive rebuild detection."
+          rm -rf "$PREFIX/var/cache/opencode-termux"
+          OPENCODE_TEST_REMOTE_VERSION=2.3.2 OPENCODE_TEST_VERSION=2.3.2 \
+            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/migration-auto-update.txt" 2>&1
+          grep -Fq 'Verified OpenCode update 2.3.2 is available; installing automatically.' "$RUNNER_TEMP/migration-auto-update.txt"
+          grep -Fxq 'android-bionic-bun-v1' "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
+          test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 1
+
+          # A new OpenCode version is installed without an interactive prompt.
+          NEW_SHA="$(printf 'b%.0s' {1..64})"
+          rm -rf "$PREFIX/var/cache/opencode-termux"
+          OPENCODE_TEST_REMOTE_VERSION=2.3.3 OPENCODE_TEST_REMOTE_SHA256="$NEW_SHA" OPENCODE_TEST_VERSION=2.3.3 \
+            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/version-auto-update.txt" 2>&1
+          grep -Fq 'Verified OpenCode update 2.3.3 is available; installing automatically.' "$RUNNER_TEMP/version-auto-update.txt"
+          grep -Fxq '2.3.3' "$PREFIX/lib/opencode-termux/.opencode-termux-version"
+          grep -Fxq "$NEW_SHA" "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256"
+          test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 2
+
+          # A same-version rebuild with a changed archive checksum is installed.
+          REBUILT_SHA="$(printf 'c%.0s' {1..64})"
+          rm -rf "$PREFIX/var/cache/opencode-termux"
+          OPENCODE_TEST_REMOTE_VERSION=2.3.3 OPENCODE_TEST_REMOTE_SHA256="$REBUILT_SHA" OPENCODE_TEST_VERSION=2.3.3 \
+            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/rebuilt-auto-update.txt" 2>&1
+          grep -Fxq "$REBUILT_SHA" "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256"
+          test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 3
+
+          # Matching metadata, --version and opt-out must not run the updater.
+          rm -rf "$PREFIX/var/cache/opencode-termux"
+          OPENCODE_TEST_REMOTE_VERSION=2.3.3 OPENCODE_TEST_REMOTE_SHA256="$REBUILT_SHA" OPENCODE_TEST_VERSION=2.3.3 \
+            bash "$PREFIX/bin/opencode" > /dev/null 2>&1
+          rm -rf "$PREFIX/var/cache/opencode-termux"
+          OPENCODE_TEST_REMOTE_VERSION=2.3.4 OPENCODE_TEST_VERSION=2.3.3 \
+            bash "$PREFIX/bin/opencode" --version | grep -Fxq 'opencode v2.3.3'
+          rm -rf "$PREFIX/var/cache/opencode-termux"
+          OPENCODE_TERMUX_AUTOUPDATE=0 OPENCODE_TEST_REMOTE_VERSION=2.3.4 OPENCODE_TEST_VERSION=2.3.3 \
+            bash "$PREFIX/bin/opencode" > /dev/null 2>&1
+          test "$(wc -l < "$PREFIX/auto-update-calls")" -eq 3
+
+          # A failed update is logged and the installed runtime still starts.
+          cat > "$PREFIX/bin/opencode-termux-update" <<'UPDATER_FAIL'
+          #!/usr/bin/env bash
+          echo "simulated update failure" >&2
+          exit 42
+          UPDATER_FAIL
+          chmod 755 "$PREFIX/bin/opencode-termux-update"
+          rm -rf "$PREFIX/var/cache/opencode-termux"
+          OPENCODE_TEST_REMOTE_VERSION=2.3.4 OPENCODE_TEST_VERSION=2.3.3 \
+            bash "$PREFIX/bin/opencode" > "$RUNNER_TEMP/failed-auto-update.txt" 2>&1
+          grep -Fq 'Automatic update failed (exit 42)' "$RUNNER_TEMP/failed-auto-update.txt"
+          grep -Fq 'simulated update failure' "$PREFIX/var/log/opencode-termux/auto-update.log"
+          echo "PASS: installer, manager doctor, automatic version/runtime/hash updates, opt-out and failure fallback."
 
   build-x86_64-native:
     name: Build and verify Android x86_64 runtime
