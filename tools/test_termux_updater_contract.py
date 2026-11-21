@@ -24,7 +24,7 @@ class TermuxUpdaterContract(unittest.TestCase):
 
     def test_installer_still_verifies_release_archive_checksum(self):
         self.assertIn('ACTUAL="$(sha256sum "$STAGE/runtime.tar.gz"', INSTALL)
-        self.assertIn('[["$ACTUAL" == "$HASH"]]', INSTALL)
+        self.assertIn('[[ "$ACTUAL" == "$HASH" ]]', INSTALL)
         self.assertIn('scripts/validate-runtime-archive.sh', INSTALL)
 
     def test_native_termux_auto_update_is_not_upstream_auto_update(self):
