@@ -1,6 +1,5 @@
 <!--
   Mantén este documento sincronizado con README.md, README.es.md, README.en.md, README.fr.md,
-  install.sh, manager.sh, uninstall.sh, scripts/, release-checksums.json y .github/workflows/.
 -->
 
 <p align="center">
@@ -30,7 +29,6 @@
   <a href="#-requisitos">Requisitos</a> ·
   <a href="#-instalación">Instalación</a> ·
   <a href="#-actualizaciones">Actualizaciones</a> ·
-  <a href="#-cli-de-administración">CLI de administración</a> ·
   <a href="#-descripción-técnica">Descripción técnica</a> ·
   <a href="#-solución-de-problemas">Solución de problemas</a>
 </p>
@@ -130,7 +128,7 @@ Puede reemplazar instalaciones reconocidas cuando puede establecer su propiedad:
 
 - El paquete global npm heredado `opencode-termux` solo se elimina si sus metadatos son válidos y el enlace simbólico `opencode` existente apunta dentro de ese paquete.
 - Se reconoce una lista limitada de propietarios de paquetes Termux/dpkg mediante sus metadatos: `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` y `opencode1-wrapper`.
-- Un lanzador anterior gestionado por este proyecto (`opencode`, `opencode-termux-update` u `opencode-termux`) se sustituye después de reconocer su contenido.
+- Un lanzador anterior gestionado por este proyecto (`opencode`, `internal update helper` u `opencode-termux`) se sustituye después de reconocer su contenido.
 
 Si un comando existente es desconocido, se copió manualmente o no puede atribuirse con seguridad a una de esas instalaciones, el instalador se detiene y no lo modifica. Identifica y elimina esa instalación manualmente solo después de confirmar su origen. No realiza una limpieza indiscriminada de todos los archivos con nombres parecidos (por ejemplo, binarios arbitrarios `opencode2`), paquetes npm ajenos ni directorios no relacionados.
 
@@ -143,13 +141,11 @@ El instalador tampoco elimina la configuración, las sesiones, los proyectos ni 
 | Copia del repositorio | `$PREFIX/opt/opencode-termux` |
 | Entorno OpenCode y bibliotecas | `$PREFIX/lib/opencode-termux/` |
 | Comando OpenCode | `$PREFIX/bin/opencode` |
-| CLI de administración | `$PREFIX/bin/opencode-termux` |
-| Actualizador interno | `$PREFIX/bin/opencode-termux-update` |
 | Marcador de versión instalada | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
 | SHA-256 del bundle instalado | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Marcador de ruta del repositorio | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
 
-En Termux, `$PREFIX` normalmente corresponde a `/data/data/com.termux/files/usr`. El instalador asigna permisos de ejecución a los tres comandos instalados y comprueba que sean ejecutables antes de confirmar el éxito.
+En Termux, `$PREFIX` normalmente corresponde a `/data/data/com.termux/files/usr`. El instalador comprueba que el único comando público instalado, `opencode`, sea ejecutable.
 
 Conserva la copia gestionada del repositorio: el comando de actualización la utiliza para obtener cambios y volver a ejecutar el instalador.
 
@@ -162,7 +158,6 @@ Hay cuatro mecanismos relacionados de actualización y recuperación.
 Antes de iniciar una sesión normal, el lanzador ejecuta el actualizador gestionado como máximo una vez cada seis horas. El actualizador adelanta la copia Git mediante fast-forward y vuelve a ejecutar el instalador, que verifica los checksums del release y utiliza el reemplazo transaccional con recuperación.
 
 - No se ejecuta para `opencode --version`, `opencode --help`, `opencode update` ni `opencode upgrade`.
-- En instalaciones existentes, ejecuta una vez `opencode-termux update` para instalar este lanzador; después las comprobaciones serán automáticas.
 - Se puede desactivar con `OPENCODE_TERMUX_AUTOUPDATE=0`.
 - Los resultados se guardan en `$PREFIX/var/log/opencode-termux/auto-update.log`.
 - Si falla la red o la actualización, el lanzador continúa con la versión instalada.
@@ -172,7 +167,6 @@ Antes de iniciar una sesión normal, el lanzador ejecuta el actualizador gestion
 Para obtener el código más reciente del proyecto y reinstalar el entorno verificado:
 
 ```bash
-opencode-termux update
 ```
 
 Este comando ejecuta una actualización Git solo mediante fast-forward (`git pull --ff-only`) en la copia gestionada y después ejecuta su `install.sh`. Actualiza el gestor, el lanzador, el actualizador y el entorno según el repositorio y sus metadatos de release.
@@ -198,63 +192,6 @@ curl -fsSL https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install
 Detecta la copia gestionada y repite el procedimiento de instalación. Sirve para reparar lanzadores o permisos de ejecución ausentes, además de instalar la versión indicada por los metadatos de release de la copia local.
 
 > **Importante:** `OPENCODE_DISABLE_AUTOUPDATE=1` desactiva las comprobaciones automáticas upstream al iniciar, pero no elimina la actualización manual integrada. El comando `opencode update` (alias de `opencode upgrade`) y la acción de actualización de la TUI están adaptados para consultar exclusivamente `release-checksums.json` de este repositorio. Validan el origen, la versión, el identificador del runtime y el checksum de la arquitectura; después ejecutan el instalador de Termux fijando la versión consultada. Si no existe un paquete verificado para ARM64 o x86_64, la actualización se rechaza sin recurrir a una release oficial.
-
-## 🧰 CLI de administración
-
-El instalador proporciona el comando independiente `opencode-termux`. Administra este paquete para Termux; no es la aplicación OpenCode.
-
-Consulta la ayuda:
-
-```bash
-opencode-termux
-# o
-opencode-termux --help
-```
-
-### Comandos
-
-| Comando | Forma con opción | Descripción |
-| --- | --- | --- |
-| `install` | `--install` | Instala o repara el entorno gestionado usando la copia existente. |
-| `update` | `--update` | Actualiza la copia mediante fast-forward y reinstala el entorno verificado. |
-| `uninstall` | `--uninstall` | Ejecuta el desinstalador del proyecto, que solicita confirmación. |
-| `version` | `--version`, `-V` | Muestra la versión del gestor y la versión de OpenCode instalada, si existe. |
-| `status` | `--status` | Indica si el entorno está instalado y muestra sus rutas principales. |
-| `doctor` | `--doctor` | Comprueba arquitectura, dependencias, archivos, lanzadores, permisos, certificados, DNS e inicio del entorno. |
-| `help` | `--help`, `-h` | Muestra la ayuda. |
-
-Ejemplos:
-
-```bash
-opencode-termux status
-opencode-termux version
-opencode-termux doctor
-opencode-termux update
-```
-
-### Diagnóstico con `doctor`
-
-Ejecuta:
-
-```bash
-opencode-termux doctor
-```
-
-El diagnóstico comprueba:
-
-- Que la arquitectura del dispositivo sea `aarch64` o `x86_64`.
-- Que estén disponibles los comandos necesarios (`git`, `curl`, `tar`, `sha256sum`, `bun` y `rg`).
-- Que esté instalada la biblioteca compartida libc++ de Termux.
-- Que existan el lanzador nativo, el punto de entrada JavaScript, la biblioteca PTY y el módulo watcher.
-- Que el lanzador nativo tenga permisos de ejecución.
-- Que exista el marcador de versión y tenga un formato válido.
-- Que el lanzador OpenCode corresponda al gestionado por el proyecto.
-- Que el comando de administración exista, sea ejecutable y contenga el marcador de propiedad del proyecto.
-- Que exista el actualizador interno y sea reconocible.
-- Que estén presentes el paquete de certificados CA y la configuración DNS de Termux.
-- Que el ejecutable instalado arranque e informe de la versión registrada en su marcador.
-
-Muestra resultados individuales `OK` / `FAIL` y devuelve un código de salida distinto de cero si falla alguna comprobación. Es un diagnóstico local de la instalación: no valida claves API, cuentas de proveedores, acceso a todos los servicios de IA ni el estado del proyecto upstream.
 
 ## 🧩 Descripción técnica
 
@@ -322,30 +259,13 @@ opencode --version
 
 También puedes volver a ejecutar el instalador curl de una línea; detectará y reutilizará la copia gestionada.
 
-### `opencode-termux: command not found`
-
-La CLI de administración se instala en `$PREFIX/bin/opencode-termux`. Comprueba que exista y que el directorio `bin` de Termux esté en tu `PATH`:
-
-```bash
-printf '%s\n' "$PATH"
-ls -l "$PREFIX/bin/opencode-termux"
-```
-
-Después, vuelve a ejecutar el instalador para restaurar el gestor y sus permisos:
-
-```bash
-bash "$PREFIX/opt/opencode-termux/install.sh"
-hash -r
-opencode-termux --help
-```
-
 ### `permission denied`
 
-El instalador establece el modo `755` en el lanzador OpenCode, el gestor y el actualizador después de colocarlos en sus rutas definitivas. Vuelve a ejecutar el instalador:
+El instalador establece el modo `755` en el lanzador OpenCode después de colocarlo en su ruta definitiva. Vuelve a ejecutar el instalador:
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/install.sh"
-ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/bin/opencode-termux-update"
+ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/lib/opencode-termux/update-runtime.sh"
 ```
 
 ### Arquitectura no compatible
@@ -379,7 +299,6 @@ El actualizador utiliza intencionadamente `git pull --ff-only`. Inspecciona la c
 git -C "$PREFIX/opt/opencode-termux" status --short
 ```
 
-Confirma, guarda temporalmente o resuelve los cambios locales antes de volver a ejecutar `opencode-termux update`. El actualizador no fuerza un reset del repositorio.
 
 ### Cuándo se omite la actualización automática
 
@@ -393,7 +312,6 @@ El lanzador no intenta actualizar en estos casos:
 Si la red o el instalador fallan, OpenCode continúa con el runtime instalado. El detalle queda en `$PREFIX/var/log/opencode-termux/auto-update.log`. Para recuperar cambios del gestor o del instalador manualmente, ejecuta:
 
 ```bash
-opencode-termux update
 ```
 
 ## 🗑️ Desinstalación
@@ -401,7 +319,6 @@ opencode-termux update
 Para eliminar la instalación gestionada de Termux:
 
 ```bash
-opencode-termux uninstall
 ```
 
 El desinstalador solicita confirmación. También puedes ejecutarlo directamente desde la copia del repositorio:
@@ -414,8 +331,7 @@ Después de confirmar, elimina únicamente:
 
 - `$PREFIX/lib/opencode-termux`: entorno gestionado y marcadores.
 - `$PREFIX/bin/opencode`: lanzador de este proyecto.
-- `$PREFIX/bin/opencode-termux-update`: actualizador interno.
-- `$PREFIX/bin/opencode-termux`: CLI de administración.
+- `$PREFIX/lib/opencode-termux/update-runtime.sh`: actualizador interno.
 
 Verifica el marcador del entorno y la identidad de los lanzadores antes de borrar archivos. Si no puede establecer la propiedad, se detiene y deja la instalación intacta.
 
@@ -438,7 +354,6 @@ Desde una copia del repositorio, ejecuta las comprobaciones pertinentes:
 
 ```bash
 # Sintaxis de shell
-bash -n install.sh uninstall.sh manager.sh opencode-termux
 bash -n scripts/validate-runtime-archive.sh scripts/smoke-test-runtime-archive.sh
 
 # Sintaxis y pruebas JavaScript
@@ -450,14 +365,12 @@ bash scripts/test-package-owner.sh
 bash scripts/test-runtime-archive.sh
 
 # Análisis estático (requiere ShellCheck)
-shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux scripts/*.sh
 ```
 
 El workflow de GitHub Actions también descarga el bundle Android fijado, verifica su hash, inspecciona los módulos ELF y prueba el contrato del lanzador.
 
 ### Directrices de contribución
 
-- Mantén sincronizado el punto de entrada del gestor (`opencode-termux`) con `manager.sh`.
 - Mantén coherentes el formato del archivo release y los metadatos de hashes con el instalador y el validador.
 - No introduzcas descargas sin verificar ni omitas las comprobaciones de integridad upstream o del proyecto.
 - Conserva la ruta DNS de Termux, la configuración del intérprete ELF y el comportamiento de ejecución directa que necesita el servidor en segundo plano de OpenCode.
