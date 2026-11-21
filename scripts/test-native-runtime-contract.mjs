@@ -19,7 +19,7 @@ for (const token of [
   "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
   "opencode-$VERSION-android-$TARGET_ARCH-bundle.tar.gz", "$RELEASE_TAG", "archiveSha256X86_64", "TARGET_ARCH=\"$TARGET_ARCH\"",
   "validate-runtime-archive.sh", "@TERMUX_PREFIX@/lib/opencode",
-  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", ".opencode-termux-archive-sha256"
+  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", ".opencode-termux-archive-sha256", ".opencode-termux-release-tag"
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
 const newline = String.fromCharCode(10);
@@ -37,7 +37,7 @@ for (const token of [
   "https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json",
   "https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh",
   "nativeTermux || detected",
-  "OPENCODE_TERMUX_EXPECTED_VERSION",
+  "OPENCODE_TERMUX_EXPECTED_VERSION", "OPENCODE_TERMUX_EXPECTED_RELEASE_TAG",
   "const termuxLatest = Effect.tryPromise",
 ]) assert.ok(sourcePatch.includes(token), "official OpenCode updater must use the verified Termux repository: " + token);
 for (const token of ["OPENCODE_DISABLE_AUTOUPDATE", "OPENCODE_TERMUX_AUTOUPDATE", "AUTO_UPDATE_SKIP", "update-runtime.sh", "21600", "Verified OpenCode update"]) {
