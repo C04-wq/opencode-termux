@@ -84,13 +84,13 @@ jobs:
             git tag -a "$RELEASE_TAG" -m "OpenCode $VERSION Android/Termux release" "$MAIN_SHA"
             git push origin "$RELEASE_TAG"
           fi
+          RELEASE_SHA="$(git rev-parse "$RELEASE_TAG^{commit}")"
           existing_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/validate.yml/runs?per_page=30" | jq -r --arg sha "$RELEASE_SHA" '.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch") | .id' | head -n1)"
           if [[ -z "$existing_run" ]]; then
             # GITHUB_TOKEN pushes do not trigger push workflows; explicitly dispatch
             # the tag ref so the release-only jobs run with github.ref=refs/tags/...
             gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_TAG"
           fi
-          RELEASE_SHA="$(git rev-parse "$RELEASE_TAG^{commit}")"
           echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
