@@ -1,6 +1,5 @@
 <!--
   Keep this document aligned with README.md, README.es.md, README.fr.md,
-  install.sh, manager.sh, uninstall.sh, scripts/, release-checksums.json and .github/workflows/.
 -->
 
 <p align="center">
@@ -29,7 +28,6 @@
   <a href="#-requirements">Requirements</a> ·
   <a href="#-installation">Installation</a> ·
   <a href="#-updates">Updates</a> ·
-  <a href="#-management-cli">Management CLI</a> ·
   <a href="#-technical-overview">Technical overview</a> ·
   <a href="#-troubleshooting">Troubleshooting</a>
 </p>
@@ -52,7 +50,6 @@ The runtime is a JavaScript bundle executed by Termux Bun, with OpenTUI, the `bu
 - SHA-256-pinned release asset, validated before extraction.
 - Automatic installation of missing Termux dependencies: bun, ripgrep and libc++.
 - Automatic update at normal session launch, at most once every six hours, with runtime and SHA-256 verification.
-- opencode-termux management CLI and transactional runtime replacement with rollback.
 
 ## 📸 Screenshots
 
@@ -131,7 +128,7 @@ It can replace recognized installations when ownership can be established:
 
 - The legacy global npm package `opencode-termux` is removed only when its package metadata is valid and the existing `opencode` symlink resolves inside that package.
 - A short allowlist of Termux/dpkg package owners is recognized through package ownership metadata: `opencode`, `opencode1`, `opencode-termux`, `opencode-wrapper` and `opencode1-wrapper`.
-- A previous project-managed `opencode`, `opencode-termux-update` or `opencode-termux` launcher is replaced after its contents are recognized.
+- A previous project-managed `opencode`, `internal update helper` or `opencode-termux` launcher is replaced after its contents are recognized.
 
 If an existing command is unknown, manually copied, or cannot be safely attributed to one of those installations, the installer stops and leaves it untouched. Identify and remove that installation yourself only after confirming its origin. It does not perform a broad cleanup of every similarly named file (for example, arbitrary `opencode2` binaries), unrelated npm packages, or unrelated directories.
 
@@ -146,8 +143,6 @@ The default managed layout is:
 | Project checkout | `$PREFIX/opt/opencode-termux` |
 | OpenCode runtime and libraries | `$PREFIX/lib/opencode-termux/` |
 | OpenCode command | `$PREFIX/bin/opencode` |
-| Management CLI | `$PREFIX/bin/opencode-termux` |
-| Internal updater | `$PREFIX/bin/opencode-termux-update` |
 | Installed version marker | `$PREFIX/lib/opencode-termux/.opencode-termux-version` |
 | Installed bundle SHA-256 | `$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256` |
 | Checkout path marker | `$PREFIX/lib/opencode-termux/.opencode-termux-repo-dir` |
@@ -165,7 +160,6 @@ There are four related update and recovery paths.
 Before starting a normal OpenCode session, the launcher runs the managed updater at most once every six hours. The updater fast-forwards the managed Git checkout and reruns the installer, which verifies release checksums and uses the installer's transactional replacement and recovery path.
 
 - It is skipped for `opencode --version`, `opencode --help`, `opencode update` and `opencode upgrade`.
-- Existing installations must run `opencode-termux update` once to install this launcher; checks are automatic afterward.
 - Disable it with `OPENCODE_TERMUX_AUTOUPDATE=0`.
 - Results are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`.
 - If networking or updating fails, the launcher continues with the installed version.
@@ -175,7 +169,6 @@ Before starting a normal OpenCode session, the launcher runs the managed updater
 To retrieve the latest project code and reinstall the verified runtime, run:
 
 ```bash
-opencode-termux update
 ```
 
 This command uses a fast-forward-only Git pull (`git pull --ff-only`) in the managed checkout and then executes its `install.sh`. It updates the manager, launcher, updater and runtime according to the checked-out repository and its release metadata.
@@ -202,7 +195,6 @@ It detects the managed checkout and uses the installation procedure again. This 
 
 > **Important:** `OPENCODE_DISABLE_AUTOUPDATE=1` disables upstream automatic checks at startup; it does not remove manual updates. The built-in `opencode update` command (an alias for `opencode upgrade`) and the TUI update action are patched to query only this repository's `release-checksums.json`. They validate the source, version, runtime identifier and architecture-specific checksum, then run the Termux installer pinned to the version just checked. If no verified ARM64 or x86_64 package exists, the update is refused; it never falls back to an official upstream release.
 
-## 🧰 Management CLI
 
 The installer provides a separate `opencode-termux` command. It manages this Termux package; it is not the OpenCode application itself.
 
@@ -211,7 +203,6 @@ Show the help:
 ```bash
 opencode-termux
 # or
-opencode-termux --help
 ```
 
 ### Commands
@@ -221,7 +212,6 @@ opencode-termux --help
 | `install` | `--install` | Install or repair the managed runtime using the existing checkout. |
 | `update` | `--update` | Fast-forward the checkout and reinstall the verified runtime. |
 | `uninstall` | `--uninstall` | Run the project's confirmation-based uninstaller. |
-| `version` | `--version`, `-V` | Show the manager version and installed OpenCode version, if present. |
 | `status` | `--status` | Show whether the runtime is installed and print its key paths. |
 | `doctor` | `--doctor` | Check the architecture, dependencies, runtime files, launchers, permissions, certificates, resolver and runtime startup. |
 | `help` | `--help`, `-h` | Show command help. |
@@ -229,10 +219,6 @@ opencode-termux --help
 Examples:
 
 ```bash
-opencode-termux status
-opencode-termux version
-opencode-termux doctor
-opencode-termux update
 ```
 
 ### Diagnostics with `doctor`
@@ -240,7 +226,6 @@ opencode-termux update
 Run:
 
 ```bash
-opencode-termux doctor
 ```
 
 The diagnostic checks:
@@ -252,7 +237,6 @@ The diagnostic checks:
 - The native launcher has executable permissions.
 - The installed version marker exists and has a valid version format.
 - The OpenCode launcher is recognizable as the project-managed launcher.
-- The manager command exists, is executable and contains the project ownership marker.
 - The internal updater exists and is recognizable.
 - The Termux CA bundle and resolver configuration are present.
 - The installed OpenCode executable starts and reports the version recorded in its marker.
@@ -287,7 +271,7 @@ The bundle contains a shell launcher, the JavaScript module graph, a Bionic Open
 
 The launcher compares the OpenCode version, runtime-generation marker and installed bundle SHA-256. This detects both the musl-to-Bionic migration and a rebuilt bundle that keeps the same version and runtime generation.
 
-The project manager, updater, automatic launch-time update check and uninstaller remain separate from the upstream runtime bundle.
+The automatic update check and its helper remain internal to the runtime; no additional public command is installed.
 
 ## 🔐 Security and integrity
 
@@ -305,7 +289,6 @@ Trust boundary: source revisions and build tools are pinned and every artifact i
 
 The `check-upstream.yml` and `prepare-upstream-update.yml` workflows check official stable `vX.Y.Z` tags from anomalyco/opencode every six hours, comparing semantic versions across all major releases. When a newer version appears, they prepare a draft PR containing the exact source commit and SHA-256 digest. The `validate.yml` workflow builds and validates independent ARM64 and x86_64 bundles, inspects their ELF libraries, validates both archives and runs automated smoke tests. Candidate preparation does not change `release-checksums.json` or publish a release automatically; the candidate must be reviewed and approved before a release is created.
 
-The validation workflow checks shell syntax, ShellCheck, manager consistency, archive safety, metadata and the pinned native bundle. It downloads the exact version and tag recorded in release-checksums.json, verifies SHA-256, inspects Android ELF shared libraries and exercises the launcher with a controlled Bun test double.
 
 CI independently builds and validates ARM64 and x86_64 bundles, inspects their ELF libraries, validates both archives and runs automated runtime smoke tests. These reproducible checks are the acceptance gate for both architectures and do not require physical devices. Additional testing on real devices is useful, but it does not block automated preparation.
 
@@ -327,30 +310,13 @@ opencode --version
 
 You can also rerun the one-line curl installer. It detects and reuses the managed checkout.
 
-### `opencode-termux: command not found`
-
-The management CLI is installed at `$PREFIX/bin/opencode-termux`. Check that it exists and that Termux's `bin` directory is in your `PATH`:
-
-```bash
-printf '%s\n' "$PATH"
-ls -l "$PREFIX/bin/opencode-termux"
-```
-
-Then rerun the installer to restore the manager and enforce executable permissions:
-
-```bash
-bash "$PREFIX/opt/opencode-termux/install.sh"
-hash -r
-opencode-termux --help
-```
-
 ### `permission denied`
 
-The installer sets mode `755` on the OpenCode launcher, manager and updater after placing them in their final paths. Rerun the installer to repair these permissions:
+The installer sets mode `755` on the OpenCode launcher after placing it in its final path. Rerun the installer to repair these permissions:
 
 ```bash
 bash "$PREFIX/opt/opencode-termux/install.sh"
-ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/bin/opencode-termux-update"
+ls -l "$PREFIX/bin/opencode" "$PREFIX/bin/opencode-termux" "$PREFIX/lib/opencode-termux/update-runtime.sh"
 ```
 
 ### Unsupported architecture
@@ -384,7 +350,6 @@ The updater intentionally uses `git pull --ff-only`. Inspect the checkout:
 git -C "$PREFIX/opt/opencode-termux" status --short
 ```
 
-Commit, stash or otherwise resolve local changes before retrying `opencode-termux update`. The updater does not force-reset the checkout.
 
 ### When automatic updates are skipped
 
@@ -398,7 +363,6 @@ The launcher does not attempt an update when:
 If networking or installation fails, OpenCode continues with the installed runtime. Details are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`. To retrieve manager or installer changes manually, run:
 
 ```bash
-opencode-termux update
 ```
 
 ## 🗑️ Uninstallation
@@ -406,7 +370,6 @@ opencode-termux update
 To remove the managed Termux installation, run:
 
 ```bash
-opencode-termux uninstall
 ```
 
 The uninstaller asks for confirmation. You can also invoke it directly from the checkout:
@@ -419,8 +382,7 @@ After confirmation, it removes only:
 
 - `$PREFIX/lib/opencode-termux` — the managed runtime and its markers.
 - `$PREFIX/bin/opencode` — this project's launcher.
-- `$PREFIX/bin/opencode-termux-update` — the internal updater.
-- `$PREFIX/bin/opencode-termux` — the management CLI.
+- `$PREFIX/lib/opencode-termux/update-runtime.sh` — the internal updater.
 
 It verifies the runtime marker and launcher identities before deleting files. If ownership cannot be established, it stops and leaves the installation untouched.
 
@@ -443,7 +405,6 @@ From a checkout of the repository, run the relevant checks:
 
 ```bash
 # Shell syntax
-bash -n install.sh uninstall.sh manager.sh opencode-termux
 bash -n scripts/validate-runtime-archive.sh scripts/smoke-test-runtime-archive.sh
 
 # JavaScript syntax and tests
@@ -455,14 +416,12 @@ bash scripts/test-package-owner.sh
 bash scripts/test-runtime-archive.sh
 
 # Static analysis (requires ShellCheck)
-shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux scripts/*.sh
 ```
 
 The GitHub Actions workflow also downloads the pinned Android bundle, verifies its checksum, inspects its ELF modules and exercises the launcher contract.
 
 ### Contribution guidelines
 
-- Keep the repository's manager entry point (`opencode-termux`) synchronized with `manager.sh`.
 - Keep the release archive layout and checksum metadata consistent with the installer and validator.
 - Do not introduce unverified downloads or bypass upstream/project checksum checks.
 - Preserve the Bionic runtime layout, pinned dependency hashes, PTY and background-server behavior.
