@@ -21,7 +21,7 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   fi
 fi
 
-echo "This removes only the OpenCode Termux runtime and launcher."
+echo "This removes the OpenCode Termux runtime, launcher, and recognizable legacy project commands."
 echo "Settings, sessions, and provider credentials will be preserved."
 read -r -p "Continue? [y/N] " answer
 [[ "$answer" == [yY] || "$answer" == [yY][eE][sS] ]] || { echo "Cancelled."; exit 0; }
@@ -32,6 +32,14 @@ if [[ -f "$LEGACY_LAUNCHER2" ]] && grep -Fq '/lib/opencode-termux' "$LEGACY_LAUN
 elif [[ -L "$LEGACY_LAUNCHER2" ]]; then
   LEGACY_TARGET="$(readlink -f "$LEGACY_LAUNCHER2" 2>/dev/null || true)"
   case "$LEGACY_TARGET" in "$RUNTIME"/*) REMOVE_LEGACY_LAUNCHER2=1 ;; esac
+fi
+LEGACY_MANAGER="$PREFIX/bin/opencode-termux"
+LEGACY_UPDATE="$PREFIX/bin/opencode-termux-update"
+if [[ -f "$LEGACY_MANAGER" ]] && grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$LEGACY_MANAGER"; then
+  rm -f "$LEGACY_MANAGER"
+fi
+if [[ -f "$LEGACY_UPDATE" ]] && grep -Fq 'git -C' "$LEGACY_UPDATE" && grep -Fq 'install.sh' "$LEGACY_UPDATE"; then
+  rm -f "$LEGACY_UPDATE"
 fi
 rm -rf "$RUNTIME"
 rm -f "$LAUNCHER"
