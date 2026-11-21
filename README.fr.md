@@ -48,7 +48,7 @@ Le runtime est fourni sous forme de bundle JavaScript lancé par le Bun de Termu
 - Runtime Android/Bionic natif pour Termux ARM64/aarch64 et x86_64 (Android 9 / API 28 ou ultérieur).
 - Bundle JavaScript exécuté par Bun avec OpenTUI, `bun-pty`, le daemon Rust officiel `opencode-pty` et la surveillance des fichiers, adaptés à Android/Bionic.
 - Archive de release épinglée par SHA-256 et vérifiée avant extraction.
-- Installation automatique de bun, ripgrep et libc++ s’ils manquent.
+- Installation de bun, ripgrep et libc++ s’ils manquent ; la version de Bun doit correspondre à celle de la release.
 - Programme de mise à jour intégré d’OpenCode activé et connecté aux releases vérifiées de ce dépôt.
 - Commandes CLI officielles d’OpenCode, sans commandes de gestion supplémentaires.
 
@@ -69,7 +69,7 @@ Le runtime est fourni sous forme de bundle JavaScript lancé par le Bun de Termu
 | --- | --- |
 | Appareil | Android 9 (API 28) ou ultérieur avec Termux |
 | Architecture | ARM64 / aarch64 et x86_64 |
-| Dépendances | Paquets Termux bun, ripgrep et libc++ (installés automatiquement s’ils manquent) |
+| Dépendances | Paquets Termux bun, ripgrep et libc++ (installés s’ils manquent) ; la version de Bun est vérifiée par rapport à la release |
 | Outils | Bash, Git, curl, tar, sed et sha256sum |
 | Fichiers Termux | Certificats CA et configuration du résolveur DNS |
 | Réseau | Internet pour l’installation, les téléchargements épinglés, les vérifications de mise à jour et les fournisseurs d’IA |
