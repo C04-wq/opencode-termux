@@ -133,7 +133,9 @@ assert.ok(sourcePatch.includes("C04-wq/opencode-termux"), "native updater must t
 assert.ok(sourcePatch.includes("raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh"), "native updater must use the current installer");
 assert.ok(sourcePatch.includes("release-checksums.json"), "native updater must use the installer's pinned metadata");
 assert.ok(sourcePatch.includes('exec(["bash", "-c"'), "native updater must invoke the Bash installer with Bash");
-assert.ok(sourcePatch.includes('OPENCODE_TERMUX_EXPECTED_VERSION="$1" exec bash "$2"'), "native updater must pin the installer to the checked release version");
+assert.ok(sourcePatch.includes('OPENCODE_TERMUX_EXPECTED_VERSION="$1" OPENCODE_TERMUX_EXPECTED_RELEASE_TAG="$3" exec bash "$2"'), "native updater must pin the installer to the checked package revision");
+assert.ok(sourcePatch.includes('return `${version}-termux.${revision}'), "native updater must compare Termux package revisions, not only OpenCode versions");
+assert.ok(sourcePatch.includes(".opencode-termux-release-tag"), "native updater must read the installed package revision marker");
 assert.ok(sourcePatch.includes("actualVersion !== version"), "native and APT update paths must verify the installed version");
 assert.ok(sourcePatch.includes('item.abi !== "android"'), "Android targets must never resolve a glibc PTY asset");
 assert.ok(sourcePatch.includes("packages/process-daemon/src/service.rs"), "Android port must preserve official foreground-process detection");
