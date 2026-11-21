@@ -197,11 +197,12 @@ jobs:
               "- Reuses the last known Android toolchain pins only as a starting candidate.\n"
               f"- Updates the official `opencode-pty` crate pin to {daemon_version.group(1)} and Ghostty commit `{ghostty_commit}`.\n"
               f"- Updates FFF to the exact `@ff-labs/fff-bun` version {fff_version} and source commit `{fff_commit}`; Android libraries are rebuilt from source.\n\n"
-              "## Automated merge and release gate\n"
-              "- This PR remains a draft until the dedicated validation workflow succeeds for this exact commit.\n"
-              "- If all ARM64 and x86_64 checks pass, automation marks the PR ready, merges it, creates the version tag, and lets the tag workflow publish verified release archives.\n"
+              "## Manual review and release gate\n"
+              "- This PR remains a draft after automated validation, even if all checks pass.\n"
+              "- A maintainer must inspect the diff, approve it, mark it ready, and merge it manually.\n"
+              "- A maintainer creates the version tag after merging; the tag-triggered workflow then builds and publishes verified release archives.\n"
               "- If any check fails, the PR remains a draft and the six-hour watcher retries validation.\n"
-              "- Only the tag-triggered release workflow updates release-checksums.json after both architecture archives pass validation.\n",
+              "- No workflow auto-merges candidates or creates release tags; only the tag-triggered release workflow updates release-checksums.json after both architecture archives pass validation.\n",
               encoding="utf-8"
           )
           PY
