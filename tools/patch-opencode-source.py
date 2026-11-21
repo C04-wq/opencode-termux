@@ -144,15 +144,14 @@ def main() -> None:
     )
     replace_once(
         updater,
+        '    if (executable === curlBinary) return "curl"\n',
         '    if (executable === curlBinary) return "curl"\n'
-        '    if (nativeTermux) return "curl"\n',
-        '    if (executable === curlBinary) return "curl"\n'
+        '    if (nativeTermux) return "curl"\n'
         '    const prefix = process.env.PREFIX\n'
         '    if (prefix && executable === path.join(prefix, "bin", "opencode")) {\n'
         '      const owner = yield* exec(["dpkg-query", "-S", executable]).pipe(Effect.orElseSucceed(() => undefined))\n'
         '      if (owner?.code === 0 && owner.stdout.split("\\n").includes(`opencode: ${executable}`)) return "apt"\n'
-        '    }\n'
-        '    if (nativeTermux) return "curl"\n',
+        '    }\n',
     )
     replace_once(
         updater,
