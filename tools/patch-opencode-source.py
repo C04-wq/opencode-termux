@@ -216,6 +216,9 @@ def main() -> None:
         updater,
         '    const version = input.trim().replace(/^v/, "")\n    const packageName =\n',
         '    const version = input.trim().replace(/^v/, "")\n'
+        '    const prefix = process.env.PREFIX\n'
+        '    const launcher = process.env.OPENCODE_LAUNCHER\n'
+        '    const nativeTermux = prefix !== undefined && launcher === path.join(prefix, "bin", "opencode")\n'
         '    if (method === "apt" && !nativeTermux) {\n'
         '      const prefix = process.env.PREFIX\n'
         '      if (!prefix || executable !== path.join(prefix, "bin", "opencode"))\n'
