@@ -34,7 +34,7 @@ class BunLockTests(unittest.TestCase):
     def test_invalid_json_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "bun.lock"
-            path.write_text('{"workspaces": {,}}', encoding="utf-8")
+            path.write_text('{"workspaces": {, "broken": true}}', encoding="utf-8")
             with self.assertRaises(ValueError):
                 load_bun_lock(path)
 
