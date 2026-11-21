@@ -64,8 +64,10 @@ migrate_legacy_termux_repository() {
       cp -p "$file" "$backup"
 
       if ! sed -i -E \
-        -e '/^[[:space:]]*deb([[:space:]]|$)/ s#https?://termux\.net(/apt/termux-main)?#https://packages.termux.dev/apt/termux-main#g' \
-        -e '/^[[:space:]]*URIs:[[:space:]]*/ s#https?://termux\.net(/apt/termux-main)?#https://packages.termux.dev/apt/termux-main#g' \
+        -e '/^[[:space:]]*deb([[:space:]]|$)/ s#https?://termux\.net/apt/termux-main#https://packages.termux.dev/apt/termux-main#g' \
+        -e '/^[[:space:]]*deb([[:space:]]|$)/ s#https?://termux\.net\([[:space:]]\|$\)#https://packages.termux.dev/apt/termux-main\1#g' \
+        -e '/^[[:space:]]*URIs:[[:space:]]*/ s#https?://termux\.net/apt/termux-main#https://packages.termux.dev/apt/termux-main#g' \
+        -e '/^[[:space:]]*URIs:[[:space:]]*/ s#https?://termux\.net\([[:space:]]\|$\)#https://packages.termux.dev/apt/termux-main\1#g' \
         "$file"; then
         cp -p "$backup" "$file"
         echo "Error: could not migrate the obsolete Termux repository in $file." >&2
