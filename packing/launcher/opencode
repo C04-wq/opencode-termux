@@ -61,7 +61,7 @@ if [ -n "${PREFIX:-}" ] &&
           printf '%s\n' "$now" > "$state.tmp"
           mv "$state.tmp" "$state"
           if command -v timeout >/dev/null 2>&1; then
-            timeout 120 "$PREFIX/bin/opencode-termux-update" >> "$log_dir/auto-update.log" 2>&1 || true
+            timeout 300 "$PREFIX/bin/opencode-termux-update" >> "$log_dir/auto-update.log" 2>&1 || true
           else
             "$PREFIX/bin/opencode-termux-update" >> "$log_dir/auto-update.log" 2>&1 || true
           fi
