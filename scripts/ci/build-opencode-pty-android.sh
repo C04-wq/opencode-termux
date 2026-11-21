@@ -86,7 +86,11 @@ export CARGO_BUILD_TARGET="$target"
 manifest="$SRC_ROOT/packages/process-daemon/Cargo.toml"
 (
   cd "$SRC_ROOT/packages/process-daemon"
+  # Run the upstream daemon's complete native test suite on the Linux CI host
+  # before cross-compiling. Then compile the Android-target test harnesses too.
+  cargo test --locked --manifest-path "$manifest"
   cargo build --locked --release --target "$target" --manifest-path "$manifest"
+  cargo test --locked --no-run --target "$target" --manifest-path "$manifest"
 )
 
 built="$SRC_ROOT/packages/process-daemon/target/$target/release/opencode-pty"
