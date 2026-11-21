@@ -315,6 +315,8 @@ Trust boundary: source revisions and build tools are pinned and every artifact i
 
 ## 🤖 Release automation and CI
 
+The `check-upstream.yml` and `prepare-upstream-update.yml` workflows check official stable `vX.Y.Z` tags from anomalyco/opencode every six hours, comparing semantic versions across all major releases. When a newer version appears, they prepare a draft PR containing the exact source commit and SHA-256 digest. The `validate.yml` workflow builds and validates independent ARM64 and x86_64 bundles, inspects their ELF libraries, validates both archives and runs automated smoke tests. Candidate preparation does not change `release-checksums.json` or publish a release automatically; the candidate must be reviewed and approved before a release is created.
+
 The validation workflow checks shell syntax, ShellCheck, manager consistency, archive safety, metadata and the pinned native bundle. It downloads the exact version and tag recorded in release-checksums.json, verifies SHA-256, inspects Android ELF shared libraries and exercises the launcher with a controlled Bun test double.
 
 CI independently builds and validates ARM64 and x86_64 bundles, inspects their ELF libraries, validates both archives and runs automated runtime smoke tests. These reproducible checks are the acceptance gate for both architectures and do not require physical devices. Additional testing on real devices is useful, but it does not block automated preparation.
