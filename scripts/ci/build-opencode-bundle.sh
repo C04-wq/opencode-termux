@@ -291,7 +291,7 @@ PY
 fi
 
 rm -rf "$out"
-mkdir -p "$out/lib"
+mkdir -p "$out/lib/opencode"
 cp -a "$lib/." "$out/lib/"
 install -m 0755 "$pty" "$out/lib/$PTY_LIB_NAME"
 install -m 0755 "$pty_daemon" "$out/lib/opencode/opencode-pty"
