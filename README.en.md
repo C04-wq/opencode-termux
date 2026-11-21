@@ -51,7 +51,7 @@ The runtime is a JavaScript bundle executed by Termux Bun, with OpenTUI, the `bu
 - Bun-based JavaScript bundle with Android/Bionic OpenTUI, `bun-pty`, the official Rust `opencode-pty` daemon and file watching.
 - SHA-256-pinned release asset, validated before extraction.
 - Automatic installation of missing Termux dependencies: bun, ripgrep and libc++.
-- Interactive update prompt with Install update now and Wait for the next version.
+- Automatic update at normal session launch, at most once every six hours, with runtime and SHA-256 verification.
 - opencode-termux management CLI and transactional runtime replacement with rollback.
 
 ## 📸 Screenshots
@@ -283,11 +283,11 @@ The bundle contains a shell launcher, the JavaScript module graph, a Bionic Open
 6. Stage the bundle and preserve the previous runtime and launchers until activation.
 7. Run the installed launcher's --version check and roll back if it fails.
 
-Choosing **Wait for the next version** records the exact version, runtime generation and bundle SHA-256. The same bundle will not prompt again, while a rebuild with the same version and runtime generation but a different digest will.
+
 
 The launcher compares the OpenCode version, runtime-generation marker and installed bundle SHA-256. This detects both the musl-to-Bionic migration and a rebuilt bundle that keeps the same version and runtime generation.
 
-The project manager, updater, interactive update prompt and uninstaller remain separate from the upstream runtime bundle.
+The project manager, updater, automatic launch-time update check and uninstaller remain separate from the upstream runtime bundle.
 
 ## 🔐 Security and integrity
 
@@ -386,30 +386,20 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 
 Commit, stash or otherwise resolve local changes before retrying `opencode-termux update`. The updater does not force-reset the checkout.
 
-### The interactive update menu does not appear
+### When automatic updates are skipped
 
-The menu is displayed only when all of the following apply:
+The launcher does not attempt an update when:
 
-- OpenCode is started from an interactive terminal.
-- The launcher can reach the repository's release metadata.
-- The metadata contains a valid version newer than the installed runtime.
+- `OPENCODE_TERMUX_AUTOUPDATE=0` is set.
+- The command is `opencode --version`, `opencode --help`, `opencode update` or `opencode upgrade`.
+- Fewer than six hours have elapsed since the previous check.
+- The managed updater is unavailable or release metadata cannot be fetched.
 
-A repository-only change does not necessarily change the OpenCode runtime version. To retrieve manager or installer changes directly, use:
+If networking or installation fails, OpenCode continues with the installed runtime. Details are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`. To retrieve manager or installer changes manually, run:
 
 ```bash
 opencode-termux update
 ```
-
-### OpenCode shell commands behave incorrectly
-
-The launcher clears inherited `LD_PRELOAD` and configures the bundled runtime library path. First update the project:
-
-```bash
-opencode-termux update
-opencode-termux doctor
-```
-
-If the issue persists, open an [issue](https://github.com/C04-wq/opencode-termux/issues) with your Android version, `uname -m`, OpenCode version, relevant command and complete error output. Remove API keys, tokens and other secrets from logs before sharing them.
 
 ## 🗑️ Uninstallation
 
