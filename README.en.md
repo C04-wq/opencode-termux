@@ -153,15 +153,17 @@ The built-in updater uses the installer and release packages published by this r
 
 ## 🔄 Updates
 
-OpenCode keeps its official CLI commands. To update manually, use the built-in command:
+OpenCode's own official update discovery and notification flow remains enabled. Its shared update service is patched to query only the verified releases published by this repository.
+
+When OpenCode reports a new version, its normal prompt lets you update now or postpone. If you choose to update, it reads this repository's `release-checksums.json`, selects the package for your architecture, verifies its SHA-256 and runs this repository's installer. It does not query OpenCode's official upstream releases.
+
+You can also start the same official flow with:
 
 ```bash
 opencode update
 ```
 
-In OpenCode, `update` is an alias for `upgrade`. In this Termux adaptation, both use the patched built-in updater to query verified releases from this repository. It checks the version, architecture and SHA-256 before running the installer. It never falls back to an upstream release when a verified package is unavailable.
-
-The launcher also checks for a newer release automatically, at most once every six hours. The internal helper is stored inside the runtime and does not install additional commands in `$PREFIX/bin`. Disable the automatic check with `OPENCODE_TERMUX_AUTOUPDATE=0`. Logs are written to `$PREFIX/var/log/opencode-termux/auto-update.log`.
+`opencode update` and `opencode upgrade` use the same built-in service. There is no additional periodic check in the launcher and no silent update at startup.
 
 To repair or reinstall the runtime, rerun the installer:
 
@@ -276,16 +278,13 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 ```
 
 
-### When automatic updates are skipped
 
 The launcher does not attempt an update when:
 
-- `OPENCODE_TERMUX_AUTOUPDATE=0` is set.
 - The command is `opencode --version`, `opencode --help`, `opencode update` or `opencode upgrade`.
 - Fewer than six hours have elapsed since the previous check.
 - The managed updater is unavailable or release metadata cannot be fetched.
 
-If networking or installation fails, OpenCode continues with the installed runtime. Details are logged to `$PREFIX/var/log/opencode-termux/auto-update.log`. ## 🗑️ Uninstallation
 
 To remove the managed Termux installation, run:
 
