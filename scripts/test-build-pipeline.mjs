@@ -141,6 +141,16 @@ assert.ok(watcher.includes("python3 tools/upstream_tags.py"));
 assert.ok(watcher.includes("refs/tags/v2."));
 assert.ok(watcher.includes("tools/ocver.py current"));
 assert.ok(watcher.includes("gh issue create"));
+assert.ok(watcher.includes("No physical Termux device testing is required"), "upstream detection must not require physical Termux devices");
+assert.ok(!watcher.includes("device smoke tests"), "upstream detection must not request physical device testing");
+
+const validationWorkflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
+assert.ok(validationWorkflow.includes("build-x86_64-native:"), "candidate validation must build the complete x86_64 runtime");
+assert.ok(validationWorkflow.includes("Build full x86_64 OpenCode runtime bundle"), "x86_64 candidate must compile the locked OpenCode source, not only OpenTUI");
+assert.ok(validationWorkflow.includes("build-native:"), "candidate validation must build the complete ARM64 runtime");
+assert.ok(validationWorkflow.includes("Build and verify Android ARM64 runtime"), "ARM64 candidate build must remain an independent CI gate");
+assert.ok(validationWorkflow.includes("Package and smoke-test x86_64 candidate"), "x86_64 candidate archive must be validated and smoke-tested");
+assert.ok(validationWorkflow.includes("Package and smoke-test ARM64 candidate"), "ARM64 candidate archive must be validated and smoke-tested");
 assert.ok(watcher.includes('cron: "17 */6 * * *"'), "official upstream release detection must run every six hours");
 assert.ok(!watcher.includes("contents/package.json"), "upstream version discovery must not rely on the dev branch manifest");
 
