@@ -151,15 +151,17 @@ El actualizador integrado utiliza el instalador y los paquetes publicados por es
 
 ## 🔄 Actualizaciones
 
-OpenCode conserva sus comandos oficiales. Para actualizar manualmente, utiliza el comando integrado:
+OpenCode utiliza su propio sistema oficial de detección y notificación de actualizaciones. Se mantiene habilitado, pero el servicio compartido de actualización está adaptado para consultar exclusivamente las releases verificadas de este repositorio.
+
+Cuando OpenCode indique que hay una versión nueva, su flujo habitual permitirá actualizar ahora o posponerlo. Si eliges actualizar, consultará `release-checksums.json`, seleccionará el paquete de tu arquitectura, verificará el SHA-256 y ejecutará el instalador de este repositorio. No consultará las releases oficiales upstream de OpenCode.
+
+También puedes iniciar el mismo flujo oficial con:
 
 ```bash
 opencode update
 ```
 
-En OpenCode, `update` es un alias de `upgrade`. En esta adaptación para Termux, ambos pasan por el actualizador integrado parcheado para consultar las releases verificadas de este repositorio. Comprueba la versión, la arquitectura y el SHA-256 antes de ejecutar el instalador. No recurre a una release upstream si falta un paquete verificado.
-
-El lanzador también comprueba automáticamente si hay una release nueva, como máximo cada seis horas, y puede instalarla sin interrumpir el inicio si falla la red o la descarga. El mecanismo auxiliar permanece dentro del runtime: no instala comandos adicionales en `$PREFIX/bin`. Puedes desactivar esta comprobación con `OPENCODE_TERMUX_AUTOUPDATE=0`. Los registros están en `$PREFIX/var/log/opencode-termux/auto-update.log`.
+`opencode update` y `opencode upgrade` utilizan el mismo servicio integrado. No hay comprobaciones periódicas añadidas por el lanzador ni actualizaciones silenciosas al iniciar.
 
 Para reparar o reinstalar el runtime, vuelve a ejecutar el instalador:
 
@@ -275,16 +277,13 @@ git -C "$PREFIX/opt/opencode-termux" status --short
 ```
 
 
-### Cuándo se omite la actualización automática
 
 El lanzador no intenta actualizar en estos casos:
 
-- Se establece `OPENCODE_TERMUX_AUTOUPDATE=0`.
 - El comando es `opencode --version`, `opencode --help`, `opencode update` o `opencode upgrade`.
 - Todavía no han transcurrido seis horas desde la última comprobación.
 - No está disponible el actualizador gestionado o falla la consulta de metadatos.
 
-Si la red o el instalador fallan, OpenCode continúa con el runtime instalado. El detalle queda en `$PREFIX/var/log/opencode-termux/auto-update.log`. ## 🗑️ Desinstalación
 
 Para eliminar la instalación gestionada de Termux:
 
