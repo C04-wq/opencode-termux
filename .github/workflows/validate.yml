@@ -353,8 +353,11 @@ jobs:
           import hashlib, json, sys
           version, path, release_tag = sys.argv[1:]
           digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
+          bun_version = lock["opencode"][version]["bun_version"]
           print(json.dumps({
               "version": version,
+              "bunVersion": bun_version,
               "sourceRepo": "C04-wq/opencode-termux",
               "sourceTag": "v" + version,
               "releaseTag": release_tag,
@@ -591,8 +594,11 @@ jobs:
           import hashlib, json, sys
           version, path, release_tag = sys.argv[1:]
           digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
+          bun_version = lock["opencode"][version]["bun_version"]
           print(json.dumps({
               "version": version,
+              "bunVersion": bun_version,
               "sourceRepo": "C04-wq/opencode-termux",
               "sourceTag": "v" + version,
               "releaseTag": release_tag,
