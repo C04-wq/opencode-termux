@@ -11,7 +11,7 @@
 
 <p align="center">
   <strong>Agente de programación con IA OpenCode ejecutándose de forma nativa en Android mediante Termux.</strong><br>
-  Empaquetado del entorno de ejecución ARM64 · Verificación SHA-256 · Instalación gestionada
+  Runtime Android/Bionic para ARM64 y x86_64 · Verificación SHA-256 · Instalación gestionada
 </p>
 
 
@@ -48,7 +48,7 @@ El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, 
 
 ### Características principales
 
-- Runtime Android/Bionic nativo para Termux ARM64 (Android 9 / API 28 o posterior).
+- Runtime Android/Bionic nativo para Termux ARM64/aarch64 y x86_64 (Android 9 / API 28 o posterior).
 - Bundle JavaScript basado en Bun con módulos Bionic para OpenTUI, PTY y vigilancia de archivos.
 - Release fijada mediante SHA-256 y validada antes de extraerla.
 - Instalación automática de bun, ripgrep y libc++ si faltan.
@@ -71,7 +71,7 @@ El runtime se distribuye como un bundle JavaScript ejecutado por Bun de Termux, 
 | Requisito | Detalles |
 | --- | --- |
 | Dispositivo | Android 9 (API 28) o posterior con Termux |
-| Arquitectura | Solo ARM64 / aarch64 |
+| Arquitectura | ARM64 / aarch64 y x86_64 |
 | Dependencias | Paquetes Termux bun, ripgrep y libc++ (se instalan automáticamente si faltan) |
 | Herramientas | Bash, Git, curl, tar, sed y sha256sum |
 | Archivos de soporte | Certificados CA y configuración DNS de Termux |
@@ -81,7 +81,7 @@ El instalador de una línea requiere que curl ya esté instalado. Utiliza pkg de
 
 ### Entornos no compatibles
 
-No es compatible con ARM de 32 bits, Android x86/x86_64, shells Android distintos de Termux, Linux de escritorio, macOS ni Windows.
+No es compatible con ARM de 32 bits, Android x86 de 32 bits, shells Android distintos de Termux, Linux de escritorio, macOS ni Windows.
 
 ## 🚀 Instalación
 
@@ -108,12 +108,12 @@ opencode --help
 
 ### ¿Qué hace el instalador?
 
-1. **Comprueba la plataforma.** Exige que `uname -m` devuelva `aarch64`.
+1. **Comprueba la plataforma.** Acepta `uname -m` igual a `aarch64` o `x86_64`.
 2. **Prepara el repositorio del proyecto.** En una instalación canalizada utiliza `$PREFIX/opt/opencode-termux`. Si encuentra una copia limpia de este repositorio en una ubicación habitual dentro del directorio personal de Termux, la actualiza y, cuando es posible, la traslada a la ubicación gestionada.
 3. **Protege los cambios locales.** Si la copia detectada contiene archivos modificados o sin seguimiento, no los sobrescribe: se detiene y solicita confirmar o guardar esos cambios.
 4. **Prepara dependencias.** Instala mediante `pkg` Git, curl, tar, coreutils, certificados CA y soporte de resolución DNS cuando faltan.
 5. **Lee los metadatos de la release.** La versión esperada de OpenCode y el hash SHA-256 del archivo proceden de `release-checksums.json`.
-6. **Descarga la release.** Obtiene `opencode-termux-aarch64.tar.gz` desde las GitHub Releases de este repositorio mediante HTTPS.
+6. **Descarga la release.** Descarga el bundle Android correspondiente a la arquitectura detectada desde las GitHub Releases de este repositorio mediante HTTPS.
 7. **Verifica la descarga.** Calcula SHA-256 y se niega a continuar si el hash no coincide con los metadatos fijados.
 8. **Valida el contenido del archivo.** Rechaza archivos inesperados, entradas duplicadas, traversal de rutas, enlaces inseguros y tipos de archivo incorrectos antes de extraer.
 9. **Prepara el bundle nativo.** Coloca el lanzador Bun, los módulos JavaScript y las bibliotecas Android en una ubicación temporal.
@@ -254,7 +254,7 @@ opencode-termux doctor
 
 El diagnóstico comprueba:
 
-- Que la arquitectura del dispositivo sea `aarch64`.
+- Que la arquitectura del dispositivo sea `aarch64` o `x86_64`.
 - Que estén disponibles los comandos necesarios (`git`, `curl`, `tar`, `sha256sum`, `bun` y `rg`).
 - Que esté instalada la biblioteca compartida libc++ de Termux.
 - Que existan el lanzador nativo, el punto de entrada JavaScript, la biblioteca PTY y el módulo watcher.
@@ -274,17 +274,17 @@ Muestra resultados individuales `OK` / `FAIL` y devuelve un código de salida di
 
 El runtime se instala en $PREFIX/lib/opencode-termux/lib/opencode y se inicia mediante $PREFIX/lib/opencode-termux/bin/opencode. El lanzador ejecuta Bun de Termux. El bundle incluye módulos Android/Bionic para OpenTUI, Rust PTY y @parcel/watcher.
 
-Esto sustituye el enfoque anterior basado en Linux/musl: el instalador ya no parchea ni ejecuta un binario ELF de Linux. Las bibliotecas Android deben ser objetos compartidos ELF AArch64 (ET_DYN) y no deben depender de glibc.
+Esto sustituye el enfoque anterior basado en Linux/musl: el instalador ya no parchea ni ejecuta un binario ELF de Linux. Las bibliotecas Android deben ser objetos compartidos ELF de la arquitectura objetivo (AArch64 o x86-64, ET_DYN) y no deben depender de glibc.
 
 ### Origen fijado
 
-El pipeline de este repositorio construye OpenCode desde un commit fijado del código fuente oficial (anomalyco/opencode). GitHub Actions compila las bibliotecas Bionic de OpenTUI y PTY, prepara el bundle JavaScript, inspecciona los ELF y valida el archivo y su SHA-256. tools/supply-chain-lock.json registra los commits y versiones de las fuentes y herramientas. El instalador descarga la release indicada por release-checksums.json; esa metadata seguirá apuntando al runtime previamente verificado hasta que la nueva compilación supere una prueba física en Termux ARM64.
+El pipeline de este repositorio construye OpenCode desde un commit fijado del código fuente oficial (anomalyco/opencode). GitHub Actions compila las bibliotecas Bionic de OpenTUI y PTY, prepara el bundle JavaScript, inspecciona los ELF y valida el archivo y su SHA-256. tools/supply-chain-lock.json registra los commits y versiones de las fuentes y herramientas. El instalador descarga la release indicada por release-checksums.json; esa metadata seguirá apuntando al runtime previamente verificado hasta que la nueva compilación supere las compilaciones, validaciones de ELF, pruebas de archivo y smoke tests automatizados de ARM64 y x86_64 en CI.
 
 El bundle contiene un lanzador shell, los módulos JavaScript, el renderizador Bionic OpenTUI, una biblioteca PTY Android y un módulo Android para vigilar archivos.
 
 ### Instalación y reversión
 
-1. Comprueba la arquitectura ARM64 y la versión mínima de Android.
+1. Comprueba que la arquitectura sea ARM64/aarch64 o x86_64 y que se cumpla la versión mínima de Android.
 2. Instala con pkg las dependencias que falten: bun, ripgrep y libc++.
 3. Descarga por HTTPS el bundle Android fijado y verifica su SHA-256.
 4. Valida las rutas y los tipos de los miembros antes de extraer; rechaza traversal, enlaces y archivos especiales.
@@ -303,7 +303,7 @@ El gestor, el actualizador, el menú interactivo y el desinstalador siguen separ
 - Las descargas utilizan HTTPS y se verifican contra el hash SHA-256 guardado en este repositorio.
 - El repositorio de origen y la etiqueta están permitidos explícitamente y deben coincidir con la versión fijada.
 - Las rutas y tipos del archivo se comprueban antes de extraer; se rechazan enlaces simbólicos, hardlinks, traversal y archivos especiales.
-- CI comprueba que los módulos nativos sean bibliotecas ELF AArch64 y que no dependan de glibc.
+- CI comprueba que los módulos nativos sean bibliotecas ELF de la arquitectura objetivo (AArch64 o x86-64) y que no dependan de glibc.
 - El instalador no sobrescribe comandos desconocidos de Termux.
 - La activación del runtime y de los lanzadores es transaccional; se intenta restaurar la instalación anterior si falla la comprobación final.
 - El desinstalador verifica la propiedad de los archivos antes de eliminarlos.
@@ -312,9 +312,9 @@ Límite de confianza: las fuentes y herramientas se fijan en el lockfile y cada 
 
 ## 🤖 Automatización de releases y CI
 
-El workflow de validación comprueba la sintaxis de shell, ShellCheck, la sincronización del gestor, la seguridad del archivo, los metadatos y el bundle nativo fijado. Descarga exactamente la versión y etiqueta indicadas en release-checksums.json, verifica SHA-256, inspecciona las bibliotecas ELF Android y prueba el lanzador con un Bun de prueba controlado.
+Los workflows `check-upstream.yml` y `prepare-upstream-update.yml` consultan cada seis horas las etiquetas estables oficiales `vX.Y.Z` de anomalyco/opencode, comparando versiones semánticas entre todas las versiones principales. Cuando aparece una versión nueva, preparan un PR en borrador con el commit exacto y el SHA-256 de las fuentes. El workflow de validación construye los runtimes ARM64 y x86_64, inspecciona sus ELF, valida ambos archivos y ejecuta smoke tests. No modifica los metadatos de instalación ni publica una release automáticamente: el candidato debe revisarse y aprobarse antes de publicar. Descarga exactamente la versión y etiqueta indicadas en release-checksums.json, verifica SHA-256, inspecciona las bibliotecas ELF Android y prueba el lanzador con un Bun de prueba controlado.
 
-Estas comprobaciones no sustituyen las pruebas en un dispositivo físico. Antes de considerar una release completamente verificada, también debe probarse en Termux ARM64 real: interfaz TUI interactiva, comandos PTY, vigilancia de archivos y arranque del servidor en segundo plano.
+CI construye y valida bundles independientes para ARM64 y x86_64, inspecciona sus bibliotecas ELF, valida los archivos y ejecuta smoke tests automatizados del runtime. Estas pruebas reproducibles son la puerta de aceptación para ambas arquitecturas y no requieren disponer de dispositivos físicos. Las pruebas adicionales en dispositivos reales siguen siendo útiles, pero no bloquean la preparación automatizada.
 
 Los cambios de versión actualizan juntos la etiqueta de origen y su hash mediante un cambio revisado del repositorio. Este proyecto ya no compila ni publica el ejecutable Linux/musl incompatible.
 ## 🛠️ Solución de problemas
@@ -367,7 +367,7 @@ uname -m
 dpkg --print-architecture
 ```
 
-El dispositivo compatible debe informar `aarch64`. Este paquete no funciona en ARM de 32 bits ni en dispositivos x86.
+El dispositivo compatible debe informar `aarch64` o `x86_64`. No se admite ARM de 32 bits ni x86 de 32 bits.
 
 ### Errores de descarga, TLS o DNS
 
@@ -450,7 +450,7 @@ Si también quieres eliminar el código fuente del proyecto, borra la copia manu
 
 ## 🤝 Contribuir
 
-Las incidencias, informes de errores y pull requests son bienvenidos. Mantén los cambios alineados con el objetivo Termux ARM64 y no debilites la validación del archivo, la verificación de hashes, las comprobaciones de propiedad ni la recuperación ante fallos.
+Las incidencias, informes de errores y pull requests son bienvenidos. Mantén los cambios alineados con los objetivos Termux ARM64 y x86_64 y no debilites la validación del archivo, la verificación de hashes, las comprobaciones de propiedad ni la recuperación ante fallos.
 
 ### Validación local
 
