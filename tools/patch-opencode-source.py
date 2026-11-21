@@ -122,7 +122,7 @@ def main() -> None:
         '  const termuxPath = path.join(global.home, ".local", "bin", "opencode")\n'
         '  const termuxBinary = yield* fs.realPath(termuxPath).pipe(Effect.orElseSucceed(() => termuxPath))\n'
         '  const prefixLauncher = process.env.PREFIX === undefined ? undefined : path.join(process.env.PREFIX, "bin", "opencode")\n'
-        '  const nativeTermux = executable === termuxBinary || (prefixLauncher !== undefined && executable === prefixLauncher)\n'
+        '  const nativeTermux = launcher === termuxPath || executable === termuxBinary || (prefixLauncher !== undefined && (launcher === prefixLauncher || executable === prefixLauncher))\n'
         '  if (nativeTermux) {\n'
         '    const releaseMarker = process.env.PREFIX === undefined ? undefined : path.join(process.env.PREFIX, "lib", "opencode-termux", ".opencode-termux-release-tag")\n'
         '    const installedReleaseTag = releaseMarker === undefined ? "" : yield* fs.readFileString(releaseMarker).pipe(Effect.orElseSucceed(() => ""))\n'
