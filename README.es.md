@@ -162,6 +162,7 @@ Hay tres mecanismos relacionados de actualización y recuperación.
 Antes de iniciar una sesión normal, el lanzador ejecuta el actualizador gestionado como máximo una vez cada seis horas. El actualizador adelanta la copia Git mediante fast-forward y vuelve a ejecutar el instalador, que verifica los checksums del release y utiliza el reemplazo transaccional con recuperación.
 
 - No se ejecuta para `opencode --version`, `opencode --help`, `opencode update` ni `opencode upgrade`.
+- En instalaciones existentes, ejecuta una vez `opencode-termux update` para instalar este lanzador; después las comprobaciones serán automáticas.
 - Se puede desactivar con `OPENCODE_TERMUX_AUTOUPDATE=0`.
 - Los resultados se guardan en `$PREFIX/var/log/opencode-termux/auto-update.log`.
 - Si falla la red o la actualización, el lanzador continúa con la versión instalada.
