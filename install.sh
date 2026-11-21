@@ -543,7 +543,7 @@ mv "$STAGE/opencode-launcher" "$LAUNCHER"
 mv "$STAGE/update-runtime.sh" "$INTERNAL_UPDATER"
 
 # Enforce executable permissions at the final destination as well as in staging.
-# This repairs restrictive umasks or stale non-executable manager files on upgrades.
+# This repairs restrictive umasks or stale non-executable launcher files on upgrades.
 chmod 755 "$LAUNCHER"
 for executable in "$LAUNCHER"; do
   [[ -x "$executable" ]] || {
