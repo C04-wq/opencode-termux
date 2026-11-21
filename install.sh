@@ -290,14 +290,9 @@ BACKUP=""
 NEW=""
 ACTIVATED=0
 LAUNCHER="$PREFIX/bin/opencode"
-UPDATER="$PREFIX/bin/opencode-termux-update"
-MANAGER="$PREFIX/bin/opencode-termux"
+INTERNAL_UPDATER="$RUNTIME/update-runtime.sh"
 LAUNCHER_BACKUP="$PREFIX/bin/.opencode-backup-$BASHPID"
-UPDATER_BACKUP="$PREFIX/bin/.opencode-updater-backup-$BASHPID"
-MANAGER_BACKUP="$PREFIX/bin/.opencode-manager-backup-$BASHPID"
 LAUNCHER_WAS_PRESENT=0
-UPDATER_WAS_PRESENT=0
-MANAGER_WAS_PRESENT=0
 LAUNCHERS_TOUCHED=0
 cleanup() {
   local status=$?
@@ -321,22 +316,6 @@ cleanup() {
         fi
       elif [[ "$LAUNCHER_WAS_PRESENT" == 0 ]]; then
         rm -f "$LAUNCHER"
-      fi
-      if [[ -e "$UPDATER_BACKUP" || -L "$UPDATER_BACKUP" ]]; then
-        rm -f "$UPDATER"
-        if ! mv "$UPDATER_BACKUP" "$UPDATER"; then
-          echo "Error: failed to restore the previous updater from $UPDATER_BACKUP." >&2
-        fi
-      elif [[ "$UPDATER_WAS_PRESENT" == 0 ]]; then
-        rm -f "$UPDATER"
-      fi
-      if [[ -e "$MANAGER_BACKUP" || -L "$MANAGER_BACKUP" ]]; then
-        rm -f "$MANAGER"
-        if ! mv "$MANAGER_BACKUP" "$MANAGER"; then
-          echo "Error: failed to restore the previous manager from $MANAGER_BACKUP." >&2
-        fi
-      elif [[ "$MANAGER_WAS_PRESENT" == 0 ]]; then
-        rm -f "$MANAGER"
       fi
     fi
   fi
@@ -447,9 +426,9 @@ if [[ -n "$REPO_DIR" && "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" && "$AUTO_UPDA
           printf 'Verified OpenCode update %s is available; installing automatically.\n' "$LATEST_VERSION" >&2
           UPDATE_STATUS=0
           if command -v timeout >/dev/null 2>&1; then
-            timeout 300 "$PREFIX/bin/opencode-termux-update" >> "$LOG_DIR/auto-update.log" 2>&1 || UPDATE_STATUS=$?
+            timeout 300 "$RUNTIME/update-runtime.sh" >> "$LOG_DIR/auto-update.log" 2>&1 || UPDATE_STATUS=$?
           else
-            "$PREFIX/bin/opencode-termux-update" >> "$LOG_DIR/auto-update.log" 2>&1 || UPDATE_STATUS=$?
+            "$RUNTIME/update-runtime.sh" >> "$LOG_DIR/auto-update.log" 2>&1 || UPDATE_STATUS=$?
           fi
           if [[ "$UPDATE_STATUS" == 0 ]]; then
             rmdir "$LOCK" 2>/dev/null || true
@@ -478,11 +457,7 @@ exec "$RUNTIME/bin/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
 
-# Keep one canonical manager implementation; this is also the file installed by users from the checkout.
-cp "$REPO_DIR/manager.sh" "$STAGE/opencode-termux-manager"
-chmod 755 "$STAGE/opencode-termux-manager"
-
-cat > "$STAGE/opencode-termux-update" <<UPDATER
+cat > "$STAGE/update-runtime.sh" <<UPDATER
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 REPO_DIR="$REPO_DIR"
@@ -500,7 +475,7 @@ else
 fi
 exec bash "\$REPO_DIR/install.sh"
 UPDATER
-chmod 755 "$STAGE/opencode-termux-update"
+chmod 755 "$STAGE/update-runtime.sh"
 
 # Migrate only installations whose ownership can be established. Never
 # overwrite an unknown command in PREFIX/bin: it may belong to another tool.
@@ -557,26 +532,6 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   fi
 fi
 
-# Protect the updater path too: never back up or replace an unrelated file.
-if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
-  if [[ ! -f "$UPDATER" ]] ||
-    ! grep -Fq 'git -C' "$UPDATER" ||
-    ! grep -Fq 'install.sh' "$UPDATER"; then
-    echo "Error: an unrecognized command already exists at $UPDATER." >&2
-    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
-    exit 1
-  fi
-fi
-
-# Protect the manager path too: never replace an unrelated command.
-if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
-  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
-    echo "Error: an unrecognized command already exists at $MANAGER." >&2
-    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
-    exit 1
-  fi
-fi
-
 # Activate launchers transactionally: keep the previous files until the
 # installed runtime passes its final test.
 LAUNCHERS_TOUCHED=1
@@ -584,22 +539,13 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   LAUNCHER_WAS_PRESENT=1
   mv "$LAUNCHER" "$LAUNCHER_BACKUP"
 fi
-if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
-  UPDATER_WAS_PRESENT=1
-  mv "$UPDATER" "$UPDATER_BACKUP"
-fi
-if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
-  MANAGER_WAS_PRESENT=1
-  mv "$MANAGER" "$MANAGER_BACKUP"
-fi
 mv "$STAGE/opencode-launcher" "$LAUNCHER"
-mv "$STAGE/opencode-termux-update" "$UPDATER"
-mv "$STAGE/opencode-termux-manager" "$MANAGER"
+mv "$STAGE/update-runtime.sh" "$INTERNAL_UPDATER"
 
 # Enforce executable permissions at the final destination as well as in staging.
 # This repairs restrictive umasks or stale non-executable manager files on upgrades.
-chmod 755 "$LAUNCHER" "$UPDATER" "$MANAGER"
-for executable in "$LAUNCHER" "$UPDATER" "$MANAGER"; do
+chmod 755 "$LAUNCHER"
+for executable in "$LAUNCHER"; do
   [[ -x "$executable" ]] || {
     echo "Error: installed command is not executable: $executable" >&2
     exit 1
@@ -609,10 +555,18 @@ done
 echo "Checking installed runtime..."
 FINAL_VERSION="$( unset LD_PRELOAD; export SSL_CERT_FILE="$CERT"; "$RUNTIME/bin/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
+# Remove only recognizable legacy project commands. Never delete unrelated files.
+if [[ -f "$PREFIX/bin/opencode-termux-update" ]] &&
+   grep -Fq 'git -C' "$PREFIX/bin/opencode-termux-update" &&
+   grep -Fq 'install.sh' "$PREFIX/bin/opencode-termux-update"; then
+  rm -f "$PREFIX/bin/opencode-termux-update"
+fi
+if [[ -f "$PREFIX/bin/opencode-termux" ]] &&
+   grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$PREFIX/bin/opencode-termux"; then
+  rm -f "$PREFIX/bin/opencode-termux"
+fi
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
-rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
+rm -f "$LAUNCHER_BACKUP"
 echo "OpenCode $VERSION installed successfully."
 echo "Start: opencode"
-echo "Manage: opencode-termux --help"
-echo "Update: opencode-termux update"
-echo "Uninstall: opencode-termux uninstall"
+echo "Update: opencode update"
