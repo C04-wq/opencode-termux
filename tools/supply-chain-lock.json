@@ -94,5 +94,28 @@
   "source_build_bun_1_4_4": {
     "linux_x64_archive_sha256": "bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c"
   },
-  "android_ndk_version": "30.0.16248370"
+  "android_ndk_version": "30.0.16248370",
+  "process_daemon": {
+    "package": "opencode-pty",
+    "version": "0.6.0",
+    "source": "anomalyco/opencode/packages/process-daemon",
+    "ghostty_commit": "ab0b9da9e88fcb4b0533a1854e84628f663930af",
+    "zig_version": "0.16.0",
+    "android_targets": [
+      "aarch64-linux-android",
+      "x86_64-linux-android"
+    ],
+    "zig_x86_64_linux_sha256": "70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00"
+  },
+  "fff": {
+    "package": "@ff-labs/fff-bun",
+    "version": "0.10.5",
+    "source": "dmtrKovalenko/fff",
+    "commit": "459ebcdbdba094843fe5339a1a7f7dae4ced2d82",
+    "crate": "fff-c",
+    "android_targets": [
+      "aarch64-linux-android",
+      "x86_64-linux-android"
+    ]
+  }
 }

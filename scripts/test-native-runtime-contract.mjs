@@ -2,29 +2,32 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 const meta = JSON.parse(fs.readFileSync("release-checksums.json", "utf8"));
+const lock = JSON.parse(fs.readFileSync("tools/supply-chain-lock.json", "utf8"));
 assert.match(meta.version, /^[0-9]+\.[0-9]+\.[0-9]+$/);
-assert.ok(["Spectra010s/opencode-termux", "C04-wq/opencode-termux"].includes(meta.sourceRepo));
+assert.equal(meta.sourceRepo, "C04-wq/opencode-termux", "runtime releases must originate from this repository");
 assert.equal(meta.sourceTag, "v" + meta.version);
 assert.match(meta.releaseTag, new RegExp("^v" + meta.version.replaceAll(".", "\\.") + "(-[1-9][0-9]*)?$"));
 assert.equal(meta.runtimeId, "android-bionic-bun-v1");
+assert.equal(meta.bunVersion, lock.opencode[meta.version].bun_version, "release metadata must pin the Bun runtime used to build the bundle");
 assert.match(meta.archiveSha256, /^[a-f0-9]{64}$/);
 if (meta.archiveSha256X86_64 !== undefined) assert.match(meta.archiveSha256X86_64, /^[a-f0-9]{64}$/);
 const installer = fs.readFileSync("install.sh", "utf8");
 assert.ok(installer.includes('x86_64) TARGET_ARCH="x86_64"; HASH_FIELD="archiveSha256X86_64"'), "installer must select the x86_64 release checksum");
 assert.ok(installer.includes('aarch64) TARGET_ARCH="aarch64"; HASH_FIELD="archiveSha256"'), "installer must preserve the ARM64 release checksum");
 assert.ok(installer.includes('unsupported architecture'), "unsupported architectures must be rejected before package installation");
-assert.ok(installer.includes('aarch64) UPDATE_HASH_FIELD="archiveSha256"'), "update prompt must read the ARM64 checksum");
-assert.ok(installer.includes('x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64"'), "update prompt must read the x86_64 checksum");
-assert.ok(installer.includes("'$UPDATE_HASH_FIELD'"), "update prompt must select its checksum field dynamically");
 assert.ok(installer.includes("install_termux_packages()") && installer.includes("termux-change-repo"), "package mirror 404s must include recovery instructions");
 assert.ok(!installer.includes("run_quiet pkg install"), "package installation must use the mirror-aware helper");
 for (const token of [
-  "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "Spectra010s/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
+  "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
   "opencode-$VERSION-android-$TARGET_ARCH-bundle.tar.gz", "$RELEASE_TAG", "archiveSha256X86_64", "TARGET_ARCH=\"$TARGET_ARCH\"",
   "validate-runtime-archive.sh", "@TERMUX_PREFIX@/lib/opencode",
-  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "DEFERRED_RUNTIME_ID", "INSTALLED_ARCHIVE_SHA256", "LATEST_ARCHIVE_SHA256", "DEFERRED_ARCHIVE_SHA256", ".opencode-termux-archive-sha256", ".opencode-termux-deferred-archive-sha256", "A new Termux runtime is available", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
+  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", ".opencode-termux-archive-sha256", ".opencode-termux-release-tag"
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
+assert.ok(installer.includes('"$PREFIX/bin/bun" --version') && installer.includes("BUN_VERSION_PIN"), "installer must reject an incompatible Termux Bun runtime before installing the bundle");
+assert.ok(installer.includes("INSTALLED_BUN_PATCH") && installer.includes("10#$INSTALLED_BUN_PATCH < 10#$REQUIRED_BUN_PATCH"), "installer must allow newer patch releases but reject older or different major/minor Bun runtimes");
+assert.ok(installer.includes('cp -a "$STAGE/files/lib/." "$NEW/lib/"'), "installer must copy the complete validated lib tree, including the official PTY daemon and native libraries");
+assert.ok(installer.includes('[[ ! -x "$PREFIX/bin/bun" ]]'), "installer must not mistake a host PATH Bun for the Termux runtime");
 const newline = String.fromCharCode(10);
 const launcherStart = 'cat > "$STAGE/opencode-launcher" <<';
 const launcherOffset = installer.indexOf(launcherStart);
@@ -35,18 +38,29 @@ const launcherBodyEnd = installer.indexOf(launcherEnd, launcherBodyStart);
 assert.notEqual(launcherBodyEnd, -1, "installer launcher heredoc is not terminated");
 const launcherSyntax = spawnSync("bash", ["-n"], { input: installer.slice(launcherBodyStart, launcherBodyEnd), encoding: "utf8" });
 assert.equal(launcherSyntax.status, 0, "generated OpenCode launcher has invalid Bash syntax: " + launcherSyntax.stderr);
-const manager = fs.readFileSync("manager.sh", "utf8");
-assert.equal(fs.readFileSync("opencode-termux", "utf8"), manager, "manager entry point must match manager.sh");
-for (const token of ["bun rg", "libc++_shared.so", ".opencode-termux-runtime-id", ".opencode-termux-archive-sha256", "bin/opencode", "lib/opencode/index.js", "librust_pty_arm64.so", "librust_pty_x86_64.so", "lib/opencode/watcher.node"]) {
-  assert.ok(manager.includes(token), "doctor missing native dependency: " + token);
+const sourcePatch = fs.readFileSync("tools/patch-opencode-source.py", "utf8");
+for (const token of [
+  "https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json",
+  "https://raw.githubusercontent.com/C04-wq/opencode-termux/main/install.sh",
+  "nativeTermux || detected",
+  "OPENCODE_TERMUX_EXPECTED_VERSION", "OPENCODE_TERMUX_EXPECTED_RELEASE_TAG",
+  "const termuxLatest = Effect.tryPromise",
+]) assert.ok(sourcePatch.includes(token), "official OpenCode updater must use the verified Termux repository: " + token);
+for (const token of ["OPENCODE_DISABLE_AUTOUPDATE", "OPENCODE_TERMUX_AUTOUPDATE", "AUTO_UPDATE_SKIP", "update-runtime.sh", "21600", "Verified OpenCode update"]) {
+  assert.ok(!installer.includes(token), "launcher/installer must not implement a second update system: " + token);
 }
-assert.ok(manager.includes('"$RUNTIME/bin/opencode" --version'), "doctor must execute the native launcher");
 const validator = fs.readFileSync("scripts/validate-runtime-archive.sh", "utf8");
 for (const token of ["bin/opencode", "lib/opencode/index.js", "librust_pty_arm64.so", "watcher.node", "no-same-owner", "no-same-permissions"]) {
   assert.ok(validator.includes(token), "archive validator missing " + token);
 }
+const smoke = fs.readFileSync("scripts/smoke-test-runtime-archive.sh", "utf8");
+assert.ok(smoke.includes('"${OPENCODE_PTY_BIN:-}"') && smoke.includes('"$ROOT/lib/opencode/opencode-pty"'), "archive smoke test must verify the launcher selects the official PTY daemon");
 const uninstall = fs.readFileSync("uninstall.sh", "utf8");
 assert.ok(uninstall.includes('rm -rf "$RUNTIME"'), "uninstaller must remove the complete native bundle");
+assert.ok(installer.includes('"$PREFIX/bin/opencode2"') && installer.includes('"opencode", "opencode2"'), "installer must detect only owned legacy opencode2 commands");
+assert.ok(installer.includes('bash "$STAGE/opencode-launcher" --version') && installer.includes('bash "$LAUNCHER" --version'), "installer must preflight and finally test the actual outer launcher before and after migration");
+assert.ok(installer.includes('SSL_CERT_FILE="${SSL_CERT_FILE:-$PREFIX/etc/tls/cert.pem}"'), "outer launcher must derive its CA path from the active Termux PREFIX");
+assert.ok(uninstall.includes('LEGACY_LAUNCHER2="$PREFIX/bin/opencode2"'), "uninstaller must remove only project-owned legacy opencode2 launchers");
+assert.ok(uninstall.includes('LEGACY_MANAGER="$PREFIX/bin/opencode-termux"') && uninstall.includes('LEGACY_UPDATE="$PREFIX/bin/opencode-termux-update"'), "manual uninstaller must clean recognizable legacy manager commands");
 assert.ok(installer.includes('THIRD_PARTY_NOTICES.md'), "installer must install third-party license notices");
-assert.ok(manager.includes("THIRD_PARTY_NOTICES.md"), "doctor must verify installed license notices");
-console.log("Native runtime metadata, installer, manager, validator and uninstall contracts passed.");
+console.log("Native runtime metadata, installer, validator and uninstall contracts passed.");

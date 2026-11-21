@@ -21,16 +21,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Compare the latest official OpenCode 2.x tag with our source lock
+      - name: Compare the highest stable official OpenCode tag with our source lock
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           CURRENT="$(python3 tools/ocver.py current)"
-          TAGS="$(curl --fail --location --silent --show-error \
-            --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
-            "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v2.")"
-          read -r LATEST_TAG LATEST LATEST_SHA < <(printf '%s' "$TAGS" | python3 tools/upstream_tags.py)
+          TAGS="$(git ls-remote --tags https://github.com/anomalyco/opencode.git 'refs/tags/v*')"
+          read -r LATEST_TAG LATEST LATEST_SHA < <(printf '%s\n' "$TAGS" | python3 tools/upstream_tags.py)
           [[ "$LATEST_TAG" == "v$LATEST" && "$LATEST_SHA" =~ ^[0-9a-f]{40}$ ]]
 
           UPDATE_AVAILABLE="$(python3 - "$CURRENT" "$LATEST" <<'PY'
@@ -50,7 +48,7 @@ jobs:
                 --title "$TITLE" \
                 --body "The official anomalyco/opencode repository published source tag $LATEST_TAG at commit $LATEST_SHA, while this repository still pins $CURRENT. The prepare-upstream-update workflow runs on the same six-hour schedule and should open a draft PR with the exact source commit and archive digest. Review upstream dependency changes and the inherited Android toolchain pins, require ARM64/x86_64 CI to pass, and require the automated ARM64 and x86_64 CI build, archive, installer, and runtime smoke-test gates to pass. No physical Termux device testing is required. Do not publish a runtime or change installer metadata until the candidate is reviewed and validated."
             fi
-            echo "New official OpenCode 2.x tag detected: $LATEST_TAG ($LATEST_SHA); locked version: $CURRENT."
+            echo "New official OpenCode tag detected: $LATEST_TAG ($LATEST_SHA); locked version: $CURRENT."
           else
-            echo "OpenCode source lock is current ($CURRENT); latest official v2.x tag is $LATEST_TAG."
+            echo "OpenCode source lock is current ($CURRENT); latest official stable tag is $LATEST_TAG."
           fi

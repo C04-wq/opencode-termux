@@ -108,4 +108,14 @@ if [[ ! -x "$DESTINATION/bin/opencode" ]]; then
   exit 1
 fi
 
+daemon="$DESTINATION/lib/opencode/opencode-pty"
+daemon_marker="$DESTINATION/lib/opencode/opencode-pty.required"
+if [[ -e "$daemon" || -e "$daemon_marker" ]]; then
+  if [[ ! -f "$daemon" || -L "$daemon" || ! -x "$daemon" || ! -f "$daemon_marker" || -L "$daemon_marker" || ! -s "$daemon_marker" ]]; then
+    rm -rf "$DESTINATION"
+    echo "Error: official opencode-pty daemon and requirement marker must be packaged together and executable." >&2
+    exit 1
+  fi
+fi
+
 echo "Native Android $TARGET_ARCH bundle structure verified."

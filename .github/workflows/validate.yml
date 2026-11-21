@@ -36,25 +36,26 @@ jobs:
       - name: Validate shell scripts and regression tests
         run: |
           set -euo pipefail
-          bash -n install.sh uninstall.sh manager.sh opencode-termux
-          bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/ci/build-parcel-watcher-android.sh scripts/test-termux-device.sh
+          bash -n install.sh uninstall.sh
+          sh -n packing/launcher/opencode
+          bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/ci/build-opencode-pty-android.sh scripts/ci/build-fff-android.sh scripts/ci/build-parcel-watcher-android.sh scripts/test-termux-device.sh
           bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
-          bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh
+          bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh scripts/test-installer-in-prefix.sh
           bash scripts/test-package-owner.sh
           bash scripts/test-termux-repository-migration.sh
           bash scripts/test-runtime-archive.sh
           bash scripts/test-rust-pty-build.sh
-          bash manager.sh help >/dev/null
-          bash manager.sh version | grep -Fq 'opencode-termux manager'
-          bash manager.sh status | grep -Fq 'Status: not installed'
-          bash opencode-termux help >/dev/null
-          shellcheck -S error install.sh uninstall.sh manager.sh opencode-termux scripts/*.sh
+          shellcheck -S error install.sh uninstall.sh packing/launcher/opencode scripts/*.sh
+          bash scripts/test-launcher-template.sh
+          for path in install.sh uninstall.sh packing/launcher/opencode; do test -x "$path" || { echo "Expected executable source entrypoint: $path" >&2; exit 1; }; done
       - name: Validate native runtime contract
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/analyze-runtime-size.py tools/test-runtime-size.py tools/ocver.py tools/upstream_tags.py tools/test_upstream_tags.py tools/patch-opencode-source.py tools/patch-opencode-bundle.py tools/patch-opentui-ffi.py tools/patch-opentui-loader.py tools/patch-fff-android.py tools/patch-opentui-android.py tools/remap-binary-prefix.py tools/transplant/swap_tui.py
+          python3 -m py_compile tools/analyze-runtime-size.py tools/test-runtime-size.py tools/ocver.py tools/upstream_tags.py tools/test_upstream_tags.py tools/patch-opencode-source.py tools/patch-opencode-bundle.py tools/patch-opentui-ffi.py tools/patch-opentui-loader.py tools/patch-fff-android.py tools/patch-opentui-android.py tools/remap-binary-prefix.py tools/transplant/swap_tui.py tools/bun_lock.py tools/test_bun_lock.py tools/test_termux_updater_contract.py
           python3 -m json.tool tools/supply-chain-lock.json >/dev/null
           python3 tools/test_upstream_tags.py
+          python3 tools/test_bun_lock.py
+          python3 tools/test_termux_updater_contract.py
           python3 tools/test-runtime-size.py
           python3 -m json.tool tools/transplant/config/bun-bind.json >/dev/null
           node --check scripts/test-native-runtime-contract.mjs
@@ -82,7 +83,7 @@ jobs:
           SOURCE="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).sourceRepo')"
           SOURCE_TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).sourceTag')"
           RELEASE_TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).releaseTag')"
-          case "$SOURCE" in C04-wq/opencode-termux|Spectra010s/opencode-termux) ;; *) echo "Unapproved runtime source: $SOURCE" >&2; exit 1 ;; esac
+          case "$SOURCE" in C04-wq/opencode-termux) ;; *) echo "Unapproved runtime source: $SOURCE" >&2; exit 1 ;; esac
           test "$SOURCE_TAG" = "v$VERSION"
           if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
             RELEASE_REVISION="${RELEASE_TAG#v$VERSION-}"
@@ -95,15 +96,17 @@ jobs:
           URL="https://github.com/$SOURCE/releases/download/$RELEASE_TAG/opencode-$VERSION-android-aarch64-bundle.tar.gz"
           curl --fail --location --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' "$URL" -o "$ARCHIVE"
           echo "$HASH  $ARCHIVE" | sha256sum -c -
-          bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
+          REQUIRE_OFFICIAL_PTY_DAEMON=0 REQUIRE_16KB_PAGE_ALIGNMENT=0 bash scripts/smoke-test-runtime-archive.sh "$ARCHIVE" "$VERSION" "$RUNNER_TEMP/native-smoke"
 
-      - name: Exercise installer, dependency bootstrap and manager in an isolated prefix
+      - name: Exercise installer and dependency bootstrap in an isolated prefix
         env:
           PREFIX: ${{ runner.temp }}/termux-prefix
           OPENCODE_TEST_ARCHIVE: ${{ runner.temp }}/opencode-native.tar.gz
         run: |
           set -euo pipefail
           export OPENCODE_TEST_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).version')"
+          export OPENCODE_TEST_RELEASE_TAG="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).releaseTag')"
+          export OPENCODE_TEST_BUN_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).bunVersion')"
           export OPENCODE_TEST_SHA256="$(node -p 'JSON.parse(require("fs").readFileSync("release-checksums.json", "utf8")).archiveSha256')"
           export OPENCODE_TEST_REMOTE_SHA256="$OPENCODE_TEST_SHA256"
           mkdir -p "$PREFIX/etc/tls" "$PREFIX/etc" "$RUNNER_TEMP/termux-stubs"
@@ -136,7 +139,9 @@ jobs:
           mkdir -p "$PREFIX/bin" "$PREFIX/lib"
           cat > "$PREFIX/bin/bun" <<'BUN'
           #!/usr/bin/env bash
-          if [[ "${*: -1}" == "--version" ]]; then
+          if [[ "$#" -eq 1 && "$1" == "--version" ]]; then
+            echo "$OPENCODE_TEST_BUN_VERSION"
+          elif [[ "${*: -1}" == "--version" ]]; then
             echo "opencode v$OPENCODE_TEST_VERSION"
           fi
           BUN
@@ -151,40 +156,27 @@ jobs:
           export PATH="$RUNNER_TEMP/termux-stubs:$PREFIX/bin:$PATH"
           bash install.sh
           test -x "$PREFIX/bin/opencode"
-          test -x "$PREFIX/bin/opencode-termux"
-          test -x "$PREFIX/bin/opencode-termux-update"
+          test ! -e "$PREFIX/bin/opencode-termux"
+          test ! -e "$PREFIX/bin/opencode-termux-update"
           test -s "$PREFIX/lib/opencode-termux/lib/opencode/index.js"
           test -f "$PREFIX/lib/opencode-termux/lib/opencode/bunfig.toml"
           test -s "$PREFIX/lib/opencode-termux/THIRD_PARTY_NOTICES.md"
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id")" = "android-bionic-bun-v1"
+          test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-release-tag")" = "$OPENCODE_TEST_RELEASE_TAG"
+          if [[ -s "$PREFIX/lib/opencode-termux/lib/opencode-pty.required" ]]; then
+            test -x "$PREFIX/lib/opencode-termux/lib/opencode/opencode-pty"
+            test -s "$PREFIX/lib/opencode-termux/lib/opencode/librust_pty_arm64.so"
+          fi
           test "$(cat "$PREFIX/lib/opencode-termux/.opencode-termux-archive-sha256")" = "$OPENCODE_TEST_SHA256"
           bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
-          bash "$PREFIX/bin/opencode-termux" doctor
-          # Existing 2.3.2 musl installs must be offered the Bionic migration
-          # even though the OpenCode version number itself does not change.
-          printf 'legacy-musl\n' > "$PREFIX/lib/opencode-termux/.opencode-termux-runtime-id"
-          rm -f "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
-          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/migration-prompt.txt"
-          grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/migration-prompt.txt"
-          grep -Fxq '2.3.2' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-version"
-          grep -Fxq 'android-bionic-bun-v1' "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-runtime-id"
-          grep -Fxq "$OPENCODE_TEST_SHA256" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
-          script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/deferred-prompt.txt"
-          if grep -Fq 'A new Termux runtime is available' "$RUNNER_TEMP/deferred-prompt.txt"; then
-            echo "Deferred runtime prompt was shown again for the same target." >&2
-            exit 1
-          fi
-          # A same-version rebuild with the same runtime ID must prompt when its archive hash changes.
-          OPENCODE_TEST_REMOTE_SHA256="$(printf 'a%.0s' {1..64})"
-          export OPENCODE_TEST_REMOTE_SHA256
-          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
-          grep -Fq 'A new Termux runtime is available for OpenCode 2.3.2.' "$RUNNER_TEMP/rebuilt-runtime-prompt.txt"
-          grep -Fxq "$OPENCODE_TEST_REMOTE_SHA256" "$PREFIX/lib/opencode-termux/.opencode-termux-deferred-archive-sha256"
-          OPENCODE_TEST_REMOTE_VERSION=2.3.3
-          export OPENCODE_TEST_REMOTE_VERSION
-          printf '\033[B\r' | script -qec 'bash "$PREFIX/bin/opencode" --version' /dev/null > "$RUNNER_TEMP/next-version-prompt.txt"
-          grep -Fq 'A new OpenCode version is available: 2.3.3' "$RUNNER_TEMP/next-version-prompt.txt"
-          echo "PASS: installer, dependency bootstrap, manager doctor, migration/defer prompts and same-version archive rebuild detection."
+          # OpenCode owns update discovery and prompts. The launcher must not
+          # run a second periodic checker or install a private update command.
+          test ! -e "$PREFIX/lib/opencode-termux/update-runtime.sh"
+          ! grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE' "$PREFIX/bin/opencode"
+          ! grep -Fq 'OPENCODE_TERMUX_AUTOUPDATE' "$PREFIX/bin/opencode"
+          ! grep -Fq 'Verified OpenCode update' "$PREFIX/bin/opencode"
+          bash "$PREFIX/bin/opencode" --version | grep -Fxq "opencode v$OPENCODE_TEST_VERSION"
+          echo "PASS: installer, official OpenCode updater remains enabled, no launcher auto-update helper."
 
   build-x86_64-native:
     name: Build and verify Android x86_64 runtime
@@ -204,7 +196,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install --yes binutils build-essential clang file git libnode-dev llvm patch python3 curl xz-utils
+          sudo apt-get -o Acquire::Retries=3 install --yes binutils build-essential clang cmake file git libnode-dev llvm patch python3 curl xz-utils
           command -v cargo
           command -v rustup
 
@@ -336,7 +328,7 @@ jobs:
           command -v cargo
           command -v rustup
           rustup target add x86_64-linux-android
-          TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" LLVM_STRIP="$LLVM_STRIP" \
+          RUN_UPSTREAM_NATIVE_TESTS=1 TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" LLVM_STRIP="$LLVM_STRIP" \
             bash scripts/ci/build-opencode-bundle.sh
           STAGED="artifacts/bundle/$(python3 tools/ocver.py current)-x86_64"
           test -s "$STAGED/lib/index.js"
@@ -368,18 +360,23 @@ jobs:
           import hashlib, json, sys
           version, path, release_tag = sys.argv[1:]
           digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
+          bun_version = lock["opencode"][version]["bun_version"]
           print(json.dumps({
               "version": version,
+              "bunVersion": bun_version,
               "sourceRepo": "C04-wq/opencode-termux",
               "sourceTag": "v" + version,
               "releaseTag": release_tag,
-              "archiveSha256": digest,
+              "archiveSha256X86_64": digest,
+              "archiveNameX86_64": path.rsplit("/", 1)[-1],
               "runtimeId": "android-bionic-bun-v1"
           }, indent=2))
           PY
           python3 tools/analyze-runtime-size.py "$ARCHIVE" --top 25
           (cd dist && sha256sum -c SHA256SUMS)
           cat dist/release-checksums.json
+          TARGET_ARCH=x86_64 bash scripts/test-installer-in-prefix.sh "$ARCHIVE" dist/release-checksums.json x86_64
 
       - name: Upload x86_64 automated CI candidate
         if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
@@ -417,7 +414,7 @@ jobs:
           set -euo pipefail
           sudo apt-get -o Acquire::Retries=3 update
           sudo apt-get -o Acquire::Retries=3 install --yes \
-            binutils build-essential clang file git libnode-dev libssl-dev llvm patch python3 \
+            binutils build-essential clang cmake file git libnode-dev libssl-dev llvm patch python3 \
             unzip zip curl xz-utils
           command -v cargo
           command -v rustup
@@ -572,7 +569,7 @@ jobs:
         run: |
           set -euo pipefail
           rustup target add aarch64-linux-android
-          bash scripts/ci/build-opencode-bundle.sh
+          RUN_UPSTREAM_NATIVE_TESTS=0 bash scripts/ci/build-opencode-bundle.sh
           # Build and verify the first x86_64 native dependency independently.
           # This does not imply that the complete OpenCode bundle supports x86_64.
           TARGET_ARCH=x86_64 NDK="$NDK" ANDROID_API="$ANDROID_API" \
@@ -606,17 +603,22 @@ jobs:
           import hashlib, json, sys
           version, path, release_tag = sys.argv[1:]
           digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          lock = json.load(open("tools/supply-chain-lock.json", encoding="utf-8"))
+          bun_version = lock["opencode"][version]["bun_version"]
           print(json.dumps({
               "version": version,
+              "bunVersion": bun_version,
               "sourceRepo": "C04-wq/opencode-termux",
               "sourceTag": "v" + version,
               "releaseTag": release_tag,
               "archiveSha256": digest,
+              "archiveName": path.rsplit("/", 1)[-1],
               "runtimeId": "android-bionic-bun-v1"
           }, indent=2))
           PY
           cat dist/release-checksums.json
           (cd dist && sha256sum -c SHA256SUMS)
+          TARGET_ARCH=aarch64 bash scripts/test-installer-in-prefix.sh "$ARCHIVE" dist/release-checksums.json aarch64
 
       - name: Upload ARM64 automated CI candidate
         if: github.event_name == 'pull_request'

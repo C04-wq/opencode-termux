@@ -28,7 +28,7 @@ case "$DEVICE_ARCH" in
     exit 1
     ;;
 esac
-for cmd in bun rg tar sha256sum; do
+for cmd in bun rg tar sha256sum timeout; do
   command -v "$cmd" >/dev/null 2>&1 || {
     echo "Missing dependency: $cmd. Install it with: pkg install bun ripgrep libc++" >&2
     exit 1
@@ -99,7 +99,9 @@ for required in \
   lib/opencode/index.js \
   lib/opencode/bunfig.toml \
   lib/opencode/$PTY_LIBRARY \
-  lib/opencode/watcher.node; do
+  lib/opencode/watcher.node \
+  lib/opencode/opencode-pty \
+  lib/opencode/opencode-pty.required; do
   [[ -f "$CANDIDATE/$required" ]] || {
     echo "Error: candidate archive is missing $required" >&2
     exit 1
@@ -132,6 +134,29 @@ if command -v readelf >/dev/null 2>&1; then
 else
   echo "Note: readelf is not installed; device-side ELF inspection was skipped."
 fi
+
+"$CANDIDATE/lib/opencode/opencode-pty" --version
+
+# Exercise the actual daemon protocol and create a real Android PTY. The
+# playground starts the daemon, creates a shell, sends a command, reads a
+# terminal snapshot, then releases the service on quit.
+PTY_SMOKE_ROOT="$(mktemp -d "${TMPDIR:-$PREFIX/tmp}/opencode-pty-smoke.XXXXXX")"
+PTY_SMOKE_LOG="$PTY_SMOKE_ROOT/play.log"
+if ! printf 'new\nrun echo OPENCODE_PTY_ANDROID_SMOKE_OK\nwait 500\nquit\n' |
+  timeout 30 "$CANDIDATE/lib/opencode/opencode-pty" play --name termux-smoke --runtime-dir "$PTY_SMOKE_ROOT" > "$PTY_SMOKE_LOG" 2>&1; then
+  cat "$PTY_SMOKE_LOG" >&2
+  rm -rf "$PTY_SMOKE_ROOT"
+  echo "Error: official PTY daemon failed its Android IPC/terminal smoke test." >&2
+  exit 1
+fi
+if ! grep -Fq 'OPENCODE_PTY_ANDROID_SMOKE_OK' "$PTY_SMOKE_LOG"; then
+  cat "$PTY_SMOKE_LOG" >&2
+  rm -rf "$PTY_SMOKE_ROOT"
+  echo "Error: daemon started but did not return the PTY command output." >&2
+  exit 1
+fi
+rm -rf "$PTY_SMOKE_ROOT"
+echo "Official opencode-pty daemon and real terminal IPC passed."
 
 echo "Testing OpenCode $VERSION ($TARGET_ARCH) with the real Termux Bun runtime..."
 VERSION_OUTPUT="$("$CANDIDATE/bin/opencode" --version 2>&1)"

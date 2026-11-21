@@ -7,10 +7,12 @@ TARGET_ARCH="${TARGET_ARCH:-aarch64}"
 case "$TARGET_ARCH" in
   aarch64)
     EXPECTED_ELF_MACHINE="AArch64"
+    EXPECTED_ANDROID_LINKER="/system/bin/linker64"
     PTY_LIBRARY="librust_pty_arm64.so"
     ;;
   x86_64)
     EXPECTED_ELF_MACHINE="Advanced Micro Devices X86-64"
+    EXPECTED_ANDROID_LINKER="/system/bin/linker64"
     PTY_LIBRARY="librust_pty_x86_64.so"
     ;;
   *)
@@ -34,12 +36,23 @@ mv "$STAGED/bin/opencode" "$ROOT/bin/opencode"
 mv "$STAGED/lib/opencode" "$ROOT/lib/opencode"
 chmod 755 "$ROOT/bin/opencode"
 sh -n "$ROOT/bin/opencode"
-for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node; do
+for native in "$ROOT"/lib/opencode/*.so "$ROOT"/lib/opencode/*.node "$ROOT"/lib/opencode/opencode-pty; do
   [[ -f "$native" ]] || continue
   header="$(readelf -h "$native")"
   grep -q 'Class:.*ELF64' <<<"$header"
   grep -q 'Type:.*DYN' <<<"$header"
   grep -Eq "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$header"
+  alignments="$(readelf -lW "$native" | awk '$1 == "LOAD" { print $NF }')"
+  [[ -n "$alignments" ]] || { echo "no PT_LOAD segments found in $native" >&2; exit 1; }
+  if [[ "${REQUIRE_16KB_PAGE_ALIGNMENT:-1}" == "1" ]]; then
+    while IFS= read -r alignment; do
+      alignment="${alignment#0x}"
+      if (( 16#$alignment < 16384 )); then
+        echo "Android 16 KB page alignment missing in $native (PT_LOAD alignment 0x$alignment)" >&2
+        exit 1
+      fi
+    done <<<"$alignments"
+  fi
   if readelf -d "$native" 2>/dev/null | grep -Eq 'NEEDED.*libc\.so\.6'; then
     echo "glibc dependency found in Android module: $native" >&2; exit 1
   fi
@@ -70,6 +83,25 @@ case "$TARGET_ARCH" in
     ;;
 esac
 
+# The official opencode-pty daemon is an executable (not bun-pty's .so).
+# New source-built candidates must contain it; published legacy archives can
+# be smoke-tested with REQUIRE_OFFICIAL_PTY_DAEMON=0 during migration.
+daemon="$ROOT/lib/opencode/opencode-pty"
+if [[ -f "$daemon" ]]; then
+  [[ -s "$daemon" && -x "$daemon" && -s "$ROOT/lib/opencode/opencode-pty.required" ]] || { echo "official opencode-pty daemon or marker missing" >&2; exit 1; }
+  daemon_header="$(readelf -h "$daemon")"
+  grep -q "Machine:.*$EXPECTED_ELF_MACHINE" <<<"$daemon_header"
+  daemon_interpreter="$(readelf -l "$daemon" | sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p')"
+  [[ "$daemon_interpreter" == "$EXPECTED_ANDROID_LINKER" ]] || { echo "wrong opencode-pty Android interpreter: $daemon_interpreter" >&2; exit 1; }
+  daemon_needed="$(readelf -d "$daemon" | awk '/NEEDED/{print $NF}')"
+  if grep -Eq 'libc\.so\.6|ld-linux|libgcc_s\.so' <<<"$daemon_needed"; then echo "glibc dependency found in opencode-pty: $daemon_needed" >&2; exit 1; fi
+elif [[ "${REQUIRE_OFFICIAL_PTY_DAEMON:-1}" == "1" ]]; then
+  echo "official opencode-pty daemon missing from source-built candidate" >&2
+  exit 1
+else
+  echo "WARN: testing a legacy archive predating the official opencode-pty daemon"
+fi
+
 # Exercise the shipped shell launcher without loading Android/Bionic modules
 # on the Linux CI host. The stub verifies the module path and argument contract.
 mkdir -p "$WORKDIR/prefix/bin"
@@ -79,7 +111,12 @@ set -e
 printf '%s\n' "$OPENCODE_ROOT" > "$BUN_TEST_LOG.root"
 printf '%s\n' "$OPENCODE_LAUNCHER" > "$BUN_TEST_LOG.launcher"
 printf '%s\n' "$BUN_PTY_LIB" > "$BUN_TEST_LOG.pty"
-printf '%s\n' "$OPENCODE_DISABLE_AUTOUPDATE" > "$BUN_TEST_LOG.autoupdate"
+printf '%s\n' "${OPENCODE_PTY_BIN:-}" > "$BUN_TEST_LOG.daemon"
+if [[ ${OPENCODE_DISABLE_AUTOUPDATE+x} ]]; then
+  printf '%s\n' set > "$BUN_TEST_LOG.autoupdate"
+else
+  printf '%s\n' unset > "$BUN_TEST_LOG.autoupdate"
+fi
 printf '%s\n' "$*" > "$BUN_TEST_LOG.args"
 if [[ "${*: -1}" == "--version" ]]; then echo "opencode v$BUN_TEST_VERSION"; fi
 BUN
@@ -93,7 +130,7 @@ chmod 755 "$WORKDIR/stubs/uname"
 export PREFIX="$WORKDIR/prefix" BUN_TEST_LOG="$WORKDIR/bun-test" BUN_TEST_VERSION="$VERSION"
 export BUN_TEST_ARCH="$TARGET_ARCH"
 export PATH="$WORKDIR/stubs:$PATH"
-env -u OPENCODE_LAUNCHER bash "$ROOT/bin/opencode" --version > "$WORKDIR/version.txt"
+env -u OPENCODE_LAUNCHER -u OPENCODE_DISABLE_AUTOUPDATE bash "$ROOT/bin/opencode" --version > "$WORKDIR/version.txt"
 if ! grep -Fxq "opencode v$VERSION" "$WORKDIR/version.txt"; then
   echo "Unexpected launcher version output:" >&2
   cat "$WORKDIR/version.txt" >&2
@@ -104,7 +141,20 @@ fi
 grep -Fxq "$ROOT/lib/opencode" "$BUN_TEST_LOG.root"
 grep -Fxq "$ROOT/bin/opencode" "$BUN_TEST_LOG.launcher"
 grep -Fxq "$ROOT/lib/opencode/$PTY_LIBRARY" "$BUN_TEST_LOG.pty"
-grep -Fxq 1 "$BUN_TEST_LOG.autoupdate"
+if [[ -f "$ROOT/lib/opencode/opencode-pty.required" ]]; then
+  grep -Fxq "$ROOT/lib/opencode/opencode-pty" "$BUN_TEST_LOG.daemon"
+else
+  grep -Fxq "" "$BUN_TEST_LOG.daemon"
+fi
+# Published legacy archives may contain the old launcher that explicitly
+# exported OPENCODE_DISABLE_AUTOUPDATE. Compare the stub's observed environment
+# with the launcher actually under test; new candidate bundles use the current
+# launcher template and must leave this variable unset (enforced by static CI).
+if grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE' "$ROOT/bin/opencode"; then
+  grep -Fxq set "$BUN_TEST_LOG.autoupdate"
+else
+  grep -Fxq unset "$BUN_TEST_LOG.autoupdate"
+fi
 grep -Fq -- '--smol' "$BUN_TEST_LOG.args"
 grep -Fq -- "$ROOT/lib/opencode/index.js --version" "$BUN_TEST_LOG.args"
 echo "PASS: Android $TARGET_ARCH ELF modules are Bionic shared libraries without glibc dependencies."

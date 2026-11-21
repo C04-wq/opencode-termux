@@ -52,7 +52,9 @@ migrate_legacy_termux_repository() {
 
     # Only active Main repository declarations are rewritten. Preserve comments
     # and unrelated repositories, including root and X11.
-    if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net([/:[:space:]]|$)' "$file"; then
+    # Migrate only the legacy Main endpoint. Do not touch termux-root or
+    # termux-x11 entries even when they share the old termux.net host.
+    if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net(/apt/termux-main)?([[:space:]]|$)' "$file"; then
       backup="${file}.opencode-termux.bak"
       suffix=0
       while [[ -e "$backup" ]]; do
@@ -62,15 +64,17 @@ migrate_legacy_termux_repository() {
       cp -p "$file" "$backup"
 
       if ! sed -i -E \
-        -e '/^[[:space:]]*deb([[:space:]]|$)/ s#https?://termux\.net(/apt/termux-main)?#https://packages.termux.dev/apt/termux-main#g' \
-        -e '/^[[:space:]]*URIs:[[:space:]]*/ s#https?://termux\.net(/apt/termux-main)?#https://packages.termux.dev/apt/termux-main#g' \
+        -e '/^[[:space:]]*deb([[:space:]]|$)/ s#https?://termux\.net/apt/termux-main#https://packages.termux.dev/apt/termux-main#g' \
+        -e '/^[[:space:]]*deb([[:space:]]|$)/ s#https?://termux\.net([[:space:]]|$)#https://packages.termux.dev/apt/termux-main\1#g' \
+        -e '/^[[:space:]]*URIs:[[:space:]]*/ s#https?://termux\.net/apt/termux-main#https://packages.termux.dev/apt/termux-main#g' \
+        -e '/^[[:space:]]*URIs:[[:space:]]*/ s#https?://termux\.net([[:space:]]|$)#https://packages.termux.dev/apt/termux-main\1#g' \
         "$file"; then
         cp -p "$backup" "$file"
         echo "Error: could not migrate the obsolete Termux repository in $file." >&2
         return 1
       fi
 
-      if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net([/:[:space:]]|$)' "$file"; then
+      if grep -Eiq '^[[:space:]]*(deb([[:space:]]|$)|URIs:[[:space:]]*)[^#]*https?://termux\.net(/apt/termux-main)?([[:space:]]|$)' "$file"; then
         cp -p "$backup" "$file"
         echo "Error: legacy termux.net source remains in $file; refusing to continue." >&2
         return 1
@@ -233,12 +237,21 @@ CERT="$PREFIX/etc/tls/cert.pem"
 RESOLVER="$PREFIX/etc/resolv.conf"
 [[ -f "$META" ]] || { echo "Error: release-checksums.json missing." >&2; exit 1; }
 VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+if [[ -n "${OPENCODE_TERMUX_EXPECTED_VERSION:-}" && "$VERSION" != "$OPENCODE_TERMUX_EXPECTED_VERSION" ]]; then
+  echo "Error: requested Termux runtime $OPENCODE_TERMUX_EXPECTED_VERSION, but repository metadata currently selects $VERSION. Refusing to install a different release." >&2
+  exit 1
+fi
 HASH="$(sed -n "s/.*\"$HASH_FIELD\"[[:space:]]*:[[:space:]]*\"\\([a-f0-9]*\\)\".*/\\1/p" "$META" | head -n1)"
 SOURCE_REPO_PIN="$(sed -n 's/.*"sourceRepo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 SOURCE_TAG="$(sed -n 's/.*"sourceTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 RELEASE_TAG="$(sed -n 's/.*"releaseTag"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 RUNTIME_ID="$(sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
+BUN_VERSION_PIN="$(sed -n 's/.*"bunVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$META" | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: invalid version." >&2; exit 1; }
+if [[ -n "$BUN_VERSION_PIN" && ! "$BUN_VERSION_PIN" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+  echo "Error: invalid Bun runtime version in release metadata." >&2
+  exit 1
+fi
 if [[ ! "$HASH" =~ ^[a-f0-9]{64}$ ]]; then
   if [[ "$TARGET_ARCH" == "x86_64" ]]; then
     echo "Error: no verified x86_64 runtime is published for OpenCode $VERSION yet. Automated x86_64 build and release validation must complete before installation." >&2
@@ -258,7 +271,11 @@ if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
     exit 1
   }
 fi
-[[ ( "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" || "$SOURCE_REPO_PIN" == "Spectra010s/opencode-termux" ) && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
+if [[ -n "${OPENCODE_TERMUX_EXPECTED_RELEASE_TAG:-}" && "$RELEASE_TAG" != "$OPENCODE_TERMUX_EXPECTED_RELEASE_TAG" ]]; then
+  echo "Error: requested Termux release $OPENCODE_TERMUX_EXPECTED_RELEASE_TAG, but repository metadata currently selects $RELEASE_TAG. Refusing to install a different package revision." >&2
+  exit 1
+fi
+[[ "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
   echo "Error: native runtime source is not an approved release." >&2
   exit 1
 }
@@ -269,13 +286,29 @@ for cmd in git curl tar sha256sum sed find grep awk; do
   fi
 done
 # The native bundle runs on Termux Bun and loads Bionic modules at runtime.
-if ! command -v bun >/dev/null 2>&1 || ! command -v rg >/dev/null 2>&1 || [[ ! -s "$PREFIX/lib/libc++_shared.so" ]]; then
+if [[ ! -x "$PREFIX/bin/bun" ]] || ! command -v rg >/dev/null 2>&1 || [[ ! -s "$PREFIX/lib/libc++_shared.so" ]]; then
   echo "Preparing native runtime dependencies..."
   install_termux_packages bun ripgrep libc++
 fi
 for cmd in git curl tar sha256sum sed find grep awk bun rg; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "Missing required command: $cmd" >&2; exit 1; }
 done
+if [[ -n "$BUN_VERSION_PIN" ]]; then
+  INSTALLED_BUN_VERSION="$( "$PREFIX/bin/bun" --version 2>/dev/null || true )"
+  if [[ ! "$INSTALLED_BUN_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    echo "Error: unable to determine the Termux Bun version from $PREFIX/bin/bun." >&2
+    exit 1
+  fi
+  INSTALLED_BUN_MAJOR="${BASH_REMATCH[1]}"
+  INSTALLED_BUN_MINOR="${BASH_REMATCH[2]}"
+  INSTALLED_BUN_PATCH="${BASH_REMATCH[3]}"
+  IFS=. read -r REQUIRED_BUN_MAJOR REQUIRED_BUN_MINOR REQUIRED_BUN_PATCH <<< "$BUN_VERSION_PIN"
+  if [[ "$INSTALLED_BUN_MAJOR" != "$REQUIRED_BUN_MAJOR" || "$INSTALLED_BUN_MINOR" != "$REQUIRED_BUN_MINOR" ]] || (( 10#$INSTALLED_BUN_PATCH < 10#$REQUIRED_BUN_PATCH )); then
+    echo "Error: this runtime requires Termux Bun $BUN_VERSION_PIN or a newer patch in the same major/minor series; found ${INSTALLED_BUN_VERSION:-unavailable}." >&2
+    echo "Update Termux packages with pkg update and pkg upgrade, then rerun the installer." >&2
+    exit 1
+  fi
+fi
 [[ -s "$PREFIX/lib/libc++_shared.so" ]] || { echo "Termux libc++ shared library is missing." >&2; exit 1; }
 [[ -f "$CERT" ]] || install_termux_packages ca-certificates
 [[ -f "$RESOLVER" ]] || install_termux_packages resolv-conf
@@ -286,14 +319,8 @@ BACKUP=""
 NEW=""
 ACTIVATED=0
 LAUNCHER="$PREFIX/bin/opencode"
-UPDATER="$PREFIX/bin/opencode-termux-update"
-MANAGER="$PREFIX/bin/opencode-termux"
 LAUNCHER_BACKUP="$PREFIX/bin/.opencode-backup-$BASHPID"
-UPDATER_BACKUP="$PREFIX/bin/.opencode-updater-backup-$BASHPID"
-MANAGER_BACKUP="$PREFIX/bin/.opencode-manager-backup-$BASHPID"
 LAUNCHER_WAS_PRESENT=0
-UPDATER_WAS_PRESENT=0
-MANAGER_WAS_PRESENT=0
 LAUNCHERS_TOUCHED=0
 cleanup() {
   local status=$?
@@ -317,22 +344,6 @@ cleanup() {
         fi
       elif [[ "$LAUNCHER_WAS_PRESENT" == 0 ]]; then
         rm -f "$LAUNCHER"
-      fi
-      if [[ -e "$UPDATER_BACKUP" || -L "$UPDATER_BACKUP" ]]; then
-        rm -f "$UPDATER"
-        if ! mv "$UPDATER_BACKUP" "$UPDATER"; then
-          echo "Error: failed to restore the previous updater from $UPDATER_BACKUP." >&2
-        fi
-      elif [[ "$UPDATER_WAS_PRESENT" == 0 ]]; then
-        rm -f "$UPDATER"
-      fi
-      if [[ -e "$MANAGER_BACKUP" || -L "$MANAGER_BACKUP" ]]; then
-        rm -f "$MANAGER"
-        if ! mv "$MANAGER_BACKUP" "$MANAGER"; then
-          echo "Error: failed to restore the previous manager from $MANAGER_BACKUP." >&2
-        fi
-      elif [[ "$MANAGER_WAS_PRESENT" == 0 ]]; then
-        rm -f "$MANAGER"
       fi
     fi
   fi
@@ -363,11 +374,11 @@ NEW="$PREFIX/lib/.opencode-termux-new-$$"
 rm -rf "$NEW"; mkdir -p "$NEW"
 cp -a "$STAGE/files/bin" "$NEW/bin"
 mkdir -p "$NEW/lib"
-cp -a "$STAGE/files/lib/opencode" "$NEW/lib/opencode"
+cp -a "$STAGE/files/lib/." "$NEW/lib/"
 printf '%s\n' "$VERSION" > "$NEW/.opencode-termux-version"
 chmod 600 "$NEW/.opencode-termux-version"
-printf '%s\n' "$REPO_DIR" > "$NEW/.opencode-termux-repo-dir"
-chmod 600 "$NEW/.opencode-termux-repo-dir"
+printf '%s\n' "$RELEASE_TAG" > "$NEW/.opencode-termux-release-tag"
+chmod 600 "$NEW/.opencode-termux-release-tag"
 printf '%s\n' "$RUNTIME_ID" > "$NEW/.opencode-termux-runtime-id"
 chmod 600 "$NEW/.opencode-termux-runtime-id"
 printf '%s\n' "$HASH" > "$NEW/.opencode-termux-archive-sha256"
@@ -384,152 +395,27 @@ cat > "$STAGE/opencode-launcher" <<'LAUNCHER'
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 unset LD_PRELOAD
-export OPENCODE_DISABLE_AUTOUPDATE=1
-export SSL_CERT_FILE="/data/data/com.termux/files/usr/etc/tls/cert.pem"
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-$PREFIX/etc/tls/cert.pem}"
 export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"
 RUNTIME="$PREFIX/lib/opencode-termux"
-REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
-UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
-# Check GitHub quietly. A network/API failure must never prevent OpenCode from starting.
-if [[ -n "$REPO_DIR" && -t 0 && -t 1 ]] && command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
-  INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
-  INSTALLED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)"
-  INSTALLED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-archive-sha256" 2>/dev/null || true)"
-  REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
-  LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-  LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-  case "$(uname -m)" in
-    aarch64) UPDATE_HASH_FIELD="archiveSha256" ;;
-    x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64" ;;
-    *) UPDATE_HASH_FIELD="unsupported" ;;
-  esac
-  LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"'$UPDATE_HASH_FIELD'"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
-  DEFERRED_VERSION="$(cat "$RUNTIME/.opencode-termux-deferred-version" 2>/dev/null || true)"
-  DEFERRED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-deferred-runtime-id" 2>/dev/null || true)"
-  DEFERRED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-deferred-archive-sha256" 2>/dev/null || true)"
-  if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-    NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
-    UPDATE_AVAILABLE=0
-    if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
-      UPDATE_AVAILABLE=1
-    elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && -n "$LATEST_RUNTIME_ID" && "$LATEST_RUNTIME_ID" != "$INSTALLED_RUNTIME_ID" ]]; then
-      UPDATE_AVAILABLE=1
-    elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && "$LATEST_RUNTIME_ID" == "$INSTALLED_RUNTIME_ID" && "$LATEST_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ && "$LATEST_ARCHIVE_SHA256" != "$INSTALLED_ARCHIVE_SHA256" ]]; then
-      # A rebuilt package can keep the same OpenCode version and runtime ABI.
-      # The archive digest identifies the exact installed bundle in that case.
-      UPDATE_AVAILABLE=1
-    fi
-    # Deferral applies only to the exact version, runtime generation and archive.
-    if [[ "$LATEST_VERSION" == "$DEFERRED_VERSION" && "$LATEST_RUNTIME_ID" == "$DEFERRED_RUNTIME_ID" && "$LATEST_ARCHIVE_SHA256" == "$DEFERRED_ARCHIVE_SHA256" ]]; then
-      UPDATE_AVAILABLE=0
-    fi
-    if [[ "$UPDATE_AVAILABLE" == 1 ]]; then
-      if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" ]]; then
-        printf '\nA new OpenCode version is available: %s (installed: %s).\n\n' "$LATEST_VERSION" "$INSTALLED_VERSION"
-      else
-        printf '\nA new Termux runtime is available for OpenCode %s.\n\n' "$LATEST_VERSION"
-      fi
-      CURSOR_HIDDEN=0
-      restore_cursor() {
-        if [[ "$CURSOR_HIDDEN" == 1 ]]; then
-          printf '\033[?25h'
-          CURSOR_HIDDEN=0
-        fi
-      }
-      trap 'restore_cursor' EXIT
-      trap 'restore_cursor; exit 130' INT
-      trap 'restore_cursor; exit 143' TERM
-      trap 'restore_cursor; exit 129' HUP
-      printf '\033[?25l'
-      CURSOR_HIDDEN=1
-      SELECTED=1
-      printf 'Use ↑/↓ to choose and Enter to confirm.\n'
-      printf '\n'
-      draw_update_menu() {
-        printf '\033[2A'
-        if [[ "$SELECTED" == 1 ]]; then
-          printf '\033[2K\033[32m●\033[0m Install update now\n'
-          printf '\033[2K  Wait for the next version\n'
-        else
-          printf '\033[2K  Install update now\n'
-          printf '\033[2K\033[32m●\033[0m Wait for the next version\n'
-        fi
-      }
-      printf '  Install update now\n'
-      printf '  Wait for the next version\n'
-      draw_update_menu
-      while true; do
-        KEY=""
-        if ! read -rsn1 KEY </dev/tty; then
-          SELECTED=2
-          break
-        fi
-        if [[ "$KEY" == $'\x04' ]]; then
-          SELECTED=2
-          break
-        elif [[ "$KEY" == $'\x1b' ]]; then
-          SEQUENCE=""
-          read -rsn2 -t 0.1 SEQUENCE </dev/tty || true
-          case "$SEQUENCE" in
-            '[A') SELECTED=1 ;;
-            '[B') SELECTED=2 ;;
-          esac
-          draw_update_menu
-        elif [[ -z "$KEY" ]]; then
-          break
-        fi
-      done
-      restore_cursor
-      trap - EXIT INT TERM HUP
-      printf '\n'
-      if [[ "$SELECTED" == 1 ]]; then
-        if "$PREFIX/bin/opencode-termux-update"; then
-          exec "$0" "$@"
-        else
-          printf 'Update failed. Starting the currently installed version.\n' >&2
-        fi
-      else
-        if ! {
-          printf '%s\n' "$LATEST_VERSION" > "$RUNTIME/.opencode-termux-deferred-version" &&
-          printf '%s\n' "$LATEST_RUNTIME_ID" > "$RUNTIME/.opencode-termux-deferred-runtime-id" &&
-          printf '%s\n' "$LATEST_ARCHIVE_SHA256" > "$RUNTIME/.opencode-termux-deferred-archive-sha256" &&
-          chmod 600 "$RUNTIME/.opencode-termux-deferred-version" "$RUNTIME/.opencode-termux-deferred-runtime-id" "$RUNTIME/.opencode-termux-deferred-archive-sha256"
-        }; then
-          printf 'Could not save the update deferral; this prompt may appear again.\n' >&2
-        fi
-      fi
-    fi
-  fi
-fi
 exec "$RUNTIME/bin/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
 
-# Keep one canonical manager implementation; this is also the file installed by users from the checkout.
-cp "$REPO_DIR/manager.sh" "$STAGE/opencode-termux-manager"
-chmod 755 "$STAGE/opencode-termux-manager"
-
-cat > "$STAGE/opencode-termux-update" <<UPDATER
-#!/data/data/com.termux/files/usr/bin/bash
-set -e
-REPO_DIR="$REPO_DIR"
-# Termux filesystems may report chmod-only changes even when tracked content
-# is untouched. Ignore permission-bit drift, while Git still detects content edits.
-git -C "\$REPO_DIR" config core.filemode false
-LOG="\$(mktemp)"
-if git -C "\$REPO_DIR" pull --ff-only >"\$LOG" 2>&1; then
-  rm -f "\$LOG"
-else
-  STATUS=\$?
-  cat "\$LOG" >&2
-  rm -f "\$LOG"
-  exit "\$STATUS"
-fi
-exec bash "\$REPO_DIR/install.sh"
-UPDATER
-chmod 755 "$STAGE/opencode-termux-update"
+# Prove the complete new launcher/runtime pair works before removing any
+# legacy package-owned command. This keeps a failed candidate from replacing
+# a working npm or Termux package installation.
+echo "Checking staged launcher..."
+STAGED_VERSION="$( unset LD_PRELOAD; bash "$STAGE/opencode-launcher" --version )" || {
+  echo "Error: staged OpenCode launcher failed its executable test." >&2
+  exit 1
+}
+[[ "$STAGED_VERSION" == "opencode v$VERSION" ]] || {
+  echo "Error: staged launcher returned an unexpected version: $STAGED_VERSION" >&2
+  exit 1
+}
 
 # Migrate only installations whose ownership can be established. Never
 # overwrite an unknown command in PREFIX/bin: it may belong to another tool.
@@ -542,13 +428,15 @@ fi
 
 LEGACY_NPM_OWNS_COMMAND=0
 if [[ -n "$NPM_GLOBAL_ROOT" && -f "$NPM_OPENCODE_PACKAGE/package.json" ]] &&
-  node -e 'const p=require(process.argv[1]); process.exit(p.name === "opencode-termux" && (typeof p.bin === "string" || (p.bin && Object.prototype.hasOwnProperty.call(p.bin, "opencode"))) ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
-  if [[ -L "$LAUNCHER" ]]; then
-    LAUNCHER_TARGET="$(readlink -f "$LAUNCHER" 2>/dev/null || true)"
-    case "$LAUNCHER_TARGET" in
-      "$NPM_OPENCODE_PACKAGE"/*) LEGACY_NPM_OWNS_COMMAND=1 ;;
-    esac
-  fi
+  node -e 'const p=require(process.argv[1]); const bins=typeof p.bin === "string" ? {} : (p.bin || {}); process.exit(p.name === "opencode-termux" && ["opencode", "opencode2"].some(k => Object.prototype.hasOwnProperty.call(bins, k)) ? 0 : 1)' "$NPM_OPENCODE_PACKAGE/package.json"; then
+  for LEGACY_COMMAND in "$LAUNCHER" "$PREFIX/bin/opencode2"; do
+    if [[ -L "$LEGACY_COMMAND" ]]; then
+      LAUNCHER_TARGET="$(readlink -f "$LEGACY_COMMAND" 2>/dev/null || true)"
+      case "$LAUNCHER_TARGET" in
+        "$NPM_OPENCODE_PACKAGE"/*) LEGACY_NPM_OWNS_COMMAND=1; break ;;
+      esac
+    fi
+  done
 fi
 
 if [[ "$LEGACY_NPM_OWNS_COMMAND" == 1 ]]; then
@@ -558,15 +446,28 @@ fi
 
 # Termux packages are identified through dpkg ownership, not by filename.
 # Remove only known OpenCode package names; leave unknown package owners alone.
-if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]] && command -v dpkg-query >/dev/null 2>&1; then
+if command -v dpkg-query >/dev/null 2>&1; then
   source "$REPO_DIR/scripts/package-owner.sh"
-  PACKAGE_OWNER="$(get_dpkg_package_owner "$LAUNCHER")"
-  case "$PACKAGE_OWNER" in
-    opencode|opencode1|opencode-termux|opencode-wrapper|opencode1-wrapper)
-      echo "Found Termux package installation ($PACKAGE_OWNER); replacing it..."
-      run_quiet pkg uninstall -y "$PACKAGE_OWNER"
-      ;;
-  esac
+  for LEGACY_COMMAND in "$LAUNCHER" "$PREFIX/bin/opencode2"; do
+    [[ -e "$LEGACY_COMMAND" || -L "$LEGACY_COMMAND" ]] || continue
+    PACKAGE_OWNER="$(get_dpkg_package_owner "$LEGACY_COMMAND")"
+    case "$PACKAGE_OWNER" in
+      opencode|opencode1|opencode-termux|opencode-wrapper|opencode1-wrapper)
+        echo "Found Termux package installation ($PACKAGE_OWNER); replacing it..."
+        run_quiet pkg uninstall -y "$PACKAGE_OWNER"
+        break
+        ;;
+    esac
+  done
+fi
+
+# Remove only a recognizable legacy opencode2 launcher from this project.
+LEGACY_LAUNCHER2="$PREFIX/bin/opencode2"
+if [[ -f "$LEGACY_LAUNCHER2" ]] && grep -Fq '/lib/opencode-termux' "$LEGACY_LAUNCHER2"; then
+  rm -f "$LEGACY_LAUNCHER2"
+elif [[ -L "$LEGACY_LAUNCHER2" ]]; then
+  LEGACY_TARGET="$(readlink -f "$LEGACY_LAUNCHER2" 2>/dev/null || true)"
+  case "$LEGACY_TARGET" in "$RUNTIME"/*) rm -f "$LEGACY_LAUNCHER2" ;; esac
 fi
 
 # An existing launcher is replaceable only when it is a previous launcher
@@ -575,33 +476,12 @@ fi
 if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   MANAGED_LAUNCHER=0
   if [[ -f "$LAUNCHER" ]] &&
-    grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE=1' "$LAUNCHER" &&
     grep -Fq '/lib/opencode-termux' "$LAUNCHER"; then
     MANAGED_LAUNCHER=1
   fi
   if [[ "$MANAGED_LAUNCHER" != 1 ]]; then
     echo "Error: an unrecognized OpenCode command already exists at $LAUNCHER." >&2
     echo "It has been left untouched. Identify/uninstall its source, then rerun this installer." >&2
-    exit 1
-  fi
-fi
-
-# Protect the updater path too: never back up or replace an unrelated file.
-if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
-  if [[ ! -f "$UPDATER" ]] ||
-    ! grep -Fq 'git -C' "$UPDATER" ||
-    ! grep -Fq 'install.sh' "$UPDATER"; then
-    echo "Error: an unrecognized command already exists at $UPDATER." >&2
-    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
-    exit 1
-  fi
-fi
-
-# Protect the manager path too: never replace an unrelated command.
-if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
-  if [[ ! -f "$MANAGER" ]] || ! grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$MANAGER"; then
-    echo "Error: an unrecognized command already exists at $MANAGER." >&2
-    echo "It has been left untouched. Identify its source, then rerun this installer." >&2
     exit 1
   fi
 fi
@@ -613,35 +493,31 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   LAUNCHER_WAS_PRESENT=1
   mv "$LAUNCHER" "$LAUNCHER_BACKUP"
 fi
-if [[ -e "$UPDATER" || -L "$UPDATER" ]]; then
-  UPDATER_WAS_PRESENT=1
-  mv "$UPDATER" "$UPDATER_BACKUP"
-fi
-if [[ -e "$MANAGER" || -L "$MANAGER" ]]; then
-  MANAGER_WAS_PRESENT=1
-  mv "$MANAGER" "$MANAGER_BACKUP"
-fi
 mv "$STAGE/opencode-launcher" "$LAUNCHER"
-mv "$STAGE/opencode-termux-update" "$UPDATER"
-mv "$STAGE/opencode-termux-manager" "$MANAGER"
 
 # Enforce executable permissions at the final destination as well as in staging.
-# This repairs restrictive umasks or stale non-executable manager files on upgrades.
-chmod 755 "$LAUNCHER" "$UPDATER" "$MANAGER"
-for executable in "$LAUNCHER" "$UPDATER" "$MANAGER"; do
-  [[ -x "$executable" ]] || {
-    echo "Error: installed command is not executable: $executable" >&2
-    exit 1
-  }
-done
+# This repairs restrictive umasks or stale non-executable launcher files on upgrades.
+chmod 755 "$LAUNCHER"
+[[ -x "$LAUNCHER" ]] || {
+  echo "Error: installed command is not executable: $LAUNCHER" >&2
+  exit 1
+}
 
 echo "Checking installed runtime..."
-FINAL_VERSION="$( unset LD_PRELOAD; export SSL_CERT_FILE="$CERT"; "$RUNTIME/bin/opencode" --version )" || { echo "Error: installed runtime failed final test." >&2; exit 1; }
+FINAL_VERSION="$( unset LD_PRELOAD; bash "$LAUNCHER" --version )" || { echo "Error: installed launcher failed final test." >&2; exit 1; }
 [[ "$FINAL_VERSION" == "opencode v$VERSION" ]] || { echo "Error: installed runtime returned an unexpected version: $FINAL_VERSION" >&2; exit 1; }
+# Remove only recognizable legacy project commands. Never delete unrelated files.
+if [[ -f "$PREFIX/bin/opencode-termux-update" ]] &&
+   grep -Fq 'git -C' "$PREFIX/bin/opencode-termux-update" &&
+   grep -Fq 'install.sh' "$PREFIX/bin/opencode-termux-update"; then
+  rm -f "$PREFIX/bin/opencode-termux-update"
+fi
+if [[ -f "$PREFIX/bin/opencode-termux" ]] &&
+   grep -Fq 'OPENCODE_TERMUX_MANAGER=1' "$PREFIX/bin/opencode-termux"; then
+  rm -f "$PREFIX/bin/opencode-termux"
+fi
 if [[ -n "$BACKUP" ]]; then rm -rf "$BACKUP"; BACKUP=""; fi
-rm -f "$LAUNCHER_BACKUP" "$UPDATER_BACKUP" "$MANAGER_BACKUP"
+rm -f "$LAUNCHER_BACKUP"
 echo "OpenCode $VERSION installed successfully."
 echo "Start: opencode"
-echo "Manage: opencode-termux --help"
-echo "Update: opencode-termux update"
-echo "Uninstall: opencode-termux uninstall"
+echo "Update: opencode update"
