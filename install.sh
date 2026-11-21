@@ -290,7 +290,6 @@ BACKUP=""
 NEW=""
 ACTIVATED=0
 LAUNCHER="$PREFIX/bin/opencode"
-INTERNAL_UPDATER="$RUNTIME/update-runtime.sh"
 LAUNCHER_BACKUP="$PREFIX/bin/.opencode-backup-$BASHPID"
 LAUNCHER_WAS_PRESENT=0
 LAUNCHERS_TOUCHED=0
@@ -367,115 +366,14 @@ cat > "$STAGE/opencode-launcher" <<'LAUNCHER'
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 unset LD_PRELOAD
-export OPENCODE_DISABLE_AUTOUPDATE=1
 export SSL_CERT_FILE="/data/data/com.termux/files/usr/etc/tls/cert.pem"
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"
 RUNTIME="$PREFIX/lib/opencode-termux"
-REPO_DIR="$(cat "$RUNTIME/.opencode-termux-repo-dir" 2>/dev/null || true)"
-UPDATE_URL="https://raw.githubusercontent.com/C04-wq/opencode-termux/main/release-checksums.json"
 
-# Automatically install verified updates at most once every six hours.
-# A network/API failure must never prevent the currently installed OpenCode
-# runtime from starting. Set OPENCODE_TERMUX_AUTOUPDATE=0 to opt out.
-case "${1:-}" in
-  --version|-v|--help|-h|update|upgrade) AUTO_UPDATE_SKIP=1 ;;
-  *) AUTO_UPDATE_SKIP=0 ;;
-esac
-if [[ -n "$REPO_DIR" && "${OPENCODE_TERMUX_AUTOUPDATE:-1}" != "0" && "$AUTO_UPDATE_SKIP" == 0 ]] &&
-  command -v curl >/dev/null 2>&1 && command -v sort >/dev/null 2>&1; then
-  CACHE_DIR="$PREFIX/var/cache/opencode-termux"
-  LOG_DIR="$PREFIX/var/log/opencode-termux"
-  STATE="$CACHE_DIR/last-auto-update-check"
-  LOCK="$CACHE_DIR/auto-update.lock"
-  if mkdir -p "$CACHE_DIR" "$LOG_DIR" 2>/dev/null; then
-    NOW="$(date +%s 2>/dev/null || echo 0)"
-    LAST="$(cat "$STATE" 2>/dev/null || echo 0)"
-    case "$NOW:$LAST" in
-      *[!0-9:]*|:*) NOW=0; LAST=0 ;;
-    esac
-    if [[ "$NOW" -gt 0 && ( "$LAST" -eq 0 || "$NOW" -lt "$LAST" || "$((NOW - LAST))" -ge 21600 ) ]]; then
-      if mkdir "$LOCK" 2>/dev/null; then
-        trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT HUP INT TERM
-        printf '%s\n' "$NOW" > "$STATE.tmp"
-        mv "$STATE.tmp" "$STATE"
-        INSTALLED_VERSION="$(cat "$RUNTIME/.opencode-termux-version" 2>/dev/null || true)"
-        INSTALLED_RUNTIME_ID="$(cat "$RUNTIME/.opencode-termux-runtime-id" 2>/dev/null || true)"
-        INSTALLED_ARCHIVE_SHA256="$(cat "$RUNTIME/.opencode-termux-archive-sha256" 2>/dev/null || true)"
-        REMOTE_METADATA="$(curl --fail --location --silent --show-error --connect-timeout 3 --max-time 6 --header 'Cache-Control: no-cache' "$UPDATE_URL" 2>/dev/null || true)"
-        LATEST_VERSION="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-        LATEST_RUNTIME_ID="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"runtimeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-        case "$(uname -m)" in
-          aarch64) UPDATE_HASH_FIELD="archiveSha256" ;;
-          x86_64) UPDATE_HASH_FIELD="archiveSha256X86_64" ;;
-          *) UPDATE_HASH_FIELD="unsupported" ;;
-        esac
-        LATEST_ARCHIVE_SHA256="$(printf '%s\n' "$REMOTE_METADATA" | sed -n 's/.*"'$UPDATE_HASH_FIELD'"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p' | head -n1)"
-        UPDATE_AVAILABLE=0
-        if [[ "$INSTALLED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ && "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-          NEWEST="$(printf '%s\n%s\n' "$INSTALLED_VERSION" "$LATEST_VERSION" | sort -V | tail -n1)"
-          if [[ "$LATEST_VERSION" != "$INSTALLED_VERSION" && "$NEWEST" == "$LATEST_VERSION" ]]; then
-            UPDATE_AVAILABLE=1
-          elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && -n "$LATEST_RUNTIME_ID" && "$LATEST_RUNTIME_ID" != "$INSTALLED_RUNTIME_ID" ]]; then
-            UPDATE_AVAILABLE=1
-          elif [[ "$LATEST_VERSION" == "$INSTALLED_VERSION" && "$LATEST_RUNTIME_ID" == "$INSTALLED_RUNTIME_ID" && "$LATEST_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ && "$LATEST_ARCHIVE_SHA256" != "$INSTALLED_ARCHIVE_SHA256" ]]; then
-            UPDATE_AVAILABLE=1
-          fi
-        fi
-        if [[ "$UPDATE_AVAILABLE" == 1 ]]; then
-          printf 'Verified OpenCode update %s is available; installing automatically.\n' "$LATEST_VERSION" >&2
-          UPDATE_STATUS=0
-          if command -v timeout >/dev/null 2>&1; then
-            timeout 300 "$RUNTIME/update-runtime.sh" >> "$LOG_DIR/auto-update.log" 2>&1 || UPDATE_STATUS=$?
-          else
-            "$RUNTIME/update-runtime.sh" >> "$LOG_DIR/auto-update.log" 2>&1 || UPDATE_STATUS=$?
-          fi
-          if [[ "$UPDATE_STATUS" == 0 ]]; then
-            rmdir "$LOCK" 2>/dev/null || true
-            trap - EXIT HUP INT TERM
-            exec "$BASH" "$0" "$@"
-          fi
-          printf 'Automatic update failed (exit %s); starting the installed version. See %s/auto-update.log.\n' "$UPDATE_STATUS" "$LOG_DIR" >&2
-        fi
-        rmdir "$LOCK" 2>/dev/null || true
-        trap - EXIT HUP INT TERM
-      else
-        # Another process owns the update lock; it will finish atomically.
-        :
-      fi
-    fi
-    if [[ -d "$LOCK" ]]; then
-      WAIT_SECONDS=0
-      while [[ -d "$LOCK" && "$WAIT_SECONDS" -lt 300 ]]; do
-        sleep 1
-        WAIT_SECONDS=$((WAIT_SECONDS + 1))
-      done
-    fi
-  fi
-fi
 exec "$RUNTIME/bin/opencode" "$@"
 LAUNCHER
 chmod 755 "$STAGE/opencode-launcher"
-
-cat > "$STAGE/update-runtime.sh" <<UPDATER
-#!/data/data/com.termux/files/usr/bin/bash
-set -e
-REPO_DIR="$REPO_DIR"
-# Termux filesystems may report chmod-only changes even when tracked content
-# is untouched. Ignore permission-bit drift, while Git still detects content edits.
-git -C "\$REPO_DIR" config core.filemode false
-LOG="\$(mktemp)"
-if git -C "\$REPO_DIR" pull --ff-only >"\$LOG" 2>&1; then
-  rm -f "\$LOG"
-else
-  STATUS=\$?
-  cat "\$LOG" >&2
-  rm -f "\$LOG"
-  exit "\$STATUS"
-fi
-exec bash "\$REPO_DIR/install.sh"
-UPDATER
-chmod 755 "$STAGE/update-runtime.sh"
 
 # Migrate only installations whose ownership can be established. Never
 # overwrite an unknown command in PREFIX/bin: it may belong to another tool.
@@ -521,7 +419,6 @@ fi
 if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   MANAGED_LAUNCHER=0
   if [[ -f "$LAUNCHER" ]] &&
-    grep -Fq 'OPENCODE_DISABLE_AUTOUPDATE=1' "$LAUNCHER" &&
     grep -Fq '/lib/opencode-termux' "$LAUNCHER"; then
     MANAGED_LAUNCHER=1
   fi
@@ -540,7 +437,6 @@ if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
   mv "$LAUNCHER" "$LAUNCHER_BACKUP"
 fi
 mv "$STAGE/opencode-launcher" "$LAUNCHER"
-mv "$STAGE/update-runtime.sh" "$INTERNAL_UPDATER"
 
 # Enforce executable permissions at the final destination as well as in staging.
 # This repairs restrictive umasks or stale non-executable launcher files on upgrades.
