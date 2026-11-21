@@ -55,6 +55,7 @@ for (const token of [
   "x86_64-linux-android",
   "CMAKE_TOOLCHAIN_FILE",
   "max-page-size=16384",
+  "common-page-size=16384",
   "readelf -lW"
 ]) assert.ok(fffBuild.includes(token), "official FFF Android build missing " + token);
 const fffPatch = fs.readFileSync("tools/patch-fff-android.py", "utf8");
@@ -93,6 +94,7 @@ assert.equal(lock.bun_pty.portable_pty, "0.9.0", "portable-pty Android compatibi
 
 const rustPtyBuild = fs.readFileSync("scripts/ci/build-rust-pty-android.sh", "utf8");
 assert.ok(rustPtyBuild.includes("max-page-size=16384"), "bun-pty must be linked for Android 16 KB pages");
+assert.ok(rustPtyBuild.includes("common-page-size=16384"), "bun-pty must declare the Android 16 KB common page size");
 assert.ok(rustPtyBuild.includes("readelf -lW"), "bun-pty build must inspect ELF page alignment");
 const watcherBuild = fs.readFileSync("scripts/ci/build-parcel-watcher-android.sh", "utf8");
 for (const token of [
