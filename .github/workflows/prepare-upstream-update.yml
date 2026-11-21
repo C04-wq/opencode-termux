@@ -2,9 +2,9 @@ name: Prepare upstream OpenCode update candidate
 
 on:
   schedule:
-    # Run shortly after check-upstream.yml so the daily detector and PR builder
-    # use the same upstream snapshot.
-    - cron: "43 8 * * *"
+    # Check the official OpenCode repository every six hours (UTC).
+    # GitHub may start scheduled workflows a few minutes after the requested time.
+    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -218,5 +218,5 @@ jobs:
             echo "- Source SHA-256: ${{ steps.candidate.outputs.sha256 }}"
             echo "- Draft PR branch: ${{ steps.candidate.outputs.branch }}"
             echo
-            echo "The workflow explicitly dispatches validate.yml against the candidate branch because PRs created with GITHUB_TOKEN do not trigger pull_request workflows. No release was published and installer metadata was not changed."
+            echo "The workflow checks upstream every six hours and explicitly dispatches validate.yml against the candidate branch because PRs created with GITHUB_TOKEN do not trigger pull_request workflows. No release was published and installer metadata was not changed."
           } >> "$GITHUB_STEP_SUMMARY"
