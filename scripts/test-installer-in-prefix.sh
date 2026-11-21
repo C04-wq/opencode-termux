@@ -15,25 +15,30 @@ TARGET_ARCH="$3"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 case "$TARGET_ARCH" in
-  aarch64) HASH_FIELD=archiveSha256; ARCHIVE_ARCH=aarch64 ;;
-  x86_64) HASH_FIELD=archiveSha256X86_64; ARCHIVE_ARCH=x86_64 ;;
+  aarch64) HASH_FIELD=archiveSha256; NAME_FIELD=archiveName; ARCHIVE_ARCH=aarch64 ;;
+  x86_64) HASH_FIELD=archiveSha256X86_64; NAME_FIELD=archiveNameX86_64; ARCHIVE_ARCH=x86_64 ;;
   *) echo "Unsupported architecture: $TARGET_ARCH" >&2; exit 64 ;;
 esac
 for cmd in bash git python3 sha256sum tar realpath; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "Missing test dependency: $cmd" >&2; exit 1; }
 done
 
-mapfile -t metadata < <(python3 - "$METADATA" "$HASH_FIELD" <<'PY'
+mapfile -t metadata < <(python3 - "$METADATA" "$HASH_FIELD" "$NAME_FIELD" "$TARGET_ARCH" <<'PY'
 import json, re, sys
 data = json.load(open(sys.argv[1], encoding="utf-8"))
 version = data.get("version", "")
 digest = data.get(sys.argv[2], "")
+archive_name = data.get(sys.argv[3], "")
+architecture = sys.argv[4]
+expected_name = f"opencode-{version}-android-{architecture}-bundle.tar.gz"
 bun = data.get("bunVersion", "")
 release = data.get("releaseTag", "")
 if not re.fullmatch(r"\d+\.\d+\.\d+", version):
     raise SystemExit("invalid runtime version in candidate metadata")
 if not re.fullmatch(r"[a-f0-9]{64}", digest):
     raise SystemExit("missing or invalid architecture-specific archive checksum")
+if archive_name != expected_name:
+    raise SystemExit("missing or invalid architecture-specific archive filename")
 if not re.fullmatch(r"\d+\.\d+\.\d+", bun):
     raise SystemExit("invalid Bun version in candidate metadata")
 if not re.fullmatch(r"v" + re.escape(version) + r"(?:-[1-9]\d*)?", release):
