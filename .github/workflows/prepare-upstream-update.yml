@@ -224,10 +224,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length')"
-          if [[ "$EXISTING" != "0" ]]; then
-            echo "An open candidate PR already exists for OpenCode $VERSION; dispatching validation again."
-            gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --state open --json number,headRefName --jq '[.[] | select(.headRefName | startswith("automation/upstream-opencode-"))][0] // empty')"
+          if [[ -n "$EXISTING" ]]; then
+            EXISTING_BRANCH="$(jq -r '.headRefName' <<<"$EXISTING")"
+            EXISTING_NUMBER="$(jq -r '.number' <<<"$EXISTING")"
+            echo "Candidate PR #$EXISTING_NUMBER is already open on $EXISTING_BRANCH; dispatching validation again before preparing another candidate."
+            gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$EXISTING_BRANCH"
             exit 0
           fi
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
