@@ -22,7 +22,7 @@ for (const token of [
   "bun ripgrep libc++", "SOURCE_REPO_PIN", "C04-wq/opencode-termux", "SOURCE_TAG", "RELEASE_TAG",
   "opencode-$VERSION-android-$TARGET_ARCH-bundle.tar.gz", "$RELEASE_TAG", "archiveSha256X86_64", "TARGET_ARCH=\"$TARGET_ARCH\"",
   "validate-runtime-archive.sh", "@TERMUX_PREFIX@/lib/opencode",
-  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "INSTALLED_ARCHIVE_SHA256", "LATEST_ARCHIVE_SHA256", ".opencode-termux-archive-sha256", "OPENCODE_TERMUX_AUTOUPDATE", "AUTO_UPDATE_SKIP", "21600", "UPDATE_AVAILABLE", "Verified OpenCode update", "auto-update.log", "opencode-termux-update", "chmod 755 \"$LAUNCHER\" \"$UPDATER\" \"$MANAGER\""
+  "$RUNTIME/bin/opencode", ".opencode-termux-runtime-id", "INSTALLED_RUNTIME_ID", "LATEST_RUNTIME_ID", "INSTALLED_ARCHIVE_SHA256", "LATEST_ARCHIVE_SHA256", ".opencode-termux-archive-sha256", "OPENCODE_TERMUX_AUTOUPDATE", "AUTO_UPDATE_SKIP", "21600", "UPDATE_AVAILABLE", "Verified OpenCode update", "auto-update.log", 'INTERNAL_UPDATER="$RUNTIME/update-runtime.sh"', 'mv "$STAGE/update-runtime.sh" "$INTERNAL_UPDATER"'
 ]) assert.ok(installer.includes(token), "installer missing native runtime contract: " + token);
 assert.ok(!installer.includes('FILES="opencode ld-musl-aarch64.so.1'), "legacy musl runtime must not be installed");
 const newline = String.fromCharCode(10);
@@ -35,12 +35,6 @@ const launcherBodyEnd = installer.indexOf(launcherEnd, launcherBodyStart);
 assert.notEqual(launcherBodyEnd, -1, "installer launcher heredoc is not terminated");
 const launcherSyntax = spawnSync("bash", ["-n"], { input: installer.slice(launcherBodyStart, launcherBodyEnd), encoding: "utf8" });
 assert.equal(launcherSyntax.status, 0, "generated OpenCode launcher has invalid Bash syntax: " + launcherSyntax.stderr);
-const manager = fs.readFileSync("manager.sh", "utf8");
-assert.equal(fs.readFileSync("opencode-termux", "utf8"), manager, "manager entry point must match manager.sh");
-for (const token of ["bun rg", "libc++_shared.so", ".opencode-termux-runtime-id", ".opencode-termux-archive-sha256", "bin/opencode", "lib/opencode/index.js", "librust_pty_arm64.so", "librust_pty_x86_64.so", "lib/opencode/watcher.node"]) {
-  assert.ok(manager.includes(token), "doctor missing native dependency: " + token);
-}
-assert.ok(manager.includes('"$RUNTIME/bin/opencode" --version'), "doctor must execute the native launcher");
 const validator = fs.readFileSync("scripts/validate-runtime-archive.sh", "utf8");
 for (const token of ["bin/opencode", "lib/opencode/index.js", "librust_pty_arm64.so", "watcher.node", "no-same-owner", "no-same-permissions"]) {
   assert.ok(validator.includes(token), "archive validator missing " + token);
@@ -48,5 +42,4 @@ for (const token of ["bin/opencode", "lib/opencode/index.js", "librust_pty_arm64
 const uninstall = fs.readFileSync("uninstall.sh", "utf8");
 assert.ok(uninstall.includes('rm -rf "$RUNTIME"'), "uninstaller must remove the complete native bundle");
 assert.ok(installer.includes('THIRD_PARTY_NOTICES.md'), "installer must install third-party license notices");
-assert.ok(manager.includes("THIRD_PARTY_NOTICES.md"), "doctor must verify installed license notices");
-console.log("Native runtime metadata, installer, manager, validator and uninstall contracts passed.");
+console.log("Native runtime metadata, installer, validator and uninstall contracts passed.");
