@@ -223,6 +223,8 @@ for (const token of [
   "gh pr merge",
   "python3 tools/ocver.py tag",
   'git push origin "$RELEASE_TAG"',
+  'gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_TAG"',
+  '.event == "workflow_dispatch"',
   "gh release view",
   "archiveSha256X86_64"
 ]) assert.ok(autoMergeWorkflow.includes(token), "automatic release gate missing " + token);
