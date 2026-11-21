@@ -94,5 +94,16 @@
   "source_build_bun_1_4_4": {
     "linux_x64_archive_sha256": "bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c"
   },
-  "android_ndk_version": "30.0.16248370"
+  "android_ndk_version": "30.0.16248370",
+  "process_daemon": {
+    "package": "opencode-pty",
+    "version": "0.6.0",
+    "source": "anomalyco/opencode/packages/process-daemon",
+    "ghostty_commit": "ab0b9da9e88fcb4b0533a1854e84628f663930af",
+    "zig_version": "0.17.0",
+    "android_targets": [
+      "aarch64-linux-android",
+      "x86_64-linux-android"
+    ]
+  }
 }
