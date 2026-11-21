@@ -262,6 +262,10 @@ if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
     exit 1
   }
 fi
+if [[ -n "${OPENCODE_TERMUX_EXPECTED_RELEASE_TAG:-}" && "$RELEASE_TAG" != "$OPENCODE_TERMUX_EXPECTED_RELEASE_TAG" ]]; then
+  echo "Error: requested Termux release $OPENCODE_TERMUX_EXPECTED_RELEASE_TAG, but repository metadata currently selects $RELEASE_TAG. Refusing to install a different package revision." >&2
+  exit 1
+fi
 [[ "$SOURCE_REPO_PIN" == "C04-wq/opencode-termux" && "$RUNTIME_ID" == "android-bionic-bun-v1" ]] || {
   echo "Error: native runtime source is not an approved release." >&2
   exit 1
@@ -348,6 +352,8 @@ mkdir -p "$NEW/lib"
 cp -a "$STAGE/files/lib/opencode" "$NEW/lib/opencode"
 printf '%s\n' "$VERSION" > "$NEW/.opencode-termux-version"
 chmod 600 "$NEW/.opencode-termux-version"
+printf '%s\n' "$RELEASE_TAG" > "$NEW/.opencode-termux-release-tag"
+chmod 600 "$NEW/.opencode-termux-release-tag"
 printf '%s\n' "$RUNTIME_ID" > "$NEW/.opencode-termux-runtime-id"
 chmod 600 "$NEW/.opencode-termux-runtime-id"
 printf '%s\n' "$HASH" > "$NEW/.opencode-termux-archive-sha256"
