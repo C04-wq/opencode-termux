@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n install.sh uninstall.sh manager.sh opencode-termux
-          bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/ci/build-parcel-watcher-android.sh scripts/test-termux-device.sh
+          bash -n scripts/ci/build-opencode-bundle.sh scripts/ci/build-rust-pty-android.sh scripts/ci/build-opencode-pty-android.sh scripts/ci/build-parcel-watcher-android.sh scripts/test-termux-device.sh
           bash -n scripts/validate-runtime-archive.sh scripts/test-runtime-archive.sh
           bash -n scripts/smoke-test-runtime-archive.sh scripts/test-package-owner.sh
           bash scripts/test-package-owner.sh
