@@ -97,7 +97,7 @@ assert.ok(!tlsShim.includes("int pthread_tryjoin_np("), "unsafe pthread_tryjoin_
 const workflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
 assert.ok(workflow.includes("group: validate-native-${{ github.event.pull_request.number || github.ref }}"), "validation runs for the same PR must share one concurrency group");
 assert.ok(workflow.includes("cancel-in-progress: true"), "new PR validation must cancel superseded runs");
-assert.ok(workflow.includes("build-x86_64-native:"), "CI must build the x86_64 OpenTUI native library independently");
+assert.ok(workflow.includes("build-x86_64-native:"), "CI must build the complete x86_64 runtime independently");
 assert.ok(workflow.includes("libnode-dev"), "CI must install Node-API headers for the x86_64 Parcel watcher build");
 assert.ok(workflow.includes("patch-opentui-android.py --target-arch x86_64"), "x86_64 CI must select the architecture-specific OpenTUI patch path");
 assert.ok(workflow.includes("x86_64 OpenTUI unexpectedly contains unsupported Bionic TLSDESC relocations"), "x86_64 CI must reject unsupported TLSDESC relocations");
@@ -141,6 +141,17 @@ assert.ok(watcher.includes("python3 tools/upstream_tags.py"));
 assert.ok(watcher.includes("refs/tags/v2."));
 assert.ok(watcher.includes("tools/ocver.py current"));
 assert.ok(watcher.includes("gh issue create"));
+assert.ok(watcher.includes("No physical Termux device testing is required"), "upstream detection must not require physical Termux devices");
+assert.ok(!watcher.includes("device smoke tests"), "upstream detection must not request physical device testing");
+
+const validationWorkflow = fs.readFileSync(".github/workflows/validate.yml", "utf8");
+assert.ok(validationWorkflow.includes("build-x86_64-native:"), "candidate validation must build the complete x86_64 runtime");
+assert.ok(validationWorkflow.includes("Build full x86_64 OpenCode runtime bundle"), "x86_64 candidate must compile the locked OpenCode source, not only OpenTUI");
+assert.ok(validationWorkflow.includes("build-native:"), "candidate validation must build the complete ARM64 runtime");
+assert.ok(validationWorkflow.includes("Build and verify Android ARM64 runtime"), "ARM64 candidate build must remain an independent CI gate");
+assert.ok(validationWorkflow.includes("Package and smoke-test x86_64 candidate"), "x86_64 candidate archive must be validated and smoke-tested");
+assert.ok(validationWorkflow.includes("Package and verify the Termux runtime archive"), "ARM64 candidate archive must be validated and smoke-tested");
+assert.ok(watcher.includes('cron: "17 */6 * * *"'), "official upstream release detection must run every six hours");
 assert.ok(!watcher.includes("contents/package.json"), "upstream version discovery must not rely on the dev branch manifest");
 
 const candidateWorkflow = fs.readFileSync(".github/workflows/prepare-upstream-update.yml", "utf8");
@@ -151,8 +162,20 @@ assert.ok(candidateWorkflow.includes("candidate_only_not_approved_for_release"))
 assert.ok(candidateWorkflow.includes('update_available=false'), "an already-current upstream tag must be a successful no-op");
 assert.ok(candidateWorkflow.includes('UPDATE_AVAILABLE="$(python3 - "$CURRENT" "$VERSION"'), "candidate workflow must validate versions before deciding whether an update is available");
 assert.ok(candidateWorkflow.includes("Do not modify release-checksums.json"), "candidate preparation must not publish installer metadata");
+assert.ok(candidateWorkflow.includes('cron: "17 */6 * * *"'), "upstream candidate preparation must run every six hours");
+assert.ok(candidateWorkflow.includes("contents: write") && candidateWorkflow.includes("pull-requests: write"), "upstream automation needs narrowly scoped branch and PR permissions");
+assert.ok(candidateWorkflow.includes('lock["current"] = version'), "upstream candidate must advance the source lock for CI validation");
+assert.ok(candidateWorkflow.includes('entry["source_sha256"] = digest'), "upstream candidate must pin the exact source archive digest");
+assert.ok(candidateWorkflow.includes('gh pr create') && candidateWorkflow.includes("--draft"), "upstream automation must open a draft review PR");
+assert.ok(candidateWorkflow.includes('gh workflow run validate.yml') && candidateWorkflow.includes('--ref "$BRANCH"'), "GITHUB_TOKEN-created candidate PRs must explicitly dispatch validation against their branch");
+assert.ok(candidateWorkflow.includes('candidate_only_not_approved_for_release'), "automated upstream candidates must remain explicitly unapproved for release");
+assert.ok(candidateWorkflow.includes('package_revision"] = 1'), "a new upstream version must start at package revision one");
+assert.ok(candidateWorkflow.includes("No physical Termux device testing is required"), "upstream candidates must rely on automated CI rather than physical device tests");
+assert.ok(!candidateWorkflow.includes("Run Termux device smoke tests"), "physical Termux testing must not be a release-candidate requirement");
 
 const installer = fs.readFileSync("install.sh", "utf8");
+assert.ok(installer.includes('HASH_FIELD="archiveSha256X86_64"'), "x86_64 installer must select its own published archive digest");
+assert.ok(!installer.includes("physical Termux validation"), "installer must not require physical-device validation for x86_64");
 assert.ok(installer.includes('export OPENCODE_LAUNCHER="$PREFIX/bin/opencode"'), "managed launcher must pass its public path into the runtime");
 const launcher = fs.readFileSync("packing/launcher/opencode", "utf8");
 assert.ok(launcher.includes('OPENCODE_LAUNCHER="${OPENCODE_LAUNCHER:-$self}"'), "launcher must preserve the managed public path or fall back to itself");

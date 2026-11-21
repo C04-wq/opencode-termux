@@ -1,10 +1,16 @@
 name: Prepare upstream OpenCode update candidate
 
 on:
+  schedule:
+    # Check the official OpenCode repository every six hours (UTC).
+    # GitHub may start scheduled workflows a few minutes after the requested time.
+    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  actions: write
 
 concurrency:
   group: prepare-upstream-candidate
@@ -13,12 +19,12 @@ concurrency:
 jobs:
   prepare:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out the locked source metadata
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Resolve and verify the upstream source candidate
         id: candidate
@@ -31,7 +37,7 @@ jobs:
             --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
             "https://api.github.com/repos/anomalyco/opencode/git/matching-refs/tags/v2.")"
           read -r UPSTREAM_TAG TAG_VERSION UPSTREAM_SHA < <(printf '%s' "$TAGS_JSON" | python3 tools/upstream_tags.py)
-          [[ "$UPSTREAM_TAG" == "v$TAG_VERSION" && "$UPSTREAM_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$UPSTREAM_TAG" == "v$TAG_VERSION" && "$UPSTREAM_SHA" =~ ^[a-f0-9]{40}$ ]]
 
           # Prefer the root manifest, then fall back to the package workspace.
           PACKAGE_JSON=""
@@ -53,6 +59,7 @@ jobs:
             echo "Upstream tag $UPSTREAM_TAG points to a manifest declaring $VERSION, not $TAG_VERSION." >&2
             exit 1
           }
+
           UPDATE_AVAILABLE="$(python3 - "$CURRENT" "$VERSION" <<'PY'
           import re, sys
           current, candidate = sys.argv[1:]
@@ -69,7 +76,7 @@ jobs:
               echo "## No newer upstream version"
               echo
               echo "The latest official upstream tag is $UPSTREAM_TAG ($VERSION); this repository is locked to $CURRENT."
-              echo "No candidate artifact was generated and no repository files were changed."
+              echo "No branch, pull request, lockfile change, or release was created."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -79,14 +86,32 @@ jobs:
             --retry 3 --retry-all-errors --proto '=https' --proto-redir '=https' \
             "https://codeload.github.com/anomalyco/opencode/tar.gz/$UPSTREAM_SHA" -o "$ARCHIVE"
           SOURCE_SHA256="$(sha256sum "$ARCHIVE" | cut -d ' ' -f1)"
-          [[ "$SOURCE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$SOURCE_SHA256" =~ ^[a-f0-9]{64}$ ]]
 
           mkdir -p candidate
-          python3 - "$PACKAGE_JSON" "$VERSION" "$UPSTREAM_SHA" "$UPSTREAM_TAG" "$CURRENT" "$SOURCE_SHA256" <<'PY'
-          import json, pathlib, sys
-          package, version, commit, tag, current, digest = sys.argv[1:]
-          manifest = json.loads(package)
-          result = {
+          python3 - "$PACKAGE_JSON" "$VERSION" "$UPSTREAM_SHA" "$UPSTREAM_TAG" "$CURRENT" "$SOURCE_SHA256" tools/supply-chain-lock.json <<'PY'
+          import json, pathlib, re, sys
+          package_raw, version, commit, tag, current, digest, lock_path = sys.argv[1:]
+          package = json.loads(package_raw)
+          lock_file = pathlib.Path(lock_path)
+          lock = json.loads(lock_file.read_text(encoding="utf-8"))
+          if version in lock.get("opencode", {}):
+              raise SystemExit(f"Version {version} already exists in the source lock; refusing to overwrite it.")
+          current_entry = lock["opencode"].get(current)
+          if not isinstance(current_entry, dict):
+              raise SystemExit(f"Current lock entry {current} is missing.")
+          # Carry forward the last known Android toolchain as a candidate only.
+          # The PR build must prove compatibility; a maintainer must review upstream
+          # dependency changes and device behavior before merging or publishing.
+          entry = {k: v for k, v in current_entry.items() if k not in ("commit", "source_sha256", "cli_linux_arm64_sha256")}
+          entry["commit"] = commit
+          entry["source_sha256"] = digest
+          lock["opencode"][version] = entry
+          lock["current"] = version
+          lock["package_revision"] = 1
+          lock_file.write_text(json.dumps(lock, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+
+          candidate = {
               "schema_version": 1,
               "status": "candidate_only_not_approved_for_release",
               "source_repository": "anomalyco/opencode",
@@ -96,52 +121,102 @@ jobs:
               "commit": commit,
               "source_sha256": digest,
               "source_archive": f"https://codeload.github.com/anomalyco/opencode/tar.gz/{commit}",
-              "package_name": manifest.get("name"),
-              "package_dependencies": manifest.get("dependencies", {}),
-              "package_dev_dependencies": manifest.get("devDependencies", {}),
-              "required_manual_review": [
-                  "Confirm the package manifest path and upstream release/tag provenance.",
-                  "Resolve and pin compatible Bun, OpenTUI, bun-pty, Zig and NDK inputs.",
-                  "Review upstream changes and update tools/supply-chain-lock.json only with verified immutable inputs.",
-                  "Run the full Android/Bionic ARM64 source build and archive validation.",
-                  "Run Termux device smoke tests before publishing any release.",
+              "package_name": package.get("name"),
+              "package_dependencies": package.get("dependencies", {}),
+              "package_dev_dependencies": package.get("devDependencies", {}),
+              "inherited_android_toolchain": entry,
+              "required_review": [
+                  "Review upstream source and dependency changes against the inherited Android toolchain pins.",
+                  "Confirm ARM64 and x86_64 CI builds, archive validation, and smoke tests pass.",
+                  "No physical Termux device testing is required; automated ARM64 and x86_64 CI validation is the acceptance gate.",
                   "Do not modify release-checksums.json or publish from this candidate artifact."
               ]
           }
           pathlib.Path("candidate/upstream-update-candidate.json").write_text(
-              json.dumps(result, indent=2, sort_keys=True) + chr(10),
+              json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          pathlib.Path("candidate/upstream-update-pr-body.md").write_text(
+              "# Automated upstream update candidate\n\n"
+              f"- Official source: [{tag}](https://github.com/anomalyco/opencode/tree/{commit})\n"
+              f"- Previous locked version: {current}\n"
+              f"- Candidate version: {version}\n"
+              f"- Source commit: \u0060{commit}\u0060\n"
+              f"- Source archive SHA-256: \u0060{digest}\u0060\n\n"
+              "## What this PR does\n"
+              "- Adds the exact upstream commit and source archive digest to the supply-chain lock.\n"
+              "- Advances the candidate lock version so ARM64/x86_64 pull-request CI builds the new source.\n"
+              "- Reuses the last known Android toolchain pins only as a starting candidate.\n\n"
+              "## Required review before merge\n"
+              "- Review upstream changes and verify Bun, OpenTUI, bun-pty, Zig, and NDK compatibility.\n"
+              "- Require all repository CI checks to pass for both supported architectures.\n"
+              "- Require automated ARM64 and x86_64 builds, archive validation, installer tests, and runtime smoke tests to pass; no physical device testing is required.\n"
+              "- Do not create a release or modify installer metadata from this candidate until approval.\n",
               encoding="utf-8"
           )
           PY
 
+          BRANCH="automation/upstream-opencode-$VERSION"
           echo "update_available=true" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$UPSTREAM_TAG" >> "$GITHUB_OUTPUT"
           echo "commit=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
           echo "sha256=$SOURCE_SHA256" >> "$GITHUB_OUTPUT"
-          echo "Prepared candidate OpenCode $VERSION from $UPSTREAM_TAG at $UPSTREAM_SHA (SHA-256 $SOURCE_SHA256)."
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Prepared OpenCode $VERSION candidate from $UPSTREAM_TAG at $UPSTREAM_SHA."
 
-      - name: Upload review-only candidate metadata
+      - name: Open a draft pull request with the candidate lock
+        if: steps.candidate.outputs.update_available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.candidate.outputs.version }}
+          BRANCH: ${{ steps.candidate.outputs.branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length')"
+          if [[ "$EXISTING" != "0" ]]; then
+            echo "An open candidate PR already exists for OpenCode $VERSION; leaving it unchanged."
+            exit 0
+          fi
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Candidate branch $BRANCH already exists without an open PR; refusing to overwrite it." >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --create "$BRANCH"
+          git add tools/supply-chain-lock.json
+          git commit -m "build: prepare OpenCode $VERSION upstream candidate"
+          git push --set-upstream origin "$BRANCH"
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH" \
+            --base main \
+            --draft \
+            --title "Prepare OpenCode $VERSION Android/Termux update" \
+            --body-file candidate/upstream-update-pr-body.md
+          gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+
+      - name: Upload candidate provenance
         if: steps.candidate.outputs.update_available == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: opencode-upstream-candidate-${{ steps.candidate.outputs.version }}
           path: candidate/upstream-update-candidate.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
 
-      - name: Summarize the required next steps
+      - name: Summarize candidate status
         if: steps.candidate.outputs.update_available == 'true'
         run: |
           {
-            echo "## Upstream candidate prepared"
+            echo "## Upstream update candidate prepared"
             echo
             echo "- Version: ${{ steps.candidate.outputs.version }}"
-            echo "- Official source tag: `${{ steps.candidate.outputs.tag }}`"
-            echo "- Commit: `${{ steps.candidate.outputs.commit }}`"
-            echo "- Source archive SHA-256: `${{ steps.candidate.outputs.sha256 }}`"
-            echo "- Candidate metadata is attached as a workflow artifact."
+            echo "- Official tag: ${{ steps.candidate.outputs.tag }}"
+            echo "- Commit: ${{ steps.candidate.outputs.commit }}"
+            echo "- Source SHA-256: ${{ steps.candidate.outputs.sha256 }}"
+            echo "- Draft PR branch: ${{ steps.candidate.outputs.branch }}"
             echo
-            echo "**No lockfile, installer metadata, release, or published binary was changed.**"
-            echo "Review dependencies, complete the Android/Bionic ARM64 build, and pass Termux device tests before approving a lockfile update."
+            echo "The workflow checks upstream every six hours and explicitly dispatches validate.yml against the candidate branch because PRs created with GITHUB_TOKEN do not trigger pull_request workflows. No release was published and installer metadata was not changed."
           } >> "$GITHUB_STEP_SUMMARY"
