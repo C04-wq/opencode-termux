@@ -27,4 +27,11 @@ read -r -p "Continue? [y/N] " answer
 [[ "$answer" == [yY] || "$answer" == [yY][eE][sS] ]] || { echo "Cancelled."; exit 0; }
 rm -rf "$RUNTIME"
 rm -f "$LAUNCHER"
+LEGACY_LAUNCHER2="$PREFIX/bin/opencode2"
+if [[ -f "$LEGACY_LAUNCHER2" ]] && grep -Fq '/lib/opencode-termux' "$LEGACY_LAUNCHER2"; then
+  rm -f "$LEGACY_LAUNCHER2"
+elif [[ -L "$LEGACY_LAUNCHER2" ]]; then
+  LEGACY_TARGET="$(readlink -f "$LEGACY_LAUNCHER2" 2>/dev/null || true)"
+  case "$LEGACY_TARGET" in "$RUNTIME"/*) rm -f "$LEGACY_LAUNCHER2" ;; esac
+fi
 echo "Runtime and launchers removed. User data was left untouched."
