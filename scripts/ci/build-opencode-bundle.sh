@@ -124,7 +124,7 @@ def pin(path: Path, name: str) -> str:
     return match.group(1)
 
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+sys.path.insert(0, str(Path.cwd() / "tools"))
 from bun_lock import load_bun_lock
 
 bun_lock = load_bun_lock(root / "bun.lock")
