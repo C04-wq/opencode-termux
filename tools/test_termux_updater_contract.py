@@ -27,9 +27,14 @@ class TermuxUpdaterContract(unittest.TestCase):
         self.assertIn('[[ "$ACTUAL" == "$HASH" ]]', INSTALL)
         self.assertIn('scripts/validate-runtime-archive.sh', INSTALL)
 
-    def test_native_termux_auto_update_is_not_upstream_auto_update(self):
-        self.assertIn('export OPENCODE_DISABLE_AUTOUPDATE=1', INSTALL)
+    def test_official_update_flow_is_enabled_and_not_replaced_by_launcher_checks(self):
+        self.assertNotIn("OPENCODE_DISABLE_AUTOUPDATE", INSTALL)
+        self.assertNotIn("OPENCODE_TERMUX_AUTOUPDATE", INSTALL)
+        self.assertNotIn("AUTO_UPDATE_SKIP", INSTALL)
+        self.assertNotIn("update-runtime.sh", INSTALL)
+        self.assertNotIn("Verified OpenCode update", INSTALL)
         self.assertIn('nativeTermux || detected === "apt"', PATCH)
+        self.assertIn('Updater.apply', PATCH)
         self.assertNotIn('https://opencode.ai/update/api/', PATCH)
         self.assertNotIn('https://github.com/anomalyco/opencode/releases', PATCH)
 
